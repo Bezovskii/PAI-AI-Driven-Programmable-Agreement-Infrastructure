@@ -164,4 +164,12 @@ describe("MultiPayment - state transitions and administration", function () {
         );
         expect(c.owner.address).not.to.equal(c.arbitrator.address);
     });
+    it("rejects arbitrator acceptance when no transfer is pending", async function () {
+        await expect(
+            c.multiPayment.connect(c.outsider).acceptArbitratorRole()
+        ).to.be.revertedWithCustomError(
+            c.multiPayment,
+            "NoPendingArbitrator"
+        );
+    });
 });
