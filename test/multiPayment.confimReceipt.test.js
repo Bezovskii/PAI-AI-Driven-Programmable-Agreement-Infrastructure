@@ -1,109 +1,112 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { deployFixture } = require("./helpers/deployFixture");
 
-const {
-    deployMultiPaymentFixture,
-} = require("./helpers/setup");
+describe("MultiPayment - confirmReceipt", function () {
+    let c;
 
-describe("confirmReceipt", function () {
-    const ONE_ETH = ethers.parseEther("1");
-    const FIRST_ORDER_ID = 1;
-
-    async function createEscrow() {
-        const fixture = await deployMultiPaymentFixture();
-
-        await fixture.multiPayment
-            .connect(fixture.buyer)
-            .createEscrowPayment(
-                fixture.seller.address,
-                { value: ONE_ETH }
-            );
-        return fixture;
-    }
-
-    it("reverts if order does not exist", async function () {
-        const { multiPayment, buyer } =
-            await deployMultiPaymentFixture();
-
-        await expect(
-            multiPayment.connect(buyer).confirmReceipt(999)
-        ).to.be.revertedWith("order does not exist");
+    beforeEach(async function () {
+        c = await deployFixture();
+        await (
+            await c.multiPayment.connect(c.buyer).createEscrowPayment(
+                c.seller.address,
+                { value: c.ETH_AMOUNT }
+            )
+        ).wait();
     });
 
-    it("reverts if payment type is not escrow", async function () {
-        const { multiPayment, buyer, seller } =
-            await deployMultiPaymentFixture();
+    it("allows buyer to release ETH escrow to seller", async function () {
+        const before = await ethers.provider.getBalance(c.seller.address);
 
-        await multiPayment
-            .connect(buyer)
-            .createDirectPayment(
-                seller.address,
-                { value: ONE_ETH }
-            );
-
-        await expect(
-            multiPayment.connect(buyer).confirmReceipt(FIRST_ORDER_ID)
-        ).to.be.revertedWith("only escrow");
-    });
-
-    it("reverts if caller is not buyer", async function () {
-        const { multiPayment, other } =
-            await createEscrow();
-
-        await expect(
-            multiPayment.connect(other).confirmReceipt(FIRST_ORDER_ID)
-        ).to.be.revertedWith("only buyer");
-    });
-    
-    it("reverts when confirming twice", async function () {
-        const { multiPayment, buyer } =
-            await createEscrow();
-
-        await multiPayment
-            .connect(buyer)
-            .confirmReceipt(FIRST_ORDER_ID);
-
-        await expect(
-            multiPayment.connect(buyer).confirmReceipt(FIRST_ORDER_ID)
-        ).to.be.revertedWith("not in escrow");
-    });
-
-    it("completes escrow, sends ETH to seller, and keeps order existing", async function () {
-        const { multiPayment, buyer, seller } =
-            await createEscrow();
-
-        await expect(
-            multiPayment.connect(buyer).confirmReceipt(FIRST_ORDER_ID)
-        ).to.changeEtherBalances(
-            [seller, multiPayment],
-            [ONE_ETH, -ONE_ETH]
-        );
-
-        const completedOrder =
-            await multiPayment.orderById(FIRST_ORDER_ID);
-
-        expect(completedOrder.exists).to.equal(true);
-        expect(completedOrder.status).to.equal(2); // Completed
-        expect(completedOrder.paymentType).to.equal(1); // Escrow
-        expect(completedOrder.buyer).to.equal(buyer.address);
-        expect(completedOrder.seller).to.equal(seller.address);
-        expect(completedOrder.amount).to.equal(ONE_ETH);
-    });
-
-    it("emits PaymentReceivedConfirmed", async function () {
-        const { multiPayment, buyer, seller } =
-            await createEscrow();
-
-        await expect(
-            multiPayment.connect(buyer).confirmReceipt(FIRST_ORDER_ID)
-        )
-            .to.emit(multiPayment, "PaymentReceivedConfirmed")
+        await expect(c.multiPayment.connect(c.buyer).confirmReceipt(1))
+            .to.emit(c.multiPayment, "PaymentReceivedConfirmed")
             .withArgs(
-                FIRST_ORDER_ID,
-                seller.address,
-                buyer.address,
+                1n,
+                c.buyer.address,
+                c.seller.address,
                 ethers.ZeroAddress,
-                ONE_ETH
+                c.ETH_AMOUNT
             );
+
+        const after = await ethers.provider.getBalance(c.seller.address);
+        const order = await c.multiPayment.orderById(1);
+
+        expect(after - before).to.equal(c.ETH_AMOUNT);
+        expect(order.status).to.equal(2n);
+        expect(await c.multiPayment.totalEscrowedETH()).to.equal(0n);
+    });
+
+    it("rejects anyone except buyer", async function () {
+        await expect(
+            c.multiPayment.connect(c.outsider).confirmReceipt(1)
+        )
+            .to.be.revertedWithCustomError(
+                c.multiPayment,
+                "UnauthorizedBuyer"
+            )
+            .withArgs(c.outsider.address);
+    });
+
+    it("rejects nonexistent order", async function () {
+        await expect(
+            c.multiPayment.connect(c.buyer).confirmReceipt(999)
+        )
+            .to.be.revertedWithCustomError(
+                c.multiPayment,
+                "OrderDoesNotExist"
+            )
+            .withArgs(999n);
+    });
+
+    it("rejects a direct-payment order", async function () {
+        await (
+            await c.multiPayment.connect(c.buyer).createDirectPayment(
+                c.seller.address,
+                { value: c.ETH_AMOUNT }
+            )
+        ).wait();
+
+        await expect(
+            c.multiPayment.connect(c.buyer).confirmReceipt(2)
+        )
+            .to.be.revertedWithCustomError(
+                c.multiPayment,
+                "InvalidPaymentType"
+            )
+            .withArgs(2n, 0n);
+    });
+
+    it("rejects second confirmation", async function () {
+        await (await c.multiPayment.connect(c.buyer).confirmReceipt(1)).wait();
+
+        await expect(
+            c.multiPayment.connect(c.buyer).confirmReceipt(1)
+        )
+            .to.be.revertedWithCustomError(
+                c.multiPayment,
+                "InvalidOrderStatus"
+            )
+            .withArgs(1n, 2n);
+    });
+
+    it("rejects confirmation after dispute", async function () {
+        await (await c.multiPayment.connect(c.buyer).openDispute(1)).wait();
+
+        await expect(
+            c.multiPayment.connect(c.buyer).confirmReceipt(1)
+        )
+            .to.be.revertedWithCustomError(
+                c.multiPayment,
+                "InvalidOrderStatus"
+            )
+            .withArgs(1n, 1n);
+    });
+
+    it("allows existing escrow exit while new payments are paused", async function () {
+        await (await c.multiPayment.connect(c.owner).pauseNewPayments()).wait();
+
+        await expect(
+            c.multiPayment.connect(c.buyer).confirmReceipt(1)
+        ).not.to.be.reverted;
     });
 });

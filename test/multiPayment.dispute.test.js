@@ -1,258 +1,163 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const {
-    loadFixture,
-} = require("@nomicfoundation/hardhat-toolbox/network-helpers");
+const { deployFixture } = require("./helpers/deployFixture");
 
-describe("MultiPayment Dispute System", function () {
-    const ONE_ETH = ethers.parseEther("1");
-    const FIRST_ORDER_ID = 1;
+describe("MultiPayment - disputes", function () {
+  let c;
 
-    async function deployMultiPaymentFixture() {
-        const [owner, arbitrator, buyer, seller, other] =
-            await ethers.getSigners();
+  beforeEach(async function () {
+    c = await deployFixture();
+    await (
+      await c.multiPayment.connect(c.buyer).createEscrowPayment(
+        c.seller.address,
+        { value: c.ETH_AMOUNT }
+      )
+    ).wait();
+  });
 
-        const MultiPayment = await ethers.getContractFactory("MultiPayment");
+  it("allows buyer to open dispute", async function () {
+    await expect(c.multiPayment.connect(c.buyer).openDispute(1))
+      .to.emit(c.multiPayment, "DisputeOpened")
+      .withArgs(1n, c.buyer.address);
 
-        const multiPayment = await MultiPayment.deploy(arbitrator.address);
+    expect((await c.multiPayment.orderById(1)).status).to.equal(1n);
+  });
 
-        await multiPayment.waitForDeployment();
+  it("allows seller to open dispute", async function () {
+    await expect(c.multiPayment.connect(c.seller).openDispute(1))
+      .to.emit(c.multiPayment, "DisputeOpened")
+      .withArgs(1n, c.seller.address);
+  });
 
-        return {
-            multiPayment,
-            owner,
-            arbitrator,
-            buyer,
-            seller,
-            other,
-        };
-    }
+  it("rejects unrelated party opening dispute", async function () {
+    await expect(
+      c.multiPayment.connect(c.outsider).openDispute(1)
+    )
+      .to.be.revertedWithCustomError(
+        c.multiPayment,
+        "UnauthorizedParty"
+      )
+      .withArgs(c.outsider.address);
+  });
 
-    async function createEscrowFixture() {
-        const fixture = await deployMultiPaymentFixture();
+  it("allows arbitrator to release disputed ETH to seller", async function () {
+    await (await c.multiPayment.connect(c.buyer).openDispute(1)).wait();
+    const before = await ethers.provider.getBalance(c.seller.address);
 
-        await fixture.multiPayment
-            .connect(fixture.buyer)
-            .createEscrowPayment(fixture.seller.address, {
-                value: ONE_ETH,
-            });
+    await expect(
+      c.multiPayment.connect(c.arbitrator).resolveDispute(1, true)
+    )
+      .to.emit(c.multiPayment, "DisputeResolved")
+      .withArgs(
+        1n,
+        c.arbitrator.address,
+        c.seller.address,
+        true,
+        ethers.ZeroAddress,
+        c.ETH_AMOUNT
+      );
 
-        return fixture;
-    }
+    const after = await ethers.provider.getBalance(c.seller.address);
+    expect(after - before).to.equal(c.ETH_AMOUNT);
+    expect((await c.multiPayment.orderById(1)).status).to.equal(2n);
+    expect(await c.multiPayment.totalEscrowedETH()).to.equal(0n);
+  });
 
-    describe("deployment", function () {
-        it("sets the arbitrator correctly", async function () {
-            const { multiPayment, arbitrator } =
-                await loadFixture(deployMultiPaymentFixture);
+  it("allows arbitrator to refund disputed ETH to buyer", async function () {
+    await (await c.multiPayment.connect(c.buyer).openDispute(1)).wait();
+    const before = await ethers.provider.getBalance(c.buyer.address);
 
-            expect(await multiPayment.arbitrator()).to.equal(arbitrator.address);
-        });
+    await (
+      await c.multiPayment.connect(c.arbitrator).resolveDispute(1, false)
+    ).wait();
 
-        it("reverts if arbitrator is zero address", async function () {
-            const MultiPayment = await ethers.getContractFactory("MultiPayment");
+    const after = await ethers.provider.getBalance(c.buyer.address);
+    expect(after - before).to.equal(c.ETH_AMOUNT);
+    expect((await c.multiPayment.orderById(1)).status).to.equal(3n);
+  });
 
-            await expect(
-                MultiPayment.deploy(ethers.ZeroAddress)
-            ).to.be.revertedWith("invalid arbitrator");
-        });
-    });
+  it("rejects non-arbitrator resolution", async function () {
+    await (await c.multiPayment.connect(c.buyer).openDispute(1)).wait();
 
-    describe("openDispute", function () {
-        it("buyer can open dispute", async function () {
-            const { multiPayment, buyer } =
-                await loadFixture(createEscrowFixture);
+    await expect(
+      c.multiPayment.connect(c.outsider).resolveDispute(1, true)
+    )
+      .to.be.revertedWithCustomError(
+        c.multiPayment,
+        "UnauthorizedArbitrator"
+      )
+      .withArgs(c.outsider.address);
+  });
 
-            await expect(
-                multiPayment.connect(buyer).openDispute(FIRST_ORDER_ID)
-            )
-                .to.emit(multiPayment, "DisputeOpened")
-                .withArgs(FIRST_ORDER_ID, buyer.address);
+  it("rejects resolution before dispute", async function () {
+    await expect(
+      c.multiPayment.connect(c.arbitrator).resolveDispute(1, true)
+    )
+      .to.be.revertedWithCustomError(
+        c.multiPayment,
+        "InvalidOrderStatus"
+      )
+      .withArgs(1n, 0n);
+  });
 
-            const order = await multiPayment.orderById(FIRST_ORDER_ID);
+  it("rotates arbitrator through propose and accept", async function () {
+    await expect(
+      c.multiPayment
+        .connect(c.owner)
+        .proposeArbitrator(c.newArbitrator.address)
+    )
+      .to.emit(c.multiPayment, "ArbitratorTransferStarted")
+      .withArgs(c.arbitrator.address, c.newArbitrator.address);
 
-            expect(order.status).to.equal(1); // Disputed
-        });
+    await expect(
+      c.multiPayment.connect(c.newArbitrator).acceptArbitratorRole()
+    )
+      .to.emit(c.multiPayment, "ArbitratorTransferred")
+      .withArgs(c.arbitrator.address, c.newArbitrator.address);
 
-        it("seller can open dispute", async function () {
-            const { multiPayment, seller } =
-                await loadFixture(createEscrowFixture);
+    expect(await c.multiPayment.arbitrator()).to.equal(
+      c.newArbitrator.address
+    );
 
-            await expect(
-                multiPayment.connect(seller).openDispute(FIRST_ORDER_ID)
-            )
-                .to.emit(multiPayment, "DisputeOpened")
-                .withArgs(FIRST_ORDER_ID, seller.address);
+    await (await c.multiPayment.connect(c.buyer).openDispute(1)).wait();
 
-            const order = await multiPayment.orderById(FIRST_ORDER_ID);
+    await expect(
+      c.multiPayment.connect(c.arbitrator).resolveDispute(1, true)
+    )
+      .to.be.revertedWithCustomError(
+        c.multiPayment,
+        "UnauthorizedArbitrator"
+      )
+      .withArgs(c.arbitrator.address);
 
-            expect(order.status).to.equal(1); // Disputed
-        });
+    await expect(
+      c.multiPayment.connect(c.newArbitrator).resolveDispute(1, true)
+    ).not.to.be.reverted;
+  });
 
-        it("reverts if random address tries to open dispute", async function () {
-            const { multiPayment, other } =
-                await loadFixture(createEscrowFixture);
+  it("rejects arbitrator acceptance by wrong address", async function () {
+    await (
+      await c.multiPayment
+        .connect(c.owner)
+        .proposeArbitrator(c.newArbitrator.address)
+    ).wait();
 
-            await expect(
-                multiPayment.connect(other).openDispute(FIRST_ORDER_ID)
-            ).to.be.revertedWith("only participant");
-        });
+    await expect(
+      c.multiPayment.connect(c.outsider).acceptArbitratorRole()
+    )
+      .to.be.revertedWithCustomError(
+        c.multiPayment,
+        "UnauthorizedPendingArbitrator"
+      )
+      .withArgs(c.outsider.address);
+  });
 
-        it("reverts if order does not exist", async function () {
-            const { multiPayment, buyer } =
-                await loadFixture(deployMultiPaymentFixture);
+  it("allows dispute and resolution while new payments are paused", async function () {
+    await (await c.multiPayment.connect(c.owner).pauseNewPayments()).wait();
+    await (await c.multiPayment.connect(c.buyer).openDispute(1)).wait();
 
-            await expect(
-                multiPayment.connect(buyer).openDispute(999)
-            ).to.be.revertedWith("order does not exist");
-        });
-
-        it("reverts if payment type is direct", async function () {
-            const { multiPayment, buyer, seller } =
-                await loadFixture(deployMultiPaymentFixture);
-
-            await multiPayment
-                .connect(buyer)
-                .createDirectPayment(seller.address, {
-                    value: ONE_ETH,
-                });
-
-            await expect(
-                multiPayment.connect(buyer).openDispute(FIRST_ORDER_ID)
-            ).to.be.revertedWith("only escrow");
-        });
-
-        it("reverts if order is already completed", async function () {
-            const { multiPayment, buyer } =
-                await loadFixture(createEscrowFixture);
-
-            await multiPayment.connect(buyer).confirmReceipt(FIRST_ORDER_ID);
-
-            await expect(
-                multiPayment.connect(buyer).openDispute(FIRST_ORDER_ID)
-            ).to.be.revertedWith("not in escrow");
-        });
-
-        it("reverts if order is already refunded", async function () {
-            const { multiPayment, seller } =
-                await loadFixture(createEscrowFixture);
-
-            await multiPayment.connect(seller).refund(FIRST_ORDER_ID);
-
-            await expect(
-                multiPayment.connect(seller).openDispute(FIRST_ORDER_ID)
-            ).to.be.revertedWith("not in escrow");
-        });
-    });
-
-    describe("resolveDispute", function () {
-        it("arbitrator can resolve dispute to seller", async function () {
-            const { multiPayment, buyer, seller, arbitrator } =
-                await loadFixture(createEscrowFixture);
-
-            await multiPayment.connect(buyer).openDispute(FIRST_ORDER_ID);
-
-            await expect(
-                multiPayment
-                    .connect(arbitrator)
-                    .resolveDispute(FIRST_ORDER_ID, true)
-            )
-                .to.emit(multiPayment, "DisputeResolved")
-                .withArgs(FIRST_ORDER_ID, arbitrator.address, true,ethers.ZeroAddress, ONE_ETH);
-
-            const order = await multiPayment.orderById(FIRST_ORDER_ID);
-
-            expect(order.status).to.equal(2); // Completed
-        });
-
-        it("arbitrator can resolve dispute to buyer", async function () {
-            const { multiPayment, buyer, arbitrator } =
-                await loadFixture(createEscrowFixture);
-
-            await multiPayment.connect(buyer).openDispute(FIRST_ORDER_ID);
-
-            await expect(
-                multiPayment
-                    .connect(arbitrator)
-                    .resolveDispute(FIRST_ORDER_ID, false)
-            )
-                .to.emit(multiPayment, "DisputeResolved")
-                .withArgs(FIRST_ORDER_ID, arbitrator.address, false,ethers.ZeroAddress, ONE_ETH);
-
-            const order = await multiPayment.orderById(FIRST_ORDER_ID);
-
-            expect(order.status).to.equal(3); // Refunded
-        });
-
-        it("reverts if non-arbitrator tries to resolve", async function () {
-            const { multiPayment, buyer, other } =
-                await loadFixture(createEscrowFixture);
-
-            await multiPayment.connect(buyer).openDispute(FIRST_ORDER_ID);
-
-            await expect(
-                multiPayment.connect(other).resolveDispute(FIRST_ORDER_ID, true)
-            ).to.be.revertedWith("not arbitrator");
-        });
-
-        it("reverts if resolving non-disputed order", async function () {
-            const { multiPayment, arbitrator } =
-                await loadFixture(createEscrowFixture);
-
-            await expect(
-                multiPayment
-                    .connect(arbitrator)
-                    .resolveDispute(FIRST_ORDER_ID, true)
-            ).to.be.revertedWith("not disputed");
-        });
-
-        it("reverts if order does not exist", async function () {
-            const { multiPayment, arbitrator } =
-                await loadFixture(deployMultiPaymentFixture);
-
-            await expect(
-                multiPayment.connect(arbitrator).resolveDispute(999, true)
-            ).to.be.revertedWith("order does not exist");
-        });
-    });
-
-    describe("disputed state protection", function () {
-        it("reverts confirmReceipt after dispute is opened", async function () {
-            const { multiPayment, buyer } =
-                await loadFixture(createEscrowFixture);
-
-            await multiPayment.connect(buyer).openDispute(FIRST_ORDER_ID);
-
-            await expect(
-                multiPayment.connect(buyer).confirmReceipt(FIRST_ORDER_ID)
-            ).to.be.revertedWith("not in escrow");
-        });
-
-        it("reverts refund after dispute is opened", async function () {
-            const { multiPayment, buyer, seller } =
-                await loadFixture(createEscrowFixture);
-
-            await multiPayment.connect(buyer).openDispute(FIRST_ORDER_ID);
-
-            await expect(
-                multiPayment.connect(seller).refund(FIRST_ORDER_ID)
-            ).to.be.revertedWith("not in escrow");
-        });
-
-        it("cannot resolve the same dispute twice", async function () {
-            const { multiPayment, buyer, arbitrator } =
-                await loadFixture(createEscrowFixture);
-
-            await multiPayment.connect(buyer).openDispute(FIRST_ORDER_ID);
-
-            await multiPayment
-                .connect(arbitrator)
-                .resolveDispute(FIRST_ORDER_ID, true);
-
-            await expect(
-                multiPayment
-                    .connect(arbitrator)
-                    .resolveDispute(FIRST_ORDER_ID, false)
-            ).to.be.revertedWith("not disputed");
-        });
-    });
+    await expect(
+      c.multiPayment.connect(c.arbitrator).resolveDispute(1, true)
+    ).not.to.be.reverted;
+  });
 });

@@ -1,71 +1,86 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { deployFixture } = require("./helpers/deployFixture");
 
-const {
-    deployMultiPaymentFixture,
-} = require("./helpers/setup");
+describe("MultiPayment - createDirectPayment", function () {
+    let c;
 
-describe("createDirectPayment", function () {
-    const ONE_ETH = ethers.parseEther("1");
-    const FIRST_ORDER_ID = 1;
-
-    it("reverts if seller is zero address", async function () {
-        const { multiPayment, buyer } =
-            await deployMultiPaymentFixture();
-
-        await expect(
-            multiPayment.connect(buyer).createDirectPayment(
-                ethers.ZeroAddress,
-                { value: ONE_ETH }
-            )
-        ).to.be.revertedWith("invalid seller");
+    beforeEach(async function () {
+        c = await deployFixture();
     });
 
-    it("reverts if msg.value is zero", async function () {
-        const { multiPayment, buyer, seller } =
-            await deployMultiPaymentFixture();
+    it("creates a completed ETH direct-payment order and pays seller", async function () {
+        const before = await ethers.provider.getBalance(c.seller.address);
 
         await expect(
-            multiPayment.connect(buyer).createDirectPayment(
-                seller.address,
-                { value: 0 }
-            )
-        ).to.be.revertedWith("amount must be more than 0");
-    });
-
-    it("creates direct payment and transfers ETH to seller", async function () {
-        const { multiPayment, buyer, seller } =
-            await deployMultiPaymentFixture();
-
-        await expect(
-            multiPayment.connect(buyer).createDirectPayment(
-                seller.address,
-                { value: ONE_ETH }
-            )
-        ).to.changeEtherBalances(
-            [buyer, seller, multiPayment],
-            [-ONE_ETH, ONE_ETH, 0]
-        );
-        const order = await multiPayment.orderById(FIRST_ORDER_ID);
-        expect(order.buyer).to.equal(buyer.address);
-        expect(order.seller).to.equal(seller.address);
-        expect(order.amount).to.equal(ONE_ETH);
-        expect(order.paymentType).to.equal(0);
-        expect(order.status).to.equal(2);
-        expect(order.exists).to.equal(true);
-    });
-
-    it("emits DirectPaymentCreated", async function () {
-        const { multiPayment, buyer, seller } =
-            await deployMultiPaymentFixture();
-
-        await expect(
-            multiPayment.connect(buyer).createDirectPayment(
-                seller.address,
-                { value: ONE_ETH }
+            c.multiPayment.connect(c.buyer).createDirectPayment(
+                c.seller.address,
+                { value: c.ETH_AMOUNT }
             )
         )
-            .to.emit(multiPayment, "DirectPaymentCreated")
-            .withArgs(FIRST_ORDER_ID, buyer.address, seller.address,ethers.ZeroAddress,ONE_ETH);
+            .to.emit(c.multiPayment, "DirectPaymentCreated")
+            .withArgs(
+                1n,
+                c.buyer.address,
+                c.seller.address,
+                ethers.ZeroAddress,
+                c.ETH_AMOUNT
+            );
+
+        const after = await ethers.provider.getBalance(c.seller.address);
+        const order = await c.multiPayment.orderById(1);
+
+        expect(after - before).to.equal(c.ETH_AMOUNT);
+        expect(order.buyer).to.equal(c.buyer.address);
+        expect(order.seller).to.equal(c.seller.address);
+        expect(order.token).to.equal(ethers.ZeroAddress);
+        expect(order.amount).to.equal(c.ETH_AMOUNT);
+        expect(order.paymentType).to.equal(0n);
+        expect(order.status).to.equal(2n);
+        expect(order.exists).to.equal(true);
+        expect(await c.multiPayment.nextOrderId()).to.equal(2n);
+    });
+
+    it("rejects zero seller", async function () {
+        await expect(
+            c.multiPayment.connect(c.buyer).createDirectPayment(
+                ethers.ZeroAddress,
+                { value: c.ETH_AMOUNT }
+            )
+        )
+            .to.be.revertedWithCustomError(c.multiPayment, "InvalidSeller")
+            .withArgs(ethers.ZeroAddress);
+    });
+
+    it("rejects self-payment", async function () {
+        await expect(
+            c.multiPayment.connect(c.buyer).createDirectPayment(
+                c.buyer.address,
+                { value: c.ETH_AMOUNT }
+            )
+        ).to.be.revertedWithCustomError(
+            c.multiPayment,
+            "BuyerAndSellerMustDiffer"
+        );
+    });
+
+    it("rejects zero amount", async function () {
+        await expect(
+            c.multiPayment.connect(c.buyer).createDirectPayment(
+                c.seller.address,
+                { value: 0 }
+            )
+        ).to.be.revertedWithCustomError(c.multiPayment, "InvalidAmount");
+    });
+
+    it("blocks new direct payments while paused", async function () {
+        await (await c.multiPayment.connect(c.owner).pauseNewPayments()).wait();
+
+        await expect(
+            c.multiPayment.connect(c.buyer).createDirectPayment(
+                c.seller.address,
+                { value: c.ETH_AMOUNT }
+            )
+        ).to.be.revertedWithCustomError(c.multiPayment, "EnforcedPause");
     });
 });
