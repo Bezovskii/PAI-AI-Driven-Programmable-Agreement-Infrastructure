@@ -8,8 +8,6 @@ const networks = {
     },
 };
 
-// Add Sepolia only when both required secrets exist.
-// This prevents local tools from receiving undefined network values.
 if (process.env.SEPOLIA_RPC_URL && process.env.PRIVATE_KEY) {
     networks.sepolia = {
         url: process.env.SEPOLIA_RPC_URL,
@@ -19,12 +17,13 @@ if (process.env.SEPOLIA_RPC_URL && process.env.PRIVATE_KEY) {
 
 module.exports = {
     solidity: {
-        version: "0.8.20",
+        version: "0.8.35",
         settings: {
             optimizer: {
                 enabled: true,
                 runs: 200,
             },
+            evmVersion: "cancun",
         },
     },
     networks,
