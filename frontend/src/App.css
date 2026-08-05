@@ -39,7 +39,7 @@ body {
   margin: 0 0 18px;
   max-width: 760px;
   color: #ffffff;
-  text-shadow: 0 3px 12px rgba(0,0,0,0.35);
+  text-shadow: 0 3px 12px rgba(0, 0, 0, 0.35);
 }
 
 .hero p {
@@ -370,5 +370,569 @@ footer {
 
   .actions {
     flex-direction: column;
+  }
+}
+
+/* =========================================================
+   ESCT ROLE-BASED APPLICATION
+   ========================================================= */
+
+.roleApp {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left,
+      rgba(37, 99, 235, 0.1),
+      transparent 32rem),
+    #f4f7fb;
+  color: #111827;
+}
+
+.roleHeader {
+  min-height: 76px;
+  padding: 14px 32px;
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom: 1px solid #e2e8f0;
+  backdrop-filter: blur(18px);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 28px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.roleBrand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #111827;
+  text-decoration: none;
+}
+
+.roleBrand>span {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: #111827;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.roleBrand strong,
+.roleBrand small {
+  display: block;
+}
+
+.roleBrand small {
+  color: #64748b;
+  margin-top: 3px;
+  font-size: 11px;
+}
+
+.roleNav {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.roleNav a {
+  color: #64748b;
+  text-decoration: none;
+  padding: 10px 13px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 800;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.roleNav a:hover,
+.roleNav a.active {
+  color: #111827;
+  background: #eef2ff;
+}
+
+.walletButton,
+.workspaceButton {
+  border: none;
+  background: #111827;
+  color: #ffffff;
+  text-decoration: none;
+  padding: 12px 17px;
+  border-radius: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.walletButton:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.roleContent {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 42px 0 70px;
+}
+
+.rolePage {
+  animation: rolePageIn 0.25s ease;
+}
+
+@keyframes rolePageIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pageHeading {
+  display: flex;
+  justify-content: space-between;
+  gap: 28px;
+  align-items: flex-end;
+  margin-bottom: 28px;
+}
+
+.pageHeading h1 {
+  font-size: clamp(34px, 5vw, 58px);
+  line-height: 1;
+  margin: 8px 0 14px;
+  letter-spacing: -0.045em;
+}
+
+.pageHeading p {
+  max-width: 700px;
+  color: #64748b;
+  font-size: 16px;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.eyebrow {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.roleStats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.roleStats article,
+.roleCard,
+.protocolIdentity,
+.workspacePreview>div,
+.accessCard,
+.buyerPaymentPanel {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
+}
+
+.roleStats article {
+  padding: 21px;
+  border-radius: 20px;
+}
+
+.roleStats span,
+.protocolIdentity span {
+  color: #64748b;
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.roleStats strong {
+  display: block;
+  font-size: 20px;
+  margin-bottom: 6px;
+}
+
+.roleStats small {
+  color: #64748b;
+}
+
+.roleGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+}
+
+.roleCard {
+  border-radius: 24px;
+  padding: 25px;
+  display: flex;
+  gap: 18px;
+}
+
+.roleIcon {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  display: grid;
+  place-items: center;
+  background: #111827;
+  color: #ffffff;
+  border-radius: 15px;
+  font-weight: 900;
+}
+
+.roleCard h2 {
+  margin: 0 0 9px;
+}
+
+.roleCard p {
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.roleCard a {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 900;
+}
+
+.protocolIdentity {
+  border-radius: 22px;
+  margin-top: 18px;
+  padding: 22px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.workspacePreview {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.workspacePreview>div {
+  border-radius: 22px;
+  padding: 24px;
+}
+
+.workspacePreview span {
+  color: #2563eb;
+  font-weight: 900;
+}
+
+.workspacePreview h3 {
+  margin: 13px 0 8px;
+}
+
+.workspacePreview p {
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.accessCard {
+  border-radius: 24px;
+  padding: 28px;
+  margin-bottom: 22px;
+}
+
+.accessCard.allowed {
+  border-color: #86efac;
+}
+
+.accessCard.denied {
+  border-color: #fca5a5;
+}
+
+.accessCard>span {
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+.accessCard.allowed>span {
+  color: #15803d;
+}
+
+.accessCard.denied>span {
+  color: #b91c1c;
+}
+
+.accessCard h3 {
+  margin: 10px 0;
+  font-size: 26px;
+}
+
+.accessCard p {
+  color: #64748b;
+  margin: 0;
+  line-height: 1.65;
+}
+
+.networkWarning,
+.transactionBanner {
+  padding: 13px 24px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.networkWarning {
+  color: #92400e;
+  background: #fef3c7;
+  border-bottom: 1px solid #f59e0b;
+}
+
+.transactionBanner {
+  color: #1e3a8a;
+  background: #dbeafe;
+  border-bottom: 1px solid #93c5fd;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.transactionBanner.error {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.transactionBanner.success {
+  color: #166534;
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+/* =========================================================
+   BUYER PAYMENT PANEL
+   ========================================================= */
+
+.buyerPaymentPanel {
+  border-radius: 28px;
+  padding: 28px;
+  margin-bottom: 22px;
+}
+
+.buyerPaymentHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 26px;
+}
+
+.buyerPaymentHeader h2 {
+  font-size: 30px;
+  margin: 7px 0 9px;
+}
+
+.buyerPaymentHeader p {
+  color: #64748b;
+  line-height: 1.65;
+  max-width: 680px;
+  margin: 0;
+}
+
+.protocolState {
+  border-radius: 999px;
+  padding: 9px 13px;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.protocolState.active {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.protocolState.paused {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.paymentChoiceGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.segmentedControl {
+  display: flex;
+  gap: 6px;
+  padding: 5px;
+  background: #f1f5f9;
+  border-radius: 16px;
+}
+
+.segmentedControl button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  padding: 12px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.segmentedControl button.active {
+  color: #111827;
+  background: #ffffff;
+  box-shadow: 0 7px 20px rgba(15, 23, 42, 0.08);
+}
+
+.paymentFormGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+
+.fullField {
+  width: 100%;
+}
+
+.paymentSummary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 18px;
+  margin: 6px 0 18px;
+}
+
+.paymentSummary span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.paymentSummary strong {
+  font-size: 14px;
+}
+
+.paymentFormError,
+.createdOrderNotice {
+  padding: 14px 16px;
+  border-radius: 14px;
+  margin-bottom: 16px;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.paymentFormError {
+  color: #991b1b;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+}
+
+.createdOrderNotice {
+  color: #166534;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+}
+
+.paymentActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.paymentActions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.buyerSteps {
+  margin-top: 0;
+}
+
+/* =========================================================
+   RESPONSIVE LAYOUT
+   ========================================================= */
+
+@media (max-width: 900px) {
+  .roleHeader {
+    grid-template-columns: 1fr auto;
+  }
+
+  .roleNav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .roleStats,
+  .roleGrid,
+  .workspacePreview,
+  .protocolIdentity {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .buyerPaymentHeader {
+    flex-direction: column;
+  }
+
+  .paymentChoiceGrid,
+  .paymentSummary {
+    grid-template-columns: 1fr;
+  }
+
+  .paymentActions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 560px) {
+  .roleHeader {
+    padding: 12px 16px;
+  }
+
+  .roleBrand small {
+    display: none;
+  }
+
+  .roleContent {
+    width: min(100% - 24px, 1180px);
+    padding-top: 28px;
+  }
+
+  .pageHeading h1 {
+    font-size: 38px;
+  }
+
+  .walletButton {
+    padding: 11px 12px;
+    font-size: 12px;
   }
 }
