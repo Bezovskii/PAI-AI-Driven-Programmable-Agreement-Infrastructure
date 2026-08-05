@@ -1,6 +1,6 @@
 import {
-  NavLink,
   Navigate,
+  NavLink,
   Route,
   Routes,
 } from "react-router-dom";
@@ -8,6 +8,7 @@ import {
 import "./App.css";
 
 import LegacyApp from "./LegacyApp.jsx";
+import SellerOrderPanel from "./components/orders/SellerOrderPanel.jsx";
 import BuyerPaymentPanel from "./components/payments/BuyerPaymentPanel.jsx";
 import { useWeb3 } from "./hooks/useWeb3.js";
 
@@ -323,34 +324,38 @@ function SellerPage() {
           <h1>Seller workspace</h1>
 
           <p>
-            A wallet becomes the seller when its
-            address is assigned to an order.
-            Seller permissions are determined
-            separately for every order.
+            Find orders assigned to your connected
+            wallet, review their current status,
+            refund the buyer, or open a dispute
+            when the contract permits it.
           </p>
         </div>
       </div>
+
+      <SellerOrderPanel />
 
       <section className="workspacePreview">
         <div>
           <span>01</span>
 
-          <h3>Incoming orders</h3>
+          <h3>Find the order</h3>
 
           <p>
-            Review orders where your wallet is
-            recorded as the designated seller.
+            Enter the on-chain order ID to load
+            its buyer, seller, asset, amount,
+            payment type, and current status.
           </p>
         </div>
 
         <div>
           <span>02</span>
 
-          <h3>Escrow visibility</h3>
+          <h3>Verify your role</h3>
 
           <p>
-            See which payments remain protected
-            inside the escrow contract.
+            Seller actions only appear when the
+            connected wallet matches the seller
+            recorded in the order.
           </p>
         </div>
 
@@ -360,18 +365,12 @@ function SellerPage() {
           <h3>Refund or dispute</h3>
 
           <p>
-            Refund the buyer or open a dispute
-            when the agreement cannot be completed.
+            Refund an eligible escrow payment
+            or open a dispute before the order
+            is completed.
           </p>
         </div>
       </section>
-
-      <NavLink
-        className="workspaceButton"
-        to="/workspace"
-      >
-        Open current transaction interface
-      </NavLink>
     </div>
   );
 }
@@ -402,7 +401,9 @@ function ArbitrationPage() {
       <AccessCard
         allowed={isArbitrator}
         title="Arbitrator access"
-        allowedText="This wallet matches the current protocol arbitrator. Disputed-order tools will be available here."
+        allowedText={
+          "This wallet matches the current protocol arbitrator. Disputed-order tools will be available here."
+        }
         deniedText={`Connect the current arbitrator wallet: ${shortAddress(
           arbitrator
         )}`}
