@@ -10,6 +10,7 @@ import "./App.css";
 import LegacyApp from "./LegacyApp.jsx";
 import AdminPanel from "./components/admin/AdminPanel.jsx";
 import ArbitrationPanel from "./components/arbitration/ArbitrationPanel.jsx";
+import ArbitratorAcceptancePanel from "./components/arbitration/ArbitratorAcceptancePanel.jsx";
 import SellerOrderPanel from "./components/orders/SellerOrderPanel.jsx";
 import BuyerPaymentPanel from "./components/payments/BuyerPaymentPanel.jsx";
 import { useWeb3 } from "./hooks/useWeb3.js";
@@ -200,8 +201,9 @@ function DashboardPage() {
             <h2>Arbitration</h2>
 
             <p>
-              Review disputed orders and resolve
-              protected funds to the buyer or seller.
+              Review disputed orders, accept a
+              proposed arbitrator role, and resolve
+              protected funds.
             </p>
 
             <NavLink to="/arbitration">
@@ -394,18 +396,20 @@ function ArbitrationPage() {
           <h1>Arbitration workspace</h1>
 
           <p>
-            Review disputed escrow orders and
-            release protected funds to the buyer
-            or seller.
+            Accept a proposed arbitrator role,
+            review disputed escrow orders, and
+            resolve protected funds.
           </p>
         </div>
       </div>
+
+      <ArbitratorAcceptancePanel />
 
       <AccessCard
         allowed={isArbitrator}
         title="Arbitrator access"
         allowedText="The connected wallet matches the current protocol arbitrator."
-        deniedText={`Connect the current arbitrator wallet: ${shortAddress(
+        deniedText={`Connect the current arbitrator wallet to resolve disputes: ${shortAddress(
           arbitrator
         )}`}
       />
@@ -416,11 +420,12 @@ function ArbitrationPage() {
         <div>
           <span>01</span>
 
-          <h3>Load dispute</h3>
+          <h3>Accept authority</h3>
 
           <p>
-            Enter the order ID and verify that
-            the order is currently disputed.
+            A proposed arbitrator must connect
+            the pending wallet and explicitly
+            accept the role.
           </p>
         </div>
 
@@ -430,8 +435,9 @@ function ArbitrationPage() {
           <h3>Review parties</h3>
 
           <p>
-            Confirm the buyer, seller, asset,
-            amount, and current escrow status.
+            Load a disputed order and confirm
+            the buyer, seller, asset, amount,
+            and escrow status.
           </p>
         </div>
 
@@ -576,11 +582,9 @@ function App() {
             Seller
           </NavLink>
 
-          {isArbitrator && (
-            <NavLink to="/arbitration">
-              Arbitration
-            </NavLink>
-          )}
+          <NavLink to="/arbitration">
+            Arbitration
+          </NavLink>
 
           {isOwner && (
             <NavLink to="/admin">
