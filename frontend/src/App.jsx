@@ -8,6 +8,7 @@ import {
 import "./App.css";
 
 import LegacyApp from "./LegacyApp.jsx";
+import ArbitrationPanel from "./components/arbitration/ArbitrationPanel.jsx";
 import SellerOrderPanel from "./components/orders/SellerOrderPanel.jsx";
 import BuyerPaymentPanel from "./components/payments/BuyerPaymentPanel.jsx";
 import { useWeb3 } from "./hooks/useWeb3.js";
@@ -392,8 +393,10 @@ function ArbitrationPage() {
           <h1>Arbitration workspace</h1>
 
           <p>
-            Dispute resolution is restricted
-            to the current protocol arbitrator.
+            Review disputed escrow orders and
+            release protected funds to the buyer
+            or seller. Only the current on-chain
+            arbitrator can resolve a dispute.
           </p>
         </div>
       </div>
@@ -401,22 +404,49 @@ function ArbitrationPage() {
       <AccessCard
         allowed={isArbitrator}
         title="Arbitrator access"
-        allowedText={
-          "This wallet matches the current protocol arbitrator. Disputed-order tools will be available here."
-        }
+        allowedText="The connected wallet matches the current protocol arbitrator."
         deniedText={`Connect the current arbitrator wallet: ${shortAddress(
           arbitrator
         )}`}
       />
 
-      {isArbitrator && (
-        <NavLink
-          className="workspaceButton"
-          to="/workspace"
-        >
-          Open current dispute interface
-        </NavLink>
-      )}
+      <ArbitrationPanel />
+
+      <section className="workspacePreview">
+        <div>
+          <span>01</span>
+
+          <h3>Load dispute</h3>
+
+          <p>
+            Enter the on-chain order ID and verify
+            that the order is currently disputed.
+          </p>
+        </div>
+
+        <div>
+          <span>02</span>
+
+          <h3>Review parties</h3>
+
+          <p>
+            Confirm the buyer, seller, payment
+            asset, amount, and escrow status.
+          </p>
+        </div>
+
+        <div>
+          <span>03</span>
+
+          <h3>Resolve permanently</h3>
+
+          <p>
+            Release the escrowed funds to either
+            the buyer or seller. Resolution cannot
+            be reversed.
+          </p>
+        </div>
+      </section>
     </div>
   );
 }

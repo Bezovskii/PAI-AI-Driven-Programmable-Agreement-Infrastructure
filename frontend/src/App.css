@@ -1094,3 +1094,237 @@ footer {
     flex-direction: column;
   }
 }
+
+/* =========================================================
+   ARBITRATION WORKSPACE
+   ========================================================= */
+
+.arbitrationPanel {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #e2e8f0;
+  border-radius: 28px;
+  padding: 28px;
+  margin-bottom: 22px;
+  box-shadow: 0 20px 55px rgba(15, 23, 42, 0.07);
+}
+
+.arbitrationHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.arbitrationHeader h2 {
+  margin: 7px 0 9px;
+  font-size: 30px;
+}
+
+.arbitrationHeader p {
+  max-width: 680px;
+  margin: 0;
+  color: #64748b;
+  line-height: 1.65;
+}
+
+.arbitratorIdentity {
+  min-width: 210px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid;
+}
+
+.arbitratorIdentity span,
+.arbitratorIdentity strong,
+.arbitratorIdentity small {
+  display: block;
+}
+
+.arbitratorIdentity span {
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.arbitratorIdentity strong {
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+
+.arbitratorIdentity small {
+  font-weight: 700;
+}
+
+.arbitratorIdentity.active {
+  color: #166534;
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.arbitratorIdentity.restricted {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.arbitrationSearch {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 20px;
+}
+
+.arbitrationSearch input {
+  margin-bottom: 0;
+}
+
+.arbitrationSearch button {
+  min-height: 47px;
+}
+
+.arbitrationSearch button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.arbitrationOrderCard {
+  margin-top: 20px;
+  padding: 24px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 22px;
+}
+
+.arbitrationOrderTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.arbitrationOrderTop>div>span {
+  display: block;
+  margin-bottom: 4px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.arbitrationOrderTop h3 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.arbitrationParties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.arbitrationParties article {
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+}
+
+.arbitrationParties span,
+.arbitrationParties strong,
+.arbitrationParties small {
+  display: block;
+}
+
+.arbitrationParties span {
+  margin-bottom: 7px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.arbitrationParties strong {
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.arbitrationParties small {
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.arbitrationOrderDetails {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.arbitrationOrderDetails>div {
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+
+.arbitrationOrderDetails span {
+  display: block;
+  margin-bottom: 7px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.arbitrationOrderDetails strong {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.resolutionWarning {
+  margin-top: 18px;
+  padding: 14px 16px;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.arbitrationActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.arbitrationActions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (max-width: 760px) {
+  .arbitrationHeader {
+    flex-direction: column;
+  }
+
+  .arbitratorIdentity {
+    width: 100%;
+  }
+
+  .arbitrationSearch,
+  .arbitrationParties,
+  .arbitrationOrderDetails {
+    grid-template-columns: 1fr;
+  }
+
+  .arbitrationActions {
+    flex-direction: column;
+  }
+}
