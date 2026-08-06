@@ -1,4 +1,4 @@
-import {
+﻿import {
   Navigate,
   NavLink,
   Route,
@@ -13,6 +13,7 @@ import ArbitrationPanel from "./components/arbitration/ArbitrationPanel.jsx";
 import ArbitratorAcceptancePanel from "./components/arbitration/ArbitratorAcceptancePanel.jsx";
 import SellerOrderPanel from "./components/orders/SellerOrderPanel.jsx";
 import BuyerPaymentPanel from "./components/payments/BuyerPaymentPanel.jsx";
+import WalletControl from "./components/wallet/WalletControl.jsx";
 import { useWeb3 } from "./hooks/useWeb3.js";
 
 function shortAddress(address) {

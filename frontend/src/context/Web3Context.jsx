@@ -14,10 +14,25 @@ export const Web3Context = createContext(null);
 
 const DEFAULT_CHAIN_ID = 31337;
 
-function getExpectedChainId() {
-    const configured = Number(import.meta.env.VITE_CHAIN_ID);
+const resolvedContractABI = Array.isArray(contractABI)
+    ? contractABI
+    : contractABI?.abi;
 
-    return Number.isInteger(configured) && configured > 0
+if (!Array.isArray(resolvedContractABI)) {
+    throw new Error(
+        "The ESCT contract ABI is invalid. Expected an ABI array."
+    );
+}
+
+function getExpectedChainId() {
+    const configured = Number(
+        import.meta.env.VITE_CHAIN_ID
+    );
+
+    return (
+        Number.isInteger(configured) &&
+        configured > 0
+    )
         ? configured
         : DEFAULT_CHAIN_ID;
 }
@@ -30,6 +45,13 @@ function getErrorMessage(error) {
         return "Transaction rejected in wallet.";
     }
 
+    if (
+        error?.code === "UNKNOWN_ERROR" &&
+        error?.error?.message
+    ) {
+        return error.error.message;
+    }
+
     return (
         error?.shortMessage ||
         error?.reason ||
@@ -39,41 +61,64 @@ function getErrorMessage(error) {
 }
 
 export function Web3Provider({ children }) {
-    const [provider, setProvider] = useState(null);
-    const [signer, setSigner] = useState(null);
-    const [contract, setContract] = useState(null);
+    const [provider, setProvider] =
+        useState(null);
 
-    const [account, setAccount] = useState("");
-    const [chainId, setChainId] = useState(null);
-    const [owner, setOwner] = useState("");
-    const [arbitrator, setArbitrator] = useState("");
-    const [isPaused, setIsPaused] = useState(false);
+    const [signer, setSigner] =
+        useState(null);
+
+    const [contract, setContract] =
+        useState(null);
+
+    const [account, setAccount] =
+        useState("");
+
+    const [chainId, setChainId] =
+        useState(null);
+
+    const [owner, setOwner] =
+        useState("");
+
+    const [arbitrator, setArbitrator] =
+        useState("");
+
+    const [isPaused, setIsPaused] =
+        useState(false);
 
     const [isConnecting, setIsConnecting] =
         useState(false);
 
-    const [transaction, setTransaction] = useState({
-        status: "idle",
-        message: "",
-        hash: "",
-        error: "",
-    });
+    const [transaction, setTransaction] =
+        useState({
+            status: "idle",
+            message: "",
+            hash: "",
+            error: "",
+        });
 
-    const expectedChainId = getExpectedChainId();
+    const expectedChainId =
+        getExpectedChainId();
 
-    const resetConnection = useCallback(() => {
-        setProvider(null);
-        setSigner(null);
-        setContract(null);
-        setAccount("");
-        setChainId(null);
-        setOwner("");
-        setArbitrator("");
-        setIsPaused(false);
-    }, []);
+    const clearProtocolState =
+        useCallback(() => {
+            setContract(null);
+            setOwner("");
+            setArbitrator("");
+            setIsPaused(false);
+        }, []);
 
-    const loadProtocolState = useCallback(
-        async (appContract) => {
+    const resetConnection =
+        useCallback(() => {
+            setProvider(null);
+            setSigner(null);
+            setAccount("");
+            setChainId(null);
+
+            clearProtocolState();
+        }, [clearProtocolState]);
+
+    const loadProtocolState =
+        useCallback(async (appContract) => {
             const [
                 protocolOwner,
                 protocolArbitrator,
@@ -85,105 +130,171 @@ export function Web3Provider({ children }) {
             ]);
 
             setOwner(protocolOwner);
-            setArbitrator(protocolArbitrator);
-            setIsPaused(paused);
-        },
-        []
-    );
-
-    const initializeConnection = useCallback(
-        async (requestAccess = false) => {
-            if (!window.ethereum) {
-                throw new Error(
-                    "No injected wallet was found. Install MetaMask or another compatible wallet."
-                );
-            }
-
-            const browserProvider =
-                new ethers.BrowserProvider(window.ethereum);
-
-            const accounts = requestAccess
-                ? await browserProvider.send(
-                    "eth_requestAccounts",
-                    []
-                )
-                : await browserProvider.send(
-                    "eth_accounts",
-                    []
-                );
-
-            if (!accounts.length) {
-                resetConnection();
-                return false;
-            }
-
-            const network =
-                await browserProvider.getNetwork();
-
-            const walletSigner =
-                await browserProvider.getSigner();
-
-            const walletAccount =
-                await walletSigner.getAddress();
-
-            const appContract = new ethers.Contract(
-                contractAddress,
-                contractABI.abi,
-                walletSigner
+            setArbitrator(
+                protocolArbitrator
             );
+            setIsPaused(Boolean(paused));
+        }, []);
 
-            setProvider(browserProvider);
-            setSigner(walletSigner);
-            setContract(appContract);
-            setAccount(walletAccount);
-            setChainId(Number(network.chainId));
+    const initializeConnection =
+        useCallback(
+            async (
+                requestAccess = false
+            ) => {
+                if (
+                    typeof window ===
+                    "undefined" ||
+                    !window.ethereum
+                ) {
+                    throw new Error(
+                        "No injected wallet was found. Install MetaMask or another compatible wallet."
+                    );
+                }
 
-            await loadProtocolState(appContract);
+                const browserProvider =
+                    new ethers.BrowserProvider(
+                        window.ethereum
+                    );
 
-            return true;
-        },
-        [loadProtocolState, resetConnection]
-    );
+                const accounts =
+                    requestAccess
+                        ? await browserProvider.send(
+                            "eth_requestAccounts",
+                            []
+                        )
+                        : await browserProvider.send(
+                            "eth_accounts",
+                            []
+                        );
 
-    const connectWallet = useCallback(async () => {
-        try {
-            setIsConnecting(true);
+                if (!accounts.length) {
+                    resetConnection();
 
-            setTransaction({
-                status: "connecting",
-                message: "Connecting wallet...",
-                hash: "",
-                error: "",
-            });
+                    return false;
+                }
 
-            const connected =
-                await initializeConnection(true);
+                const network =
+                    await browserProvider.getNetwork();
 
-            if (!connected) {
-                throw new Error(
-                    "No wallet account was selected."
+                const detectedChainId =
+                    Number(network.chainId);
+
+                const walletSigner =
+                    await browserProvider.getSigner();
+
+                const walletAccount =
+                    await walletSigner.getAddress();
+
+                setProvider(
+                    browserProvider
                 );
+
+                setSigner(walletSigner);
+
+                setAccount(walletAccount);
+
+                setChainId(
+                    detectedChainId
+                );
+
+                if (
+                    detectedChainId !==
+                    expectedChainId
+                ) {
+                    clearProtocolState();
+
+                    return true;
+                }
+
+                const deployedCode =
+                    await browserProvider.getCode(
+                        contractAddress
+                    );
+
+                if (
+                    !deployedCode ||
+                    deployedCode === "0x"
+                ) {
+                    clearProtocolState();
+
+                    throw new Error(
+                        `No ESCT contract was found at ${contractAddress} on chain ${detectedChainId}. Make sure the local Hardhat node is running and deploy the contract again.`
+                    );
+                }
+
+                const appContract =
+                    new ethers.Contract(
+                        contractAddress,
+                        resolvedContractABI,
+                        walletSigner
+                    );
+
+                await loadProtocolState(
+                    appContract
+                );
+
+                setContract(appContract);
+
+                return true;
+            },
+            [
+                clearProtocolState,
+                expectedChainId,
+                loadProtocolState,
+                resetConnection,
+            ]
+        );
+
+    const connectWallet =
+        useCallback(async () => {
+            try {
+                setIsConnecting(true);
+
+                setTransaction({
+                    status: "connecting",
+                    message:
+                        "Connecting wallet...",
+                    hash: "",
+                    error: "",
+                });
+
+                const connected =
+                    await initializeConnection(
+                        true
+                    );
+
+                if (!connected) {
+                    throw new Error(
+                        "No wallet account was selected."
+                    );
+                }
+
+                setTransaction({
+                    status: "success",
+                    message:
+                        "Wallet connected successfully.",
+                    hash: "",
+                    error: "",
+                });
+            } catch (error) {
+                const message =
+                    getErrorMessage(error);
+
+                console.error(
+                    "Wallet connection failed:",
+                    error
+                );
+
+                setTransaction({
+                    status: "error",
+                    message,
+                    hash: "",
+                    error: message,
+                });
+            } finally {
+                setIsConnecting(false);
             }
-
-            setTransaction({
-                status: "success",
-                message: "Wallet connected successfully.",
-                hash: "",
-                error: "",
-            });
-        } catch (error) {
-            const message = getErrorMessage(error);
-
-            setTransaction({
-                status: "error",
-                message,
-                hash: "",
-                error: message,
-            });
-        } finally {
-            setIsConnecting(false);
-        }
-    }, [initializeConnection]);
+        }, [initializeConnection]);
 
     const refreshProtocolState =
         useCallback(async () => {
@@ -192,56 +303,17 @@ export function Web3Provider({ children }) {
             }
 
             try {
-                await loadProtocolState(contract);
+                await loadProtocolState(
+                    contract
+                );
             } catch (error) {
                 console.error(
                     "Unable to refresh protocol state:",
                     error
                 );
-            }
-        }, [contract, loadProtocolState]);
 
-    const executeTransaction = useCallback(
-        async ({
-            action,
-            pendingMessage =
-            "Confirm the transaction in your wallet.",
-            submittedMessage =
-            "Transaction submitted.",
-            successMessage =
-            "Transaction confirmed.",
-        }) => {
-            try {
-                setTransaction({
-                    status: "awaiting-signature",
-                    message: pendingMessage,
-                    hash: "",
-                    error: "",
-                });
-
-                const tx = await action();
-
-                setTransaction({
-                    status: "pending",
-                    message: submittedMessage,
-                    hash: tx.hash,
-                    error: "",
-                });
-
-                const receipt = await tx.wait();
-
-                setTransaction({
-                    status: "success",
-                    message: successMessage,
-                    hash: receipt.hash,
-                    error: "",
-                });
-
-                await refreshProtocolState();
-
-                return receipt;
-            } catch (error) {
-                const message = getErrorMessage(error);
+                const message =
+                    getErrorMessage(error);
 
                 setTransaction({
                     status: "error",
@@ -249,60 +321,176 @@ export function Web3Provider({ children }) {
                     hash: "",
                     error: message,
                 });
-
-                throw error;
             }
-        },
-        [refreshProtocolState]
-    );
+        }, [
+            contract,
+            loadProtocolState,
+        ]);
 
-    const clearTransaction = useCallback(() => {
-        setTransaction({
-            status: "idle",
-            message: "",
-            hash: "",
-            error: "",
-        });
-    }, []);
+    const executeTransaction =
+        useCallback(
+            async ({
+                action,
+                pendingMessage =
+                "Confirm the transaction in your wallet.",
+                submittedMessage =
+                "Transaction submitted.",
+                successMessage =
+                "Transaction confirmed.",
+            }) => {
+                try {
+                    if (
+                        typeof action !==
+                        "function"
+                    ) {
+                        throw new Error(
+                            "Transaction action is unavailable."
+                        );
+                    }
+
+                    setTransaction({
+                        status:
+                            "awaiting-signature",
+                        message:
+                            pendingMessage,
+                        hash: "",
+                        error: "",
+                    });
+
+                    const tx =
+                        await action();
+
+                    setTransaction({
+                        status: "pending",
+                        message:
+                            submittedMessage,
+                        hash: tx.hash,
+                        error: "",
+                    });
+
+                    const receipt =
+                        await tx.wait();
+
+                    setTransaction({
+                        status: "success",
+                        message:
+                            successMessage,
+                        hash:
+                            receipt.hash ||
+                            tx.hash,
+                        error: "",
+                    });
+
+                    await refreshProtocolState();
+
+                    return receipt;
+                } catch (error) {
+                    const message =
+                        getErrorMessage(error);
+
+                    console.error(
+                        "Transaction failed:",
+                        error
+                    );
+
+                    setTransaction({
+                        status: "error",
+                        message,
+                        hash: "",
+                        error: message,
+                    });
+
+                    throw error;
+                }
+            },
+            [refreshProtocolState]
+        );
+
+    const clearTransaction =
+        useCallback(() => {
+            setTransaction({
+                status: "idle",
+                message: "",
+                hash: "",
+                error: "",
+            });
+        }, []);
 
     useEffect(() => {
-        initializeConnection(false).catch((error) => {
-            console.error(
-                "Silent wallet connection failed:",
-                error
-            );
-        });
+        initializeConnection(false).catch(
+            (error) => {
+                console.error(
+                    "Silent wallet connection failed:",
+                    error
+                );
+            }
+        );
     }, [initializeConnection]);
 
     useEffect(() => {
-        if (!window.ethereum) {
+        if (
+            typeof window ===
+            "undefined" ||
+            !window.ethereum
+        ) {
             return undefined;
         }
 
-        const handleAccountsChanged = (accounts) => {
-            if (!accounts.length) {
-                resetConnection();
-                return;
-            }
+        const handleAccountsChanged =
+            (accounts) => {
+                if (!accounts.length) {
+                    resetConnection();
 
-            initializeConnection(false).catch((error) => {
-                console.error(
-                    "Account refresh failed:",
-                    error
-                );
+                    setTransaction({
+                        status: "idle",
+                        message: "",
+                        hash: "",
+                        error: "",
+                    });
 
-                resetConnection();
-            });
-        };
+                    return;
+                }
+
+                initializeConnection(
+                    false
+                ).catch((error) => {
+                    const message =
+                        getErrorMessage(
+                            error
+                        );
+
+                    console.error(
+                        "Account refresh failed:",
+                        error
+                    );
+
+                    setTransaction({
+                        status: "error",
+                        message,
+                        hash: "",
+                        error: message,
+                    });
+                });
+            };
 
         const handleChainChanged = () => {
-            initializeConnection(false).catch((error) => {
+            initializeConnection(
+                false
+            ).catch((error) => {
+                const message =
+                    getErrorMessage(error);
+
                 console.error(
                     "Network refresh failed:",
                     error
                 );
 
-                resetConnection();
+                setTransaction({
+                    status: "error",
+                    message,
+                    hash: "",
+                    error: message,
+                });
             });
         };
 
@@ -327,30 +515,42 @@ export function Web3Provider({ children }) {
                 handleChainChanged
             );
         };
-    }, [initializeConnection, resetConnection]);
+    }, [
+        initializeConnection,
+        resetConnection,
+    ]);
 
     const normalizedAccount =
         account.toLowerCase();
 
     const isConnected = Boolean(
-        account && signer && contract
+        account && signer
+    );
+
+    const isCorrectNetwork =
+        chainId === expectedChainId;
+
+    const isProtocolReady = Boolean(
+        isConnected &&
+        isCorrectNetwork &&
+        contract
     );
 
     const isOwner = Boolean(
+        isProtocolReady &&
         normalizedAccount &&
         owner &&
-        normalizedAccount === owner.toLowerCase()
+        normalizedAccount ===
+        owner.toLowerCase()
     );
 
     const isArbitrator = Boolean(
+        isProtocolReady &&
         normalizedAccount &&
         arbitrator &&
         normalizedAccount ===
         arbitrator.toLowerCase()
     );
-
-    const isCorrectNetwork =
-        chainId === expectedChainId;
 
     const value = useMemo(
         () => ({
@@ -367,6 +567,7 @@ export function Web3Provider({ children }) {
 
             isConnected,
             isCorrectNetwork,
+            isProtocolReady,
             isOwner,
             isArbitrator,
             isConnecting,
@@ -390,6 +591,7 @@ export function Web3Provider({ children }) {
             isPaused,
             isConnected,
             isCorrectNetwork,
+            isProtocolReady,
             isOwner,
             isArbitrator,
             isConnecting,
@@ -402,7 +604,9 @@ export function Web3Provider({ children }) {
     );
 
     return (
-        <Web3Context.Provider value={value}>
+        <Web3Context.Provider
+            value={value}
+        >
             {children}
         </Web3Context.Provider>
     );
