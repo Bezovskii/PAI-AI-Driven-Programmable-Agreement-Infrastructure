@@ -8,6 +8,7 @@ import {
 import "./App.css";
 
 import LegacyApp from "./LegacyApp.jsx";
+import AdminPanel from "./components/admin/AdminPanel.jsx";
 import ArbitrationPanel from "./components/arbitration/ArbitrationPanel.jsx";
 import SellerOrderPanel from "./components/orders/SellerOrderPanel.jsx";
 import BuyerPaymentPanel from "./components/payments/BuyerPaymentPanel.jsx";
@@ -129,9 +130,11 @@ function DashboardPage() {
           </strong>
 
           <small>
-            {isCorrectNetwork
-              ? "Correct network"
-              : "Network mismatch"}
+            {!isConnected
+              ? "Connect wallet to verify"
+              : isCorrectNetwork
+                ? "Correct network"
+                : "Network mismatch"}
           </small>
         </article>
 
@@ -158,9 +161,9 @@ function DashboardPage() {
             <h2>Buyer workspace</h2>
 
             <p>
-              Create payments, confirm delivery,
-              open disputes, and monitor outgoing
-              escrow orders.
+              Create direct or escrow payments,
+              confirm successful delivery, and
+              open disputes.
             </p>
 
             <NavLink to="/buyer">
@@ -178,9 +181,8 @@ function DashboardPage() {
             <h2>Seller workspace</h2>
 
             <p>
-              Review incoming orders, issue
-              refunds, open disputes, and track
-              released funds.
+              Review incoming orders, refund
+              eligible escrows, and open disputes.
             </p>
 
             <NavLink to="/seller">
@@ -199,7 +201,7 @@ function DashboardPage() {
 
             <p>
               Review disputed orders and resolve
-              them in favor of the buyer or seller.
+              protected funds to the buyer or seller.
             </p>
 
             <NavLink to="/arbitration">
@@ -218,8 +220,8 @@ function DashboardPage() {
 
             <p>
               Manage pause controls, approved
-              tokens, ownership, arbitrator
-              rotation, and protocol solvency.
+              tokens, arbitrator authority, and
+              protocol solvency.
             </p>
 
             <NavLink to="/admin">
@@ -291,9 +293,9 @@ function BuyerPage() {
           <h3>Seller delivers</h3>
 
           <p>
-            For escrow payments, the funds remain
-            protected inside the protocol while
-            the seller completes the agreement.
+            For escrow payments, funds remain
+            protected while the seller completes
+            the agreement.
           </p>
         </div>
 
@@ -304,7 +306,7 @@ function BuyerPage() {
 
           <p>
             Confirm successful delivery to release
-            the funds, or open a dispute when the
+            funds, or open a dispute when the
             agreement is not completed.
           </p>
         </div>
@@ -325,10 +327,9 @@ function SellerPage() {
           <h1>Seller workspace</h1>
 
           <p>
-            Find orders assigned to your connected
-            wallet, review their current status,
-            refund the buyer, or open a dispute
-            when the contract permits it.
+            Find orders assigned to your wallet,
+            review their status, refund the buyer,
+            or open a dispute when permitted.
           </p>
         </div>
       </div>
@@ -343,8 +344,8 @@ function SellerPage() {
 
           <p>
             Enter the on-chain order ID to load
-            its buyer, seller, asset, amount,
-            payment type, and current status.
+            the parties, asset, amount, payment
+            type, and current status.
           </p>
         </div>
 
@@ -354,7 +355,7 @@ function SellerPage() {
           <h3>Verify your role</h3>
 
           <p>
-            Seller actions only appear when the
+            Seller actions appear only when the
             connected wallet matches the seller
             recorded in the order.
           </p>
@@ -395,8 +396,7 @@ function ArbitrationPage() {
           <p>
             Review disputed escrow orders and
             release protected funds to the buyer
-            or seller. Only the current on-chain
-            arbitrator can resolve a dispute.
+            or seller.
           </p>
         </div>
       </div>
@@ -419,8 +419,8 @@ function ArbitrationPage() {
           <h3>Load dispute</h3>
 
           <p>
-            Enter the on-chain order ID and verify
-            that the order is currently disputed.
+            Enter the order ID and verify that
+            the order is currently disputed.
           </p>
         </div>
 
@@ -430,8 +430,8 @@ function ArbitrationPage() {
           <h3>Review parties</h3>
 
           <p>
-            Confirm the buyer, seller, payment
-            asset, amount, and escrow status.
+            Confirm the buyer, seller, asset,
+            amount, and current escrow status.
           </p>
         </div>
 
@@ -441,8 +441,8 @@ function ArbitrationPage() {
           <h3>Resolve permanently</h3>
 
           <p>
-            Release the escrowed funds to either
-            the buyer or seller. Resolution cannot
+            Release the funds to the buyer or
+            seller. Dispute resolution cannot
             be reversed.
           </p>
         </div>
@@ -469,8 +469,9 @@ function AdminPage() {
           <h1>Administration workspace</h1>
 
           <p>
-            Administrative controls are restricted
-            to the current protocol owner.
+            Manage payment availability, approved
+            tokens, protocol liabilities, solvency,
+            and arbitrator authority.
           </p>
         </div>
       </div>
@@ -486,6 +487,43 @@ function AdminPage() {
           owner
         )}`}
       />
+
+      <AdminPanel />
+
+      <section className="workspacePreview">
+        <div>
+          <span>01</span>
+
+          <h3>Control exposure</h3>
+
+          <p>
+            Pause or unpause the creation of new
+            direct and escrow payments.
+          </p>
+        </div>
+
+        <div>
+          <span>02</span>
+
+          <h3>Manage assets</h3>
+
+          <p>
+            Approve or disable ERC20 assets and
+            review their recorded liabilities.
+          </p>
+        </div>
+
+        <div>
+          <span>03</span>
+
+          <h3>Manage authority</h3>
+
+          <p>
+            Propose a new arbitrator and monitor
+            the two-step transfer process.
+          </p>
+        </div>
+      </section>
     </div>
   );
 }
@@ -523,7 +561,10 @@ function App() {
         </NavLink>
 
         <nav className="roleNav">
-          <NavLink to="/">
+          <NavLink
+            to="/"
+            end
+          >
             Overview
           </NavLink>
 
@@ -548,7 +589,7 @@ function App() {
           )}
 
           <NavLink to="/workspace">
-            Workspace
+            Legacy workspace
           </NavLink>
         </nav>
 
@@ -566,13 +607,14 @@ function App() {
         </button>
       </header>
 
-      {isConnected && !isCorrectNetwork && (
-        <div className="networkWarning">
-          Wrong network. Connected chain:{" "}
-          {chainId}. Expected chain:{" "}
-          {expectedChainId}.
-        </div>
-      )}
+      {isConnected &&
+        !isCorrectNetwork && (
+          <div className="networkWarning">
+            Wrong network. Connected chain:{" "}
+            {chainId}. Expected chain:{" "}
+            {expectedChainId}.
+          </div>
+        )}
 
       {transaction.status !== "idle" &&
         transaction.message && (
