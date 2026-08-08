@@ -1,4 +1,4 @@
-import { ethers } from "ethers";
+﻿import { ethers } from "ethers";
 import {
     createContext,
     useCallback,
@@ -156,16 +156,50 @@ export function Web3Provider({ children }) {
                         window.ethereum
                     );
 
-                const accounts =
-                    requestAccess
-                        ? await browserProvider.send(
+                let accounts;
+
+                if (requestAccess) {
+                    try {
+                        await browserProvider.send(
+                            "wallet_requestPermissions",
+                            [
+                                {
+                                    eth_accounts: {},
+                                },
+                            ]
+                        );
+                    } catch (permissionError) {
+                        const permissionCode =
+                            permissionError?.code ??
+                            permissionError?.error?.code ??
+                            permissionError?.info?.error?.code;
+
+                        if (
+                            permissionCode === 4001 ||
+                            permissionError?.code ===
+                                "ACTION_REJECTED"
+                        ) {
+                            throw permissionError;
+                        }
+
+                        console.warn(
+                            "Wallet permission prompt unavailable. Falling back to standard connection.",
+                            permissionError
+                        );
+                    }
+
+                    accounts =
+                        await browserProvider.send(
                             "eth_requestAccounts",
                             []
-                        )
-                        : await browserProvider.send(
+                        );
+                } else {
+                    accounts =
+                        await browserProvider.send(
                             "eth_accounts",
                             []
                         );
+                }
 
                 if (!accounts.length) {
                     resetConnection();
@@ -179,8 +213,13 @@ export function Web3Provider({ children }) {
                 const detectedChainId =
                     Number(network.chainId);
 
+                const selectedAccount =
+                    ethers.getAddress(accounts[0]);
+
                 const walletSigner =
-                    await browserProvider.getSigner();
+                    await browserProvider.getSigner(
+                        selectedAccount
+                    );
 
                 const walletAccount =
                     await walletSigner.getAddress();
@@ -417,17 +456,6 @@ export function Web3Provider({ children }) {
         }, []);
 
     useEffect(() => {
-        initializeConnection(false).catch(
-            (error) => {
-                console.error(
-                    "Silent wallet connection failed:",
-                    error
-                );
-            }
-        );
-    }, [initializeConnection]);
-
-    useEffect(() => {
         if (
             typeof window ===
             "undefined" ||
@@ -438,6 +466,19 @@ export function Web3Provider({ children }) {
 
         const handleAccountsChanged =
             (accounts) => {
+                /*
+                 * Do not silently connect ESCT just
+                 * because MetaMask already knows
+                 * about an authorized account.
+                 *
+                 * Account changes are only handled
+                 * after the user has explicitly
+                 * connected during this ESCT session.
+                 */
+                if (!account || !signer) {
+                    return;
+                }
+
                 if (!accounts.length) {
                     resetConnection();
 
@@ -474,6 +515,15 @@ export function Web3Provider({ children }) {
             };
 
         const handleChainChanged = () => {
+            /*
+             * Same rule for networks:
+             * no automatic ESCT session until
+             * Connect wallet has been pressed.
+             */
+            if (!account || !signer) {
+                return;
+            }
+
             initializeConnection(
                 false
             ).catch((error) => {
@@ -516,6 +566,8 @@ export function Web3Provider({ children }) {
             );
         };
     }, [
+        account,
+        signer,
         initializeConnection,
         resetConnection,
     ]);
@@ -611,3 +663,5 @@ export function Web3Provider({ children }) {
         </Web3Context.Provider>
     );
 }
+
+
