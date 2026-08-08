@@ -11,6 +11,7 @@ import LegacyApp from "./LegacyApp.jsx";
 import AdminPanel from "./components/admin/AdminPanel.jsx";
 import ArbitrationPanel from "./components/arbitration/ArbitrationPanel.jsx";
 import ArbitratorAcceptancePanel from "./components/arbitration/ArbitratorAcceptancePanel.jsx";
+import BuyerOrderPanel from "./components/orders/BuyerOrderPanel.jsx";
 import SellerOrderPanel from "./components/orders/SellerOrderPanel.jsx";
 import BuyerPaymentPanel from "./components/payments/BuyerPaymentPanel.jsx";
 import WalletControl from "./components/wallet/WalletControl.jsx";
@@ -276,6 +277,8 @@ function BuyerPage() {
       </div>
 
       <BuyerPaymentPanel />
+
+      <BuyerOrderPanel />
 
       <section className="workspacePreview buyerSteps">
         <div>
@@ -688,3 +691,6 @@ function App() {
 }
 
 export default App;
+
+
+
