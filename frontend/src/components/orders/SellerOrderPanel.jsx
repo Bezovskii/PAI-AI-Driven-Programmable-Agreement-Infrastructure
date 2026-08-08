@@ -44,6 +44,207 @@ function getErrorMessage(error) {
     );
 }
 
+function buildLifecycle(order) {
+    if (!order) {
+        return [];
+    }
+
+    /*
+     * Direct payments do not enter escrow.
+     */
+    if (order.paymentType === 0) {
+        return [
+            {
+                label: "Created",
+                state: "done",
+                detail: "Order created",
+            },
+            {
+                label: "Direct payment",
+                state: "done",
+                detail: "Funds sent directly",
+            },
+            {
+                label: "Completed",
+                state: "current success",
+                detail: "Transaction completed",
+            },
+        ];
+    }
+
+    /*
+     * Escrow status:
+     * 0 = In Escrow
+     * 1 = Disputed
+     * 2 = Completed
+     * 3 = Refunded
+     */
+
+    if (order.status === 0) {
+        return [
+            {
+                label: "Created",
+                state: "done",
+                detail: "Order created",
+            },
+            {
+                label: "In Escrow",
+                state: "current",
+                detail: "Funds protected",
+            },
+            {
+                label: "Outcome",
+                state: "pending",
+                detail: "Release, dispute or refund",
+            },
+        ];
+    }
+
+    if (order.status === 1) {
+        return [
+            {
+                label: "Created",
+                state: "done",
+                detail: "Order created",
+            },
+            {
+                label: "In Escrow",
+                state: "done",
+                detail: "Funds protected",
+            },
+            {
+                label: "Disputed",
+                state: "current dispute",
+                detail: "Awaiting arbitration",
+            },
+            {
+                label: "Resolution",
+                state: "pending",
+                detail: "Arbitrator decision",
+            },
+        ];
+    }
+
+    if (order.status === 2) {
+        return [
+            {
+                label: "Created",
+                state: "done",
+                detail: "Order created",
+            },
+            {
+                label: "In Escrow",
+                state: "done",
+                detail: "Funds protected",
+            },
+            {
+                label: "Completed",
+                state: "current success",
+                detail: "Escrow settled",
+            },
+        ];
+    }
+
+    if (order.status === 3) {
+        return [
+            {
+                label: "Created",
+                state: "done",
+                detail: "Order created",
+            },
+            {
+                label: "In Escrow",
+                state: "done",
+                detail: "Funds protected",
+            },
+            {
+                label: "Refunded",
+                state: "current refund",
+                detail: "Funds returned",
+            },
+        ];
+    }
+
+    return [];
+}
+
+/*
+ * We intentionally reuse the same lifecycle classes
+ * used by BuyerOrderPanel so Buyer and Seller see
+ * exactly the same protocol-state language.
+ */
+function OrderLifecycle({ order }) {
+    const steps = buildLifecycle(order);
+
+    return (
+        <div className="buyerOrderLifecycle">
+            <div className="buyerLifecycleHeader">
+                <div>
+                    <span>
+                        ORDER LIFECYCLE
+                    </span>
+
+                    <strong>
+                        On-chain status
+                    </strong>
+                </div>
+
+                <small>
+                    {order.paymentType === 1
+                        ? "ESCROW FLOW"
+                        : "DIRECT FLOW"}
+                </small>
+            </div>
+
+            <div
+                className="buyerLifecycleTrack"
+                style={{
+                    "--lifecycle-columns":
+                        steps.length,
+                }}
+            >
+                {steps.map(
+                    (step, index) => (
+                        <div
+                            key={`${step.label}-${index}`}
+                            className={`buyerLifecycleStep ${step.state}`}
+                        >
+                            <div className="buyerLifecycleMarker">
+                                <span>
+                                    {step.state.includes(
+                                        "done"
+                                    )
+                                        ? "✓"
+                                        : step.state.includes(
+                                            "current"
+                                        )
+                                            ? "●"
+                                            : ""}
+                                </span>
+                            </div>
+
+                            {index <
+                                steps.length - 1 && (
+                                    <div className="buyerLifecycleLine" />
+                                )}
+
+                            <div className="buyerLifecycleText">
+                                <strong>
+                                    {step.label}
+                                </strong>
+
+                                <small>
+                                    {step.detail}
+                                </small>
+                            </div>
+                        </div>
+                    )
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function SellerOrderPanel() {
     const {
         account,
@@ -54,15 +255,30 @@ export default function SellerOrderPanel() {
         executeTransaction,
     } = useWeb3();
 
-    const [orderId, setOrderId] = useState("");
-    const [order, setOrder] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState("");
-    const [notice, setNotice] = useState("");
+    const [orderId, setOrderId] =
+        useState("");
+
+    const [order, setOrder] =
+        useState(null);
+
+    const [isLoading, setIsLoading] =
+        useState(false);
+
+    const [error, setError] =
+        useState("");
+
+    const [notice, setNotice] =
+        useState("");
 
     function validateConnection() {
-        if (!isConnected || !contract || !provider) {
-            throw new Error("Connect your wallet first.");
+        if (
+            !isConnected ||
+            !contract ||
+            !provider
+        ) {
+            throw new Error(
+                "Connect your wallet first."
+            );
         }
 
         if (!isCorrectNetwork) {
@@ -73,10 +289,13 @@ export default function SellerOrderPanel() {
     }
 
     function validateOrderId() {
-        const parsedOrderId = Number(orderId);
+        const parsedOrderId =
+            Number(orderId);
 
         if (
-            !Number.isInteger(parsedOrderId) ||
+            !Number.isInteger(
+                parsedOrderId
+            ) ||
             parsedOrderId <= 0
         ) {
             throw new Error(
@@ -87,7 +306,9 @@ export default function SellerOrderPanel() {
         return parsedOrderId;
     }
 
-    async function getAssetMetadata(tokenAddress) {
+    async function getAssetMetadata(
+        tokenAddress
+    ) {
         if (
             tokenAddress.toLowerCase() ===
             ethers.ZeroAddress.toLowerCase()
@@ -98,73 +319,113 @@ export default function SellerOrderPanel() {
             };
         }
 
-        const tokenContract = new ethers.Contract(
-            tokenAddress,
-            ERC20_METADATA_ABI,
-            provider
-        );
+        const tokenContract =
+            new ethers.Contract(
+                tokenAddress,
+                ERC20_METADATA_ABI,
+                provider
+            );
 
-        const [symbol, decimalsResult] =
-            await Promise.all([
-                tokenContract.symbol(),
-                tokenContract.decimals(),
-            ]);
+        const [
+            symbol,
+            decimalsResult,
+        ] = await Promise.all([
+            tokenContract.symbol(),
+            tokenContract.decimals(),
+        ]);
 
         return {
             symbol,
-            decimals: Number(decimalsResult),
+            decimals:
+                Number(decimalsResult),
         };
+    }
+
+    async function fetchOrder() {
+        validateConnection();
+
+        const parsedOrderId =
+            validateOrderId();
+
+        const result =
+            await contract.orderById(
+                parsedOrderId
+            );
+
+        const exists =
+            Boolean(result[7]);
+
+        if (!exists) {
+            throw new Error(
+                `Order #${parsedOrderId} does not exist.`
+            );
+        }
+
+        const tokenAddress =
+            result[3];
+
+        const metadata =
+            await getAssetMetadata(
+                tokenAddress
+            );
+
+        const parsedOrder = {
+            id: result[0].toString(),
+
+            buyer: result[1],
+
+            seller: result[2],
+
+            token: tokenAddress,
+
+            amount: result[4],
+
+            formattedAmount:
+                `${ethers.formatUnits(
+                    result[4],
+                    metadata.decimals
+                )} ${metadata.symbol}`,
+
+            assetSymbol:
+                metadata.symbol,
+
+            paymentType:
+                Number(result[5]),
+
+            status:
+                Number(result[6]),
+
+            exists,
+        };
+
+        setOrder(parsedOrder);
+
+        return parsedOrder;
     }
 
     async function loadOrder() {
         try {
             setError("");
             setNotice("");
+            setOrder(null);
             setIsLoading(true);
 
-            validateConnection();
+            const loadedOrder =
+                await fetchOrder();
 
-            const parsedOrderId = validateOrderId();
-            const result =
-                await contract.orderById(parsedOrderId);
-
-            const exists = Boolean(result[7]);
-
-            if (!exists) {
-                throw new Error(
-                    `Order #${parsedOrderId} does not exist.`
-                );
-            }
-
-            const tokenAddress = result[3];
-            const metadata =
-                await getAssetMetadata(tokenAddress);
-
-            const parsedOrder = {
-                id: result[0].toString(),
-                buyer: result[1],
-                seller: result[2],
-                token: tokenAddress,
-                amount: result[4],
-                formattedAmount:
-                    `${ethers.formatUnits(
-                        result[4],
-                        metadata.decimals
-                    )} ${metadata.symbol}`,
-                assetSymbol: metadata.symbol,
-                paymentType: Number(result[5]),
-                status: Number(result[6]),
-                exists,
-            };
-
-            setOrder(parsedOrder);
             setNotice(
-                `Order #${parsedOrder.id} loaded successfully.`
+                `Order #${loadedOrder.id} loaded successfully.`
             );
         } catch (loadError) {
             console.error(loadError);
+
             setOrder(null);
-            setError(getErrorMessage(loadError));
+
+            setError(
+                getErrorMessage(
+                    loadError
+                )
+            );
         } finally {
             setIsLoading(false);
         }
@@ -184,7 +445,9 @@ export default function SellerOrderPanel() {
             validateConnection();
 
             if (!order) {
-                throw new Error("Load an order first.");
+                throw new Error(
+                    "Load an order first."
+                );
             }
 
             await executeTransaction({
@@ -194,11 +457,19 @@ export default function SellerOrderPanel() {
                 successMessage,
             });
 
-            await loadOrder();
-            setNotice(successMessage);
+            await fetchOrder();
+
+            setNotice(
+                successMessage
+            );
         } catch (actionError) {
             console.error(actionError);
-            setError(getErrorMessage(actionError));
+
+            setError(
+                getErrorMessage(
+                    actionError
+                )
+            );
         } finally {
             setIsLoading(false);
         }
@@ -237,27 +508,41 @@ export default function SellerOrderPanel() {
         isEscrowOrder &&
         isInEscrow;
 
+    let orderRole =
+        "Not a participant";
+
+    if (isSeller) {
+        orderRole = "Seller";
+    } else if (isBuyer) {
+        orderRole = "Buyer";
+    }
+
     return (
         <section className="sellerOrderPanel">
             <div className="sellerOrderHeader">
                 <div>
                     <span className="eyebrow">
-                        Seller order management
+                        Seller / Order management
                     </span>
 
-                    <h2>Find an incoming order</h2>
+                    <h2>
+                        Find an incoming order
+                    </h2>
 
                     <p>
-                        Enter an order ID to verify whether
-                        your connected wallet is recorded as
-                        the seller.
+                        Load an on-chain Order ID,
+                        verify your seller role and
+                        inspect the current escrow
+                        lifecycle.
                     </p>
                 </div>
             </div>
 
             <div className="sellerOrderSearch">
                 <div>
-                    <label htmlFor="seller-order-id">
+                    <label
+                        htmlFor="seller-order-id"
+                    >
                         Order ID
                     </label>
 
@@ -270,8 +555,19 @@ export default function SellerOrderPanel() {
                         placeholder="Example: 1"
                         value={orderId}
                         onChange={(event) =>
-                            setOrderId(event.target.value)
+                            setOrderId(
+                                event.target
+                                    .value
+                            )
                         }
+                        onKeyDown={(event) => {
+                            if (
+                                event.key ===
+                                "Enter"
+                            ) {
+                                loadOrder();
+                            }
+                        }}
                     />
                 </div>
 
@@ -303,10 +599,12 @@ export default function SellerOrderPanel() {
                 </div>
             )}
 
-            {!order && (
+            {!order && !error && (
                 <div className="emptyState">
-                    No order loaded. Enter an order ID
-                    to view its details.
+                    No order loaded. Enter an
+                    Order ID to inspect the
+                    transaction and seller
+                    permissions.
                 </div>
             )}
 
@@ -314,8 +612,13 @@ export default function SellerOrderPanel() {
                 <div className="sellerOrderCard">
                     <div className="sellerOrderTop">
                         <div>
-                            <span>Order</span>
-                            <h3>#{order.id}</h3>
+                            <span>
+                                ORDER
+                            </span>
+
+                            <h3>
+                                #{order.id}
+                            </h3>
                         </div>
 
                         <span
@@ -324,45 +627,85 @@ export default function SellerOrderPanel() {
                                     "disputed",
                                     "completed",
                                     "refunded",
-                                ][order.status] || ""
+                                ][
+                                order.status
+                                ] || ""
                                 }`}
                         >
-                            {ORDER_STATUS[order.status] ||
-                                "Unknown"}
+                            {ORDER_STATUS[
+                                order.status
+                            ] || "Unknown"}
                         </span>
                     </div>
 
+                    <OrderLifecycle
+                        order={order}
+                    />
+
                     <div className="sellerOrderDetails">
                         <div>
-                            <span>Buyer</span>
-                            <strong>
-                                {shortAddress(order.buyer)}
+                            <span>
+                                Buyer
+                            </span>
+
+                            <strong
+                                className="mono"
+                                title={
+                                    order.buyer
+                                }
+                            >
+                                {shortAddress(
+                                    order.buyer
+                                )}
                             </strong>
                         </div>
 
                         <div>
-                            <span>Seller</span>
-                            <strong>
-                                {shortAddress(order.seller)}
+                            <span>
+                                Seller
+                            </span>
+
+                            <strong
+                                className="mono"
+                                title={
+                                    order.seller
+                                }
+                            >
+                                {shortAddress(
+                                    order.seller
+                                )}
                             </strong>
                         </div>
 
                         <div>
-                            <span>Amount</span>
+                            <span>
+                                Amount
+                            </span>
+
                             <strong>
-                                {order.formattedAmount}
+                                {
+                                    order.formattedAmount
+                                }
                             </strong>
                         </div>
 
                         <div>
-                            <span>Asset</span>
+                            <span>
+                                Asset
+                            </span>
+
                             <strong>
-                                {order.assetSymbol}
+                                {
+                                    order.assetSymbol
+                                }
                             </strong>
                         </div>
 
                         <div>
-                            <span>Payment type</span>
+                            <span>
+                                Protection
+                            </span>
+
                             <strong>
                                 {PAYMENT_TYPE[
                                     order.paymentType
@@ -371,30 +714,60 @@ export default function SellerOrderPanel() {
                         </div>
 
                         <div>
-                            <span>Your order role</span>
+                            <span>
+                                Connected role
+                            </span>
+
                             <strong>
-                                {isSeller
-                                    ? "Seller"
-                                    : isBuyer
-                                        ? "Buyer"
-                                        : "Not a participant"}
+                                {orderRole}
                             </strong>
                         </div>
                     </div>
 
                     {!isSeller && (
                         <div className="sellerAccessWarning">
-                            The connected wallet is not the
-                            seller for this order. Seller actions
-                            are unavailable.
+                            The connected wallet is
+                            not the seller for this
+                            order. Seller-only
+                            actions are unavailable.
                         </div>
                     )}
 
                     {isSeller &&
-                        (!isEscrowOrder || !isInEscrow) && (
+                        order.status === 1 && (
                             <div className="sellerAccessNotice">
-                                This order has no currently
-                                available seller action.
+                                This order is
+                                disputed. Escrow is
+                                awaiting protocol
+                                arbitration.
+                            </div>
+                        )}
+
+                    {isSeller &&
+                        order.status === 2 && (
+                            <div className="sellerAccessNotice">
+                                This transaction is
+                                completed. The escrow
+                                is no longer active.
+                            </div>
+                        )}
+
+                    {isSeller &&
+                        order.status === 3 && (
+                            <div className="sellerAccessNotice">
+                                This order has been
+                                refunded. The escrow
+                                is no longer active.
+                            </div>
+                        )}
+
+                    {isSeller &&
+                        !isEscrowOrder && (
+                            <div className="sellerAccessNotice">
+                                This was a direct
+                                payment and therefore
+                                has no active escrow
+                                controls.
                             </div>
                         )}
 
@@ -403,17 +776,24 @@ export default function SellerOrderPanel() {
                             <button
                                 type="button"
                                 className="secondary"
-                                disabled={isLoading}
+                                disabled={
+                                    isLoading
+                                }
                                 onClick={() =>
                                     runOrderAction({
                                         action: () =>
                                             contract.refund(
-                                                Number(order.id)
+                                                Number(
+                                                    order.id
+                                                )
                                             ),
+
                                         pendingMessage:
                                             "Confirm the refund in your wallet.",
+
                                         submittedMessage:
                                             `Refund for Order #${order.id} submitted.`,
+
                                         successMessage:
                                             `Order #${order.id} refunded successfully.`,
                                     })
@@ -427,17 +807,24 @@ export default function SellerOrderPanel() {
                             <button
                                 type="button"
                                 className="danger"
-                                disabled={isLoading}
+                                disabled={
+                                    isLoading
+                                }
                                 onClick={() =>
                                     runOrderAction({
                                         action: () =>
                                             contract.openDispute(
-                                                Number(order.id)
+                                                Number(
+                                                    order.id
+                                                )
                                             ),
+
                                         pendingMessage:
                                             "Confirm the dispute in your wallet.",
+
                                         submittedMessage:
                                             `Dispute for Order #${order.id} submitted.`,
+
                                         successMessage:
                                             `Dispute opened for Order #${order.id}.`,
                                     })

@@ -17,7 +17,9 @@ const ORDER_STATUS = [
 ];
 
 function shortAddress(address) {
-    if (!address) return "-";
+    if (!address) {
+        return "-";
+    }
 
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
@@ -38,6 +40,201 @@ function getErrorMessage(error) {
     );
 }
 
+function buildLifecycle(order) {
+    if (!order) {
+        return [];
+    }
+
+    /*
+     * Direct payments do not enter escrow.
+     */
+    if (order.paymentType === 0) {
+        return [
+            {
+                label: "Created",
+                state: "done",
+                detail: "Payment order created",
+            },
+            {
+                label: "Direct payment",
+                state: "done",
+                detail: "Funds sent directly",
+            },
+            {
+                label: "Completed",
+                state: "current",
+                detail: "Transaction completed",
+            },
+        ];
+    }
+
+    /*
+     * Escrow status:
+     * 0 = InEscrow
+     * 1 = Disputed
+     * 2 = Completed
+     * 3 = Refunded
+     */
+
+    if (order.status === 0) {
+        return [
+            {
+                label: "Created",
+                state: "done",
+                detail: "Order created",
+            },
+            {
+                label: "In Escrow",
+                state: "current",
+                detail: "Funds protected",
+            },
+            {
+                label: "Outcome",
+                state: "pending",
+                detail: "Release, dispute or refund",
+            },
+        ];
+    }
+
+    if (order.status === 1) {
+        return [
+            {
+                label: "Created",
+                state: "done",
+                detail: "Order created",
+            },
+            {
+                label: "In Escrow",
+                state: "done",
+                detail: "Funds protected",
+            },
+            {
+                label: "Disputed",
+                state: "current dispute",
+                detail: "Awaiting arbitration",
+            },
+            {
+                label: "Resolution",
+                state: "pending",
+                detail: "Arbitrator decision",
+            },
+        ];
+    }
+
+    if (order.status === 2) {
+        return [
+            {
+                label: "Created",
+                state: "done",
+                detail: "Order created",
+            },
+            {
+                label: "In Escrow",
+                state: "done",
+                detail: "Funds protected",
+            },
+            {
+                label: "Completed",
+                state: "current success",
+                detail: "Funds released",
+            },
+        ];
+    }
+
+    if (order.status === 3) {
+        return [
+            {
+                label: "Created",
+                state: "done",
+                detail: "Order created",
+            },
+            {
+                label: "In Escrow",
+                state: "done",
+                detail: "Funds protected",
+            },
+            {
+                label: "Refunded",
+                state: "current refund",
+                detail: "Funds returned",
+            },
+        ];
+    }
+
+    return [];
+}
+
+function OrderLifecycle({ order }) {
+    const steps = buildLifecycle(order);
+
+    return (
+        <div className="buyerOrderLifecycle">
+            <div className="buyerLifecycleHeader">
+                <div>
+                    <span>ORDER LIFECYCLE</span>
+
+                    <strong>
+                        On-chain status
+                    </strong>
+                </div>
+
+                <small>
+                    {order.paymentType === 1
+                        ? "ESCROW FLOW"
+                        : "DIRECT FLOW"}
+                </small>
+            </div>
+
+            <div
+                className="buyerLifecycleTrack"
+                style={{
+                    "--lifecycle-columns":
+                        steps.length,
+                }}
+            >
+                {steps.map(
+                    (step, index) => (
+                        <div
+                            className={`buyerLifecycleStep ${step.state}`}
+                            key={`${step.label}-${index}`}
+                        >
+                            <div className="buyerLifecycleMarker">
+                                <span>
+                                    {step.state.includes(
+                                        "done"
+                                    )
+                                        ? "✓"
+                                        : step.state.includes(
+                                            "current"
+                                        )
+                                            ? "●"
+                                            : ""}
+                                </span>
+                            </div>
+
+                            {index <
+                                steps.length -
+                                1 && (
+                                    <div className="buyerLifecycleLine" />
+                                )}
+
+                            <div className="buyerLifecycleText">
+                                <strong>
+                                    {step.label}
+                                </strong>
+
+                                <small>
+                                    {step.detail}
+                                </small>
+                            </div>
+                        </div>
+                    )
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function BuyerOrderPanel() {
     const {
         account,
@@ -48,15 +245,30 @@ export default function BuyerOrderPanel() {
         executeTransaction,
     } = useWeb3();
 
-    const [orderId, setOrderId] = useState("");
-    const [order, setOrder] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState("");
-    const [notice, setNotice] = useState("");
+    const [orderId, setOrderId] =
+        useState("");
+
+    const [order, setOrder] =
+        useState(null);
+
+    const [isLoading, setIsLoading] =
+        useState(false);
+
+    const [error, setError] =
+        useState("");
+
+    const [notice, setNotice] =
+        useState("");
 
     function validateConnection() {
-        if (!isConnected || !provider || !contract) {
-            throw new Error("Connect your wallet first.");
+        if (
+            !isConnected ||
+            !provider ||
+            !contract
+        ) {
+            throw new Error(
+                "Connect your wallet first."
+            );
         }
 
         if (!isCorrectNetwork) {
@@ -81,7 +293,9 @@ export default function BuyerOrderPanel() {
         return parsed;
     }
 
-    async function getTokenMetadata(tokenAddress) {
+    async function getTokenMetadata(
+        tokenAddress
+    ) {
         if (
             tokenAddress.toLowerCase() ===
             ethers.ZeroAddress.toLowerCase()
@@ -92,11 +306,12 @@ export default function BuyerOrderPanel() {
             };
         }
 
-        const token = new ethers.Contract(
-            tokenAddress,
-            ERC20_METADATA_ABI,
-            provider
-        );
+        const token =
+            new ethers.Contract(
+                tokenAddress,
+                ERC20_METADATA_ABI,
+                provider
+            );
 
         const [symbol, decimals] =
             await Promise.all([
@@ -110,10 +325,13 @@ export default function BuyerOrderPanel() {
         };
     }
 
-    async function fetchOrder(showNotice = true) {
+    async function fetchOrder(
+        showNotice = true
+    ) {
         validateConnection();
 
-        const parsedOrderId = parseOrderId();
+        const parsedOrderId =
+            parseOrderId();
 
         const result =
             await contract.orderById(
@@ -133,7 +351,9 @@ export default function BuyerOrderPanel() {
 
         const parsedOrder = {
             id: result[0].toString(),
+
             buyer: result[1],
+
             seller: result[2],
 
             amount: `${ethers.formatUnits(
@@ -223,7 +443,9 @@ export default function BuyerOrderPanel() {
             );
         } catch (actionError) {
             setError(
-                getErrorMessage(actionError)
+                getErrorMessage(
+                    actionError
+                )
             );
         } finally {
             setIsLoading(false);
@@ -265,7 +487,9 @@ export default function BuyerOrderPanel() {
             );
         } catch (actionError) {
             setError(
-                getErrorMessage(actionError)
+                getErrorMessage(
+                    actionError
+                )
             );
         } finally {
             setIsLoading(false);
@@ -285,15 +509,18 @@ export default function BuyerOrderPanel() {
                     </h2>
 
                     <p>
-                        Enter the Order ID generated
-                        when the payment was created.
+                        Enter the Order ID
+                        generated when the
+                        payment was created.
                     </p>
                 </div>
             </div>
 
             <div className="buyerOrderLookup">
                 <div className="buyerOrderInput">
-                    <label htmlFor="buyer-order-id">
+                    <label
+                        htmlFor="buyer-order-id"
+                    >
                         Order ID
                     </label>
 
@@ -305,9 +532,18 @@ export default function BuyerOrderPanel() {
                         value={orderId}
                         onChange={(event) =>
                             setOrderId(
-                                event.target.value
+                                event.target
+                                    .value
                             )
                         }
+                        onKeyDown={(event) => {
+                            if (
+                                event.key ===
+                                "Enter"
+                            ) {
+                                loadOrder();
+                            }
+                        }}
                     />
                 </div>
 
@@ -339,6 +575,26 @@ export default function BuyerOrderPanel() {
                 </div>
             )}
 
+            {!order && !error && (
+                <div className="buyerOrderEmptyState">
+                    <div className="buyerOrderEmptyIcon">
+                        #
+                    </div>
+
+                    <div>
+                        <strong>
+                            No order loaded
+                        </strong>
+
+                        <span>
+                            Enter an Order ID
+                            above to inspect
+                            its on-chain state.
+                        </span>
+                    </div>
+                </div>
+            )}
+
             {order && (
                 <div className="buyerLoadedOrder">
                     <div className="buyerLoadedOrderTop">
@@ -361,19 +617,32 @@ export default function BuyerOrderPanel() {
                         </span>
                     </div>
 
+                    <OrderLifecycle
+                        order={order}
+                    />
+
                     <div className="buyerOrderData">
                         <div>
-                            <span>Seller</span>
+                            <span>
+                                Seller
+                            </span>
 
-                            <strong>
+                            <strong
+                                className="mono"
+                                title={
+                                    order.seller
+                                }
+                            >
                                 {shortAddress(
                                     order.seller
                                 )}
                             </strong>
                         </div>
 
-                        <div>
-                            <span>Amount</span>
+                        <div className="buyerOrderAmount">
+                            <span>
+                                Amount
+                            </span>
 
                             <strong>
                                 {order.amount}
@@ -381,9 +650,16 @@ export default function BuyerOrderPanel() {
                         </div>
 
                         <div>
-                            <span>Buyer</span>
+                            <span>
+                                Buyer
+                            </span>
 
-                            <strong>
+                            <strong
+                                className="mono"
+                                title={
+                                    order.buyer
+                                }
+                            >
                                 {shortAddress(
                                     order.buyer
                                 )}
@@ -391,7 +667,9 @@ export default function BuyerOrderPanel() {
                         </div>
 
                         <div>
-                            <span>Type</span>
+                            <span>
+                                Protection
+                            </span>
 
                             <strong>
                                 {order.paymentType ===
@@ -404,8 +682,9 @@ export default function BuyerOrderPanel() {
 
                     {!isBuyer && (
                         <div className="buyerOrderWarning">
-                            Connected wallet is not
-                            the buyer of this order.
+                            Connected wallet
+                            is not the buyer
+                            of this order.
                         </div>
                     )}
 
@@ -422,7 +701,22 @@ export default function BuyerOrderPanel() {
                                         isLoading
                                     }
                                 >
-                                    Confirm & release
+                                    <span>
+                                        ✓
+                                    </span>
+
+                                    <div>
+                                        <strong>
+                                            Confirm
+                                            & release
+                                        </strong>
+
+                                        <small>
+                                            Release
+                                            escrow to
+                                            seller
+                                        </small>
+                                    </div>
                                 </button>
 
                                 <button
@@ -435,10 +729,84 @@ export default function BuyerOrderPanel() {
                                         isLoading
                                     }
                                 >
-                                    Open dispute
+                                    <span>
+                                        !
+                                    </span>
+
+                                    <div>
+                                        <strong>
+                                            Open
+                                            dispute
+                                        </strong>
+
+                                        <small>
+                                            Request
+                                            arbitration
+                                        </small>
+                                    </div>
                                 </button>
                             </div>
                         )}
+
+                    {order.status === 1 && (
+                        <div className="buyerOrderStateMessage disputed">
+                            <span>!</span>
+
+                            <div>
+                                <strong>
+                                    Arbitration
+                                    required
+                                </strong>
+
+                                <small>
+                                    This order is
+                                    disputed and
+                                    awaits resolution
+                                    by the protocol
+                                    arbitrator.
+                                </small>
+                            </div>
+                        </div>
+                    )}
+
+                    {order.status === 2 && (
+                        <div className="buyerOrderStateMessage completed">
+                            <span>✓</span>
+
+                            <div>
+                                <strong>
+                                    Transaction
+                                    completed
+                                </strong>
+
+                                <small>
+                                    The escrow is no
+                                    longer active and
+                                    funds have been
+                                    released.
+                                </small>
+                            </div>
+                        </div>
+                    )}
+
+                    {order.status === 3 && (
+                        <div className="buyerOrderStateMessage refunded">
+                            <span>↩</span>
+
+                            <div>
+                                <strong>
+                                    Order refunded
+                                </strong>
+
+                                <small>
+                                    The escrow is no
+                                    longer active and
+                                    funds were
+                                    returned.
+                                </small>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </section>

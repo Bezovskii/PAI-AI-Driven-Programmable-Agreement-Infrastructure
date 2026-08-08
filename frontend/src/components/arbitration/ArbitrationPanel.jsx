@@ -1,5 +1,5 @@
-﻿import { useState } from "react";
-import { ethers } from "ethers";
+﻿import { ethers } from "ethers";
+import { useState } from "react";
 
 import { useWeb3 } from "../../hooks/useWeb3.js";
 
@@ -44,6 +44,212 @@ function getErrorMessage(error) {
   );
 }
 
+function buildLifecycle(order) {
+  if (!order) {
+    return [];
+  }
+
+  /*
+   * Direct payments do not enter escrow and
+   * therefore cannot enter arbitration.
+   */
+  if (order.paymentType === 0) {
+    return [
+      {
+        label: "Created",
+        state: "done",
+        detail: "Order created",
+      },
+      {
+        label: "Direct payment",
+        state: "done",
+        detail: "Funds transferred",
+      },
+      {
+        label: "Completed",
+        state: "current success",
+        detail: "No arbitration flow",
+      },
+    ];
+  }
+
+  /*
+   * OrderStatus:
+   *
+   * 0 = InEscrow
+   * 1 = Disputed
+   * 2 = Completed
+   * 3 = Refunded
+   *
+   * Important:
+   * The Order struct exposes current state,
+   * not full historical state.
+   *
+   * Therefore Completed / Refunded must not
+   * automatically be displayed as having
+   * passed through arbitration.
+   */
+
+  if (order.status === 0) {
+    return [
+      {
+        label: "Created",
+        state: "done",
+        detail: "Order created",
+      },
+      {
+        label: "In Escrow",
+        state: "current",
+        detail: "Funds protected",
+      },
+      {
+        label: "Dispute",
+        state: "pending",
+        detail: "No dispute opened",
+      },
+    ];
+  }
+
+  if (order.status === 1) {
+    return [
+      {
+        label: "Created",
+        state: "done",
+        detail: "Order created",
+      },
+      {
+        label: "In Escrow",
+        state: "done",
+        detail: "Funds protected",
+      },
+      {
+        label: "Disputed",
+        state: "current dispute",
+        detail: "Arbitration active",
+      },
+      {
+        label: "Resolution",
+        state: "pending",
+        detail: "Decision required",
+      },
+    ];
+  }
+
+  if (order.status === 2) {
+    return [
+      {
+        label: "Created",
+        state: "done",
+        detail: "Order created",
+      },
+      {
+        label: "In Escrow",
+        state: "done",
+        detail: "Escrow funded",
+      },
+      {
+        label: "Completed",
+        state: "current success",
+        detail: "Funds released",
+      },
+    ];
+  }
+
+  if (order.status === 3) {
+    return [
+      {
+        label: "Created",
+        state: "done",
+        detail: "Order created",
+      },
+      {
+        label: "In Escrow",
+        state: "done",
+        detail: "Escrow funded",
+      },
+      {
+        label: "Refunded",
+        state: "current refund",
+        detail: "Funds returned",
+      },
+    ];
+  }
+
+  return [];
+}
+
+function OrderLifecycle({ order }) {
+  const steps = buildLifecycle(order);
+
+  return (
+    <div className="buyerOrderLifecycle">
+      <div className="buyerLifecycleHeader">
+        <div>
+          <span>
+            ORDER LIFECYCLE
+          </span>
+
+          <strong>
+            On-chain status
+          </strong>
+        </div>
+
+        <small>
+          {order.paymentType === 1
+            ? "ARBITRATION FLOW"
+            : "DIRECT FLOW"}
+        </small>
+      </div>
+
+      <div
+        className="buyerLifecycleTrack"
+        style={{
+          "--lifecycle-columns":
+            steps.length,
+        }}
+      >
+        {steps.map(
+          (step, index) => (
+            <div
+              key={`${step.label}-${index}`}
+              className={`buyerLifecycleStep ${step.state}`}
+            >
+              <div className="buyerLifecycleMarker">
+                <span>
+                  {step.state.includes(
+                    "done"
+                  )
+                    ? "✓"
+                    : step.state.includes(
+                      "current"
+                    )
+                      ? "●"
+                      : ""}
+                </span>
+              </div>
+
+              {index <
+                steps.length - 1 && (
+                  <div className="buyerLifecycleLine" />
+                )}
+
+              <div className="buyerLifecycleText">
+                <strong>
+                  {step.label}
+                </strong>
+
+                <small>
+                  {step.detail}
+                </small>
+              </div>
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ArbitrationPanel() {
   const {
     account,
@@ -56,15 +262,30 @@ export default function ArbitrationPanel() {
     executeTransaction,
   } = useWeb3();
 
-  const [orderId, setOrderId] = useState("");
-  const [order, setOrder] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [orderId, setOrderId] =
+    useState("");
+
+  const [order, setOrder] =
+    useState(null);
+
+  const [isLoading, setIsLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
+
+  const [notice, setNotice] =
+    useState("");
 
   function validateAccess() {
-    if (!isConnected || !contract || !provider) {
-      throw new Error("Connect your wallet first.");
+    if (
+      !isConnected ||
+      !contract ||
+      !provider
+    ) {
+      throw new Error(
+        "Connect your wallet first."
+      );
     }
 
     if (!isCorrectNetwork) {
@@ -83,7 +304,10 @@ export default function ArbitrationPanel() {
   function parseOrderId() {
     const parsed = Number(orderId);
 
-    if (!Number.isInteger(parsed) || parsed <= 0) {
+    if (
+      !Number.isInteger(parsed) ||
+      parsed <= 0
+    ) {
       throw new Error(
         "Enter a valid order ID greater than zero."
       );
@@ -92,7 +316,9 @@ export default function ArbitrationPanel() {
     return parsed;
   }
 
-  async function getTokenMetadata(tokenAddress) {
+  async function getTokenMetadata(
+    tokenAddress
+  ) {
     if (
       tokenAddress.toLowerCase() ===
       ethers.ZeroAddress.toLowerCase()
@@ -103,47 +329,79 @@ export default function ArbitrationPanel() {
       };
     }
 
-    const token = new ethers.Contract(
-      tokenAddress,
-      ERC20_METADATA_ABI,
-      provider
-    );
+    const token =
+      new ethers.Contract(
+        tokenAddress,
+        ERC20_METADATA_ABI,
+        provider
+      );
 
-    const [symbol, decimals] = await Promise.all([
+    const [
+      symbol,
+      decimals,
+    ] = await Promise.all([
       token.symbol(),
       token.decimals(),
     ]);
 
     return {
       symbol,
-      decimals: Number(decimals),
+      decimals:
+        Number(decimals),
     };
   }
 
-  async function fetchOrder(showSuccessNotice = true) {
+  async function fetchOrder(
+    showSuccessNotice = true
+  ) {
     validateAccess();
 
-    const id = parseOrderId();
-    const result = await contract.orderById(id);
+    const id =
+      parseOrderId();
+
+    const result =
+      await contract.orderById(
+        id
+      );
 
     if (!Boolean(result[7])) {
-      throw new Error(`Order #${id} does not exist.`);
+      throw new Error(
+        `Order #${id} does not exist.`
+      );
     }
 
-    const metadata = await getTokenMetadata(result[3]);
+    const metadata =
+      await getTokenMetadata(
+        result[3]
+      );
 
     const parsedOrder = {
-      id: result[0].toString(),
-      buyer: result[1],
-      seller: result[2],
-      token: result[3],
-      formattedAmount: `${ethers.formatUnits(
-        result[4],
-        metadata.decimals
-      )} ${metadata.symbol}`,
-      assetSymbol: metadata.symbol,
-      paymentType: Number(result[5]),
-      status: Number(result[6]),
+      id:
+        result[0].toString(),
+
+      buyer:
+        result[1],
+
+      seller:
+        result[2],
+
+      token:
+        result[3],
+
+      formattedAmount:
+        `${ethers.formatUnits(
+          result[4],
+          metadata.decimals
+        )} ${metadata.symbol}`,
+
+      assetSymbol:
+        metadata.symbol,
+
+      paymentType:
+        Number(result[5]),
+
+      status:
+        Number(result[6]),
     };
 
     setOrder(parsedOrder);
@@ -161,19 +419,28 @@ export default function ArbitrationPanel() {
     try {
       setError("");
       setNotice("");
+      setOrder(null);
       setIsLoading(true);
 
       await fetchOrder(true);
     } catch (loadError) {
       console.error(loadError);
+
       setOrder(null);
-      setError(getErrorMessage(loadError));
+
+      setError(
+        getErrorMessage(
+          loadError
+        )
+      );
     } finally {
       setIsLoading(false);
     }
   }
 
-  async function resolveDispute(releaseToSeller) {
+  async function resolveDispute(
+    releaseToSeller
+  ) {
     try {
       setError("");
       setNotice("");
@@ -187,15 +454,19 @@ export default function ArbitrationPanel() {
         );
       }
 
-      if (order.status !== 1) {
+      if (
+        order.paymentType !== 1 ||
+        order.status !== 1
+      ) {
         throw new Error(
-          "Only disputed orders can be resolved."
+          "Only disputed escrow orders can be resolved."
         );
       }
 
-      const recipient = releaseToSeller
-        ? "seller"
-        : "buyer";
+      const recipient =
+        releaseToSeller
+          ? "seller"
+          : "buyer";
 
       await executeTransaction({
         action: () =>
@@ -220,15 +491,27 @@ export default function ArbitrationPanel() {
         `Order #${order.id} resolved in favor of the ${recipient}.`
       );
     } catch (actionError) {
-      console.error(actionError);
-      setError(getErrorMessage(actionError));
+      console.error(
+        actionError
+      );
+
+      setError(
+        getErrorMessage(
+          actionError
+        )
+      );
     } finally {
       setIsLoading(false);
     }
   }
 
   const canResolve =
-    Boolean(order && isArbitrator && order.status === 1);
+    Boolean(
+      order &&
+      isArbitrator &&
+      order.paymentType === 1 &&
+      order.status === 1
+    );
 
   const statusClass =
     [
@@ -246,12 +529,16 @@ export default function ArbitrationPanel() {
             Dispute resolution
           </span>
 
-          <h2>Review a disputed order</h2>
+          <h2>
+            Arbitration workspace
+          </h2>
 
           <p>
-            The current on-chain arbitrator can
-            release disputed escrow funds to the
-            buyer or seller.
+            Review the current
+            on-chain transaction state
+            and resolve disputed escrow
+            funds to the buyer or
+            seller.
           </p>
         </div>
 
@@ -262,7 +549,9 @@ export default function ArbitrationPanel() {
               : "arbitratorIdentity restricted"
           }
         >
-          <span>Current authority</span>
+          <span>
+            Current authority
+          </span>
 
           <strong>
             {isArbitrator
@@ -270,9 +559,13 @@ export default function ArbitrationPanel() {
               : "Access restricted"}
           </strong>
 
-          <small>
+          <small
+            className="mono"
+          >
             {shortAddress(
-              isArbitrator ? account : arbitrator
+              isArbitrator
+                ? account
+                : arbitrator
             )}
           </small>
         </div>
@@ -280,15 +573,18 @@ export default function ArbitrationPanel() {
 
       {!isArbitrator && (
         <div className="sellerAccessWarning">
-          Connect the current arbitrator wallet
-          to review and resolve disputes.
+          Connect the current protocol
+          arbitrator wallet to inspect
+          and resolve disputes.
         </div>
       )}
 
       <div className="arbitrationSearch">
         <div>
-          <label htmlFor="arbitration-order-id">
-            Disputed order ID
+          <label
+            htmlFor="arbitration-order-id"
+          >
+            Order ID
           </label>
 
           <input
@@ -300,8 +596,20 @@ export default function ArbitrationPanel() {
             placeholder="Example: 1"
             value={orderId}
             onChange={(event) =>
-              setOrderId(event.target.value)
+              setOrderId(
+                event.target
+                  .value
+              )
             }
+            onKeyDown={(event) => {
+              if (
+                event.key ===
+                "Enter" &&
+                isArbitrator
+              ) {
+                loadOrder();
+              }
+            }}
           />
         </div>
 
@@ -337,6 +645,8 @@ export default function ArbitrationPanel() {
       {!order && (
         <div className="emptyState">
           No disputed order loaded.
+          Enter an Order ID to inspect
+          its current on-chain state.
         </div>
       )}
 
@@ -344,107 +654,217 @@ export default function ArbitrationPanel() {
         <div className="arbitrationOrderCard">
           <div className="arbitrationOrderTop">
             <div>
-              <span>Order</span>
-              <h3>#{order.id}</h3>
+              <span>
+                ORDER
+              </span>
+
+              <h3>
+                #{order.id}
+              </h3>
             </div>
 
-            <span className={`badge ${statusClass}`}>
-              {ORDER_STATUS[order.status] ||
-                "Unknown"}
+            <span
+              className={`badge ${statusClass}`}
+            >
+              {ORDER_STATUS[
+                order.status
+              ] || "Unknown"}
             </span>
           </div>
 
+          <OrderLifecycle
+            order={order}
+          />
+
           <div className="arbitrationParties">
             <article>
-              <span>Buyer</span>
+              <span>
+                Buyer
+              </span>
 
-              <strong>
-                {shortAddress(order.buyer)}
+              <strong
+                className="mono"
+                title={
+                  order.buyer
+                }
+              >
+                {shortAddress(
+                  order.buyer
+                )}
               </strong>
 
               <small>
-                Receives the funds when resolved
+                Receives escrow
+                funds when the
+                dispute is resolved
                 in the buyer's favor.
               </small>
             </article>
 
             <article>
-              <span>Seller</span>
+              <span>
+                Seller
+              </span>
 
-              <strong>
-                {shortAddress(order.seller)}
+              <strong
+                className="mono"
+                title={
+                  order.seller
+                }
+              >
+                {shortAddress(
+                  order.seller
+                )}
               </strong>
 
               <small>
-                Receives the funds when resolved
-                in the seller's favor.
+                Receives escrow
+                funds when the
+                dispute is resolved
+                in the seller's
+                favor.
               </small>
             </article>
           </div>
 
           <div className="arbitrationOrderDetails">
             <div>
-              <span>Amount</span>
-              <strong>{order.formattedAmount}</strong>
-            </div>
-
-            <div>
-              <span>Asset</span>
-              <strong>{order.assetSymbol}</strong>
-            </div>
-
-            <div>
-              <span>Payment type</span>
+              <span>
+                Amount
+              </span>
 
               <strong>
-                {PAYMENT_TYPE[order.paymentType] ||
-                  "Unknown"}
+                {
+                  order.formattedAmount
+                }
               </strong>
             </div>
 
             <div>
-              <span>Status</span>
+              <span>
+                Asset
+              </span>
 
               <strong>
-                {ORDER_STATUS[order.status] ||
-                  "Unknown"}
+                {
+                  order.assetSymbol
+                }
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Protection
+              </span>
+
+              <strong>
+                {PAYMENT_TYPE[
+                  order.paymentType
+                ] || "Unknown"}
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Current status
+              </span>
+
+              <strong>
+                {ORDER_STATUS[
+                  order.status
+                ] || "Unknown"}
               </strong>
             </div>
           </div>
 
-          {order.status !== 1 && (
+          {order.paymentType === 0 && (
             <div className="sellerAccessNotice">
-              This order is not currently disputed
-              and cannot be resolved.
+              Direct payments do not
+              use escrow and cannot
+              enter protocol
+              arbitration.
+            </div>
+          )}
+
+          {order.paymentType === 1 &&
+            order.status === 0 && (
+              <div className="sellerAccessNotice">
+                This escrow is still
+                active but no dispute
+                has been opened.
+              </div>
+            )}
+
+          {order.status === 2 && (
+            <div className="sellerAccessNotice">
+              This order is completed
+              and no longer has funds
+              in active escrow.
+            </div>
+          )}
+
+          {order.status === 3 && (
+            <div className="sellerAccessNotice">
+              This order is refunded
+              and no longer has funds
+              in active escrow.
             </div>
           )}
 
           {canResolve && (
-            <div className="resolutionWarning">
-              Resolution is final. Confirm the order
-              details before selecting the recipient.
-            </div>
+            <>
+              <div className="resolutionWarning">
+                <strong>
+                  Final arbitration
+                  decision
+                </strong>
+
+                <span>
+                  Resolution changes
+                  the escrow state
+                  and transfers the
+                  disputed funds.
+                  Verify the order,
+                  buyer, seller and
+                  amount before
+                  selecting a
+                  recipient.
+                </span>
+              </div>
+
+              <div className="arbitrationActions">
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={
+                    isLoading
+                  }
+                  onClick={() =>
+                    resolveDispute(
+                      false
+                    )
+                  }
+                >
+                  Resolve to buyer
+                </button>
+
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={
+                    isLoading
+                  }
+                  onClick={() =>
+                    resolveDispute(
+                      true
+                    )
+                  }
+                >
+                  Resolve to seller
+                </button>
+              </div>
+            </>
           )}
-
-          <div className="arbitrationActions">
-            <button
-              type="button"
-              className="secondary"
-              disabled={isLoading || !canResolve}
-              onClick={() => resolveDispute(false)}
-            >
-              Resolve to buyer
-            </button>
-
-            <button
-              type="button"
-              className="primary"
-              disabled={isLoading || !canResolve}
-              onClick={() => resolveDispute(true)}
-            >
-              Resolve to seller
-            </button>
-          </div>
         </div>
       )}
     </section>

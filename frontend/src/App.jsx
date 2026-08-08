@@ -1,9 +1,16 @@
 ﻿import {
+  useEffect,
+  useState,
+} from "react";
+
+import {
   Navigate,
   NavLink,
   Route,
   Routes,
 } from "react-router-dom";
+
+import { ethers } from "ethers";
 
 import "./App.css";
 
@@ -17,12 +24,54 @@ import WalletControl from "./components/wallet/WalletControl.jsx";
 
 import { useWeb3 } from "./hooks/useWeb3.js";
 
+/*
+ * Load this AFTER component CSS so the ESCT dark
+ * protocol theme wins the cascade.
+ */
+import "./esct-dark.css";
+
 function shortAddress(address) {
   if (!address) {
     return "Not connected";
   }
 
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function networkName(chainId) {
+  if (!chainId) {
+    return "Not connected";
+  }
+
+  const id = Number(chainId);
+
+  if (id === 31337) {
+    return "Hardhat Local";
+  }
+
+  if (id === 11155111) {
+    return "Sepolia Testnet";
+  }
+
+  return `Chain ${id}`;
+}
+
+function formatEscrowEth(value) {
+  try {
+    const number = Number(
+      ethers.formatEther(value)
+    );
+
+    return number.toLocaleString(
+      undefined,
+      {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 4,
+      }
+    );
+  } catch {
+    return "-";
+  }
 }
 
 function AccessCard({
@@ -39,11 +88,15 @@ function AccessCard({
           : "accessCard denied"
       }
     >
-      <span>
-        {allowed
-          ? "Access granted"
-          : "Restricted area"}
-      </span>
+      <div className="accessStateRow">
+        <span className="accessStateDot" />
+
+        <span>
+          {allowed
+            ? "Access granted"
+            : "Restricted area"}
+        </span>
+      </div>
 
       <h3>{title}</h3>
 
@@ -56,19 +109,240 @@ function AccessCard({
   );
 }
 
-function DashboardPage() {
+function ProtocolSidebar() {
   const {
     account,
     chainId,
     expectedChainId,
+    isConnected,
+    isCorrectNetwork,
+    isOwner,
+    isPaused,
+  } = useWeb3();
+
+  return (
+    <aside className="protocolSidebar">
+      <div className="sidebarSection">
+        <span className="sidebarLabel">
+          Protocol
+        </span>
+
+        <nav className="sidebarNav">
+          <NavLink
+            to="/"
+            end
+          >
+            <span className="sidebarIcon">
+              D
+            </span>
+
+            Dashboard
+          </NavLink>
+
+          <NavLink to="/buyer">
+            <span className="sidebarIcon">
+              B
+            </span>
+
+            Buyer
+          </NavLink>
+
+          <NavLink to="/seller">
+            <span className="sidebarIcon">
+              S
+            </span>
+
+            Seller
+          </NavLink>
+
+          <NavLink to="/arbitration">
+            <span className="sidebarIcon">
+              A
+            </span>
+
+            Disputes
+          </NavLink>
+
+          {isOwner && (
+            <NavLink to="/admin">
+              <span className="sidebarIcon">
+                O
+              </span>
+
+              Admin
+            </NavLink>
+          )}
+        </nav>
+      </div>
+
+      <div className="sidebarStatusCard">
+        <div className="sidebarStatusHeading">
+          <span
+            className={
+              isPaused
+                ? "healthDot warning"
+                : "healthDot"
+            }
+          />
+
+          <span>Protocol health</span>
+        </div>
+
+        <strong>
+          {isPaused
+            ? "Payments paused"
+            : "Operational"}
+        </strong>
+
+        <small>
+          {isPaused
+            ? "New payments disabled"
+            : "Payment engine active"}
+        </small>
+      </div>
+
+      <div className="sidebarInfoCard">
+        <span className="sidebarLabel">
+          Network
+        </span>
+
+        <div className="sidebarInfoRow">
+          <span
+            className={
+              isConnected &&
+                isCorrectNetwork
+                ? "healthDot"
+                : "healthDot warning"
+            }
+          />
+
+          <strong>
+            {networkName(chainId)}
+          </strong>
+        </div>
+
+        <small>
+          Expected chain:{" "}
+          {expectedChainId}
+        </small>
+      </div>
+
+      <div className="sidebarInfoCard">
+        <span className="sidebarLabel">
+          Connected wallet
+        </span>
+
+        <strong className="mono">
+          {shortAddress(account)}
+        </strong>
+
+        <small>
+          {isConnected
+            ? "Wallet session active"
+            : "Connect to use ESCT"}
+        </small>
+      </div>
+
+      <div className="sidebarVersion">
+        ESCT Protocol
+        <span>RC2 / Testnet</span>
+      </div>
+    </aside>
+  );
+}
+
+function DashboardPage() {
+  const {
+    account,
+    chainId,
     owner,
     arbitrator,
+    contract,
     isConnected,
     isCorrectNetwork,
     isOwner,
     isArbitrator,
     isPaused,
+    transaction,
   } = useWeb3();
+
+  const [metrics, setMetrics] =
+    useState({
+      totalOrders: "-",
+      escrowedEth: "-",
+      solvent: null,
+    });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMetrics() {
+      if (
+        !contract ||
+        !isCorrectNetwork
+      ) {
+        setMetrics({
+          totalOrders: "-",
+          escrowedEth: "-",
+          solvent: null,
+        });
+
+        return;
+      }
+
+      try {
+        const [
+          nextOrderId,
+          escrowedEth,
+          solvent,
+        ] = await Promise.all([
+          contract.nextOrderId(),
+          contract.totalEscrowedETH(),
+          contract.isSolvent(
+            ethers.ZeroAddress
+          ),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        const totalOrders =
+          nextOrderId > 0n
+            ? nextOrderId - 1n
+            : 0n;
+
+        setMetrics({
+          totalOrders:
+            totalOrders.toString(),
+
+          escrowedEth:
+            formatEscrowEth(
+              escrowedEth
+            ),
+
+          solvent:
+            Boolean(solvent),
+        });
+      } catch (error) {
+        console.error(
+          "Dashboard metrics error:",
+          error
+        );
+      }
+    }
+
+    loadMetrics();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    contract,
+    isCorrectNetwork,
+    transaction.status,
+    transaction.hash,
+  ]);
 
   let authority = "User";
 
@@ -79,79 +353,247 @@ function DashboardPage() {
   }
 
   return (
-    <div className="rolePage">
-      <div className="pageHeading">
+    <div className="rolePage dashboardPage">
+      <div className="pageHeading dashboardHeading">
         <div>
           <span className="eyebrow">
             Protocol overview
           </span>
 
-          <h1>Your ESCT workspace</h1>
+          <h1>
+            ESCT Dashboard
+          </h1>
 
           <p>
-            Permissions are detected directly from
-            the connected wallet and the protocol
-            contract.
+            On-chain transaction,
+            escrow, dispute and
+            protocol authority
+            workspace.
           </p>
+        </div>
+
+        <div className="liveIndicator">
+          <span className="healthDot" />
+
+          LIVE CONTRACT
         </div>
       </div>
 
-      <section className="roleStats">
+      <section className="roleStats protocolMetrics">
         <article>
-          <span>Wallet</span>
+          <div className="metricTop">
+            <span className="metricIcon">
+              #
+            </span>
+
+            <span>
+              Orders created
+            </span>
+          </div>
 
           <strong>
-            {shortAddress(account)}
+            {metrics.totalOrders}
           </strong>
 
           <small>
-            {isConnected
-              ? "Connected"
-              : "Wallet required"}
+            Recorded on-chain
           </small>
         </article>
 
         <article>
-          <span>Network</span>
+          <div className="metricTop">
+            <span className="metricIcon">
+              E
+            </span>
+
+            <span>
+              ETH in escrow
+            </span>
+          </div>
 
           <strong>
-            {chainId ?? "-"}
+            {metrics.escrowedEth}{" "}
+            <em>ETH</em>
           </strong>
 
           <small>
-            Expected chain: {expectedChainId}
+            Current protocol liability
           </small>
         </article>
 
         <article>
-          <span>Protocol</span>
+          <div className="metricTop">
+            <span className="metricIcon">
+              S
+            </span>
 
-          <strong>
+            <span>
+              Solvency
+            </span>
+          </div>
+
+          <strong
+            className={
+              metrics.solvent === false
+                ? "dangerText"
+                : "healthyText"
+            }
+          >
+            {metrics.solvent === null
+              ? "-"
+              : metrics.solvent
+                ? "Healthy"
+                : "Check"}
+          </strong>
+
+          <small>
+            ETH liability coverage
+          </small>
+        </article>
+
+        <article>
+          <div className="metricTop">
+            <span className="metricIcon">
+              P
+            </span>
+
+            <span>
+              Protocol
+            </span>
+          </div>
+
+          <strong
+            className={
+              isPaused
+                ? "dangerText"
+                : "healthyText"
+            }
+          >
             {isPaused
               ? "Paused"
               : "Active"}
           </strong>
 
           <small>
-            {!isConnected
-              ? "Connect wallet to verify"
-              : isCorrectNetwork
-                ? "Correct network"
-                : "Network mismatch"}
+            {networkName(chainId)}
           </small>
         </article>
+      </section>
 
-        <article>
-          <span>Your authority</span>
+      <section className="dashboardMainGrid">
+        <div className="dashboardProtocolCard">
+          <div className="dashboardCardHeader">
+            <div>
+              <span className="eyebrow">
+                Connected identity
+              </span>
 
-          <strong>
-            {authority}
-          </strong>
+              <h2>
+                Current session
+              </h2>
+            </div>
 
-          <small>
-            Detected on-chain
-          </small>
-        </article>
+            <span
+              className={
+                isConnected
+                  ? "statusPill active"
+                  : "statusPill"
+              }
+            >
+              {isConnected
+                ? "CONNECTED"
+                : "OFFLINE"}
+            </span>
+          </div>
+
+          <div className="sessionAddress">
+            <span>Wallet</span>
+
+            <strong className="mono">
+              {shortAddress(account)}
+            </strong>
+          </div>
+
+          <div className="sessionGrid">
+            <div>
+              <span>Authority</span>
+
+              <strong>
+                {authority}
+              </strong>
+            </div>
+
+            <div>
+              <span>Network</span>
+
+              <strong>
+                {networkName(chainId)}
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Network status
+              </span>
+
+              <strong
+                className={
+                  isCorrectNetwork
+                    ? "healthyText"
+                    : "dangerText"
+                }
+              >
+                {isCorrectNetwork
+                  ? "Verified"
+                  : "Mismatch"}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        <div className="dashboardProtocolCard protocolAuthorityCard">
+          <div className="dashboardCardHeader">
+            <div>
+              <span className="eyebrow">
+                Contract authority
+              </span>
+
+              <h2>
+                Protocol roles
+              </h2>
+            </div>
+          </div>
+
+          <div className="authorityRow">
+            <div>
+              <span>Owner</span>
+
+              <strong className="mono">
+                {shortAddress(owner)}
+              </strong>
+            </div>
+
+            <span className="authorityTag">
+              ADMIN
+            </span>
+          </div>
+
+          <div className="authorityRow">
+            <div>
+              <span>Arbitrator</span>
+
+              <strong className="mono">
+                {shortAddress(
+                  arbitrator
+                )}
+              </strong>
+            </div>
+
+            <span className="authorityTag amber">
+              ARBITRATION
+            </span>
+          </div>
+        </div>
       </section>
 
       <section className="roleGrid">
@@ -161,98 +603,106 @@ function DashboardPage() {
           </span>
 
           <div>
-            <h2>Buyer workspace</h2>
+            <span className="roleCardLabel">
+              PAYMENT
+            </span>
+
+            <h2>
+              Buyer workspace
+            </h2>
 
             <p>
-              Create direct or escrow payments,
-              manage existing orders, confirm
-              successful delivery, and open
-              disputes.
+              Create direct or protected
+              escrow payments and manage
+              existing orders.
             </p>
 
             <NavLink to="/buyer">
-              Open buyer workspace
+              Open workspace
+              <span>→</span>
             </NavLink>
           </div>
         </div>
 
         <div className="roleCard">
-          <span className="roleIcon">
+          <span className="roleIcon seller">
             S
           </span>
 
           <div>
-            <h2>Seller workspace</h2>
+            <span className="roleCardLabel">
+              DELIVERY
+            </span>
+
+            <h2>
+              Seller workspace
+            </h2>
 
             <p>
-              Review incoming orders, refund
-              eligible escrows, and open disputes.
+              Review orders, refund
+              eligible escrows and
+              initiate disputes.
             </p>
 
             <NavLink to="/seller">
-              Open seller workspace
+              Open workspace
+              <span>→</span>
             </NavLink>
           </div>
         </div>
 
         <div className="roleCard">
-          <span className="roleIcon">
+          <span className="roleIcon arbitration">
             A
           </span>
 
           <div>
-            <h2>Arbitration</h2>
+            <span className="roleCardLabel">
+              RESOLUTION
+            </span>
+
+            <h2>
+              Arbitration
+            </h2>
 
             <p>
-              Review disputed orders, accept a
-              proposed arbitrator role, and resolve
-              protected funds.
+              Review disputed orders and
+              execute final escrow
+              resolution.
             </p>
 
             <NavLink to="/arbitration">
-              Open arbitration workspace
+              Open workspace
+              <span>→</span>
             </NavLink>
           </div>
         </div>
 
         <div className="roleCard">
-          <span className="roleIcon">
+          <span className="roleIcon admin">
             O
           </span>
 
           <div>
+            <span className="roleCardLabel">
+              CONTROL
+            </span>
+
             <h2>
-              Protocol administration
+              Administration
             </h2>
 
             <p>
-              Manage pause controls, approved
-              tokens, arbitrator authority, and
-              protocol solvency.
+              Protocol pause controls,
+              assets, liabilities and
+              authority management.
             </p>
 
             <NavLink to="/admin">
-              Open admin workspace
+              Open workspace
+              <span>→</span>
             </NavLink>
           </div>
-        </div>
-      </section>
-
-      <section className="protocolIdentity">
-        <div>
-          <span>Protocol owner</span>
-
-          <strong>
-            {shortAddress(owner)}
-          </strong>
-        </div>
-
-        <div>
-          <span>Current arbitrator</span>
-
-          <strong>
-            {shortAddress(arbitrator)}
-          </strong>
         </div>
       </section>
     </div>
@@ -265,57 +715,65 @@ function BuyerPage() {
       <div className="pageHeading">
         <div>
           <span className="eyebrow">
-            Buyer
+            Buyer / Protected payments
           </span>
 
-          <h1>Buyer workspace</h1>
+          <h1>
+            Buyer workspace
+          </h1>
 
           <p>
-            Create protected payments and manage
-            existing escrow orders from the
-            connected wallet.
+            Create a new transaction or
+            load an existing Order ID to
+            confirm delivery, release
+            escrow or open a dispute.
           </p>
         </div>
       </div>
 
-      <BuyerPaymentPanel />
+      <div className="buyerWorkspaceGrid">
+        <BuyerPaymentPanel />
 
-      <BuyerOrderPanel />
+        <BuyerOrderPanel />
+      </div>
 
       <section className="workspacePreview buyerSteps">
         <div>
           <span>01</span>
 
-          <h3>Create payment</h3>
+          <h3>
+            Create
+          </h3>
 
           <p>
-            Choose ETH or ERC20 and decide whether
-            the payment should be direct or
-            protected by escrow.
+            Choose an asset, seller and
+            protection method.
           </p>
         </div>
 
         <div>
           <span>02</span>
 
-          <h3>Seller delivers</h3>
+          <h3>
+            Escrow
+          </h3>
 
           <p>
-            For escrow payments, funds remain
-            protected while the seller completes
-            the agreed delivery.
+            Protected funds remain locked
+            while delivery is completed.
           </p>
         </div>
 
         <div>
           <span>03</span>
 
-          <h3>Confirm or dispute</h3>
+          <h3>
+            Release or dispute
+          </h3>
 
           <p>
-            Confirm successful delivery to release
-            funds, or open a dispute when the
-            agreement is not completed.
+            Confirm the delivery or send
+            the order to arbitration.
           </p>
         </div>
       </section>
@@ -329,15 +787,18 @@ function SellerPage() {
       <div className="pageHeading">
         <div>
           <span className="eyebrow">
-            Seller
+            Seller / Order execution
           </span>
 
-          <h1>Seller workspace</h1>
+          <h1>
+            Seller workspace
+          </h1>
 
           <p>
-            Find orders assigned to your wallet,
-            review their status, refund the buyer,
-            or open a dispute when permitted.
+            Load an assigned order,
+            inspect the protected value
+            and execute available seller
+            actions.
           </p>
         </div>
       </div>
@@ -348,36 +809,39 @@ function SellerPage() {
         <div>
           <span>01</span>
 
-          <h3>Find the order</h3>
+          <h3>
+            Load order
+          </h3>
 
           <p>
-            Enter the on-chain Order ID to load
-            the parties, asset, amount, payment
-            type, and current status.
+            Enter the exact on-chain
+            Order ID.
           </p>
         </div>
 
         <div>
           <span>02</span>
 
-          <h3>Verify your role</h3>
+          <h3>
+            Verify
+          </h3>
 
           <p>
-            Seller actions appear only when the
-            connected wallet matches the seller
-            recorded in the order.
+            ESCT checks that the connected
+            wallet is the recorded seller.
           </p>
         </div>
 
         <div>
           <span>03</span>
 
-          <h3>Refund or dispute</h3>
+          <h3>
+            Act
+          </h3>
 
           <p>
-            Refund an eligible escrow payment
-            or open a dispute before the order
-            is completed.
+            Refund an eligible escrow or
+            initiate arbitration.
           </p>
         </div>
       </section>
@@ -396,7 +860,7 @@ function ArbitrationPage() {
       <div className="pageHeading">
         <div>
           <span className="eyebrow">
-            Protocol authority
+            Arbitration / Final resolution
           </span>
 
           <h1>
@@ -404,9 +868,9 @@ function ArbitrationPage() {
           </h1>
 
           <p>
-            Accept a proposed arbitrator role,
-            review disputed escrow orders, and
-            resolve protected funds.
+            Review disputed escrow orders
+            and execute the final
+            settlement decision.
           </p>
         </div>
       </div>
@@ -415,52 +879,14 @@ function ArbitrationPage() {
 
       <AccessCard
         allowed={isArbitrator}
-        title="Arbitrator access"
-        allowedText="The connected wallet matches the current protocol arbitrator."
-        deniedText={`Connect the current arbitrator wallet to resolve disputes: ${shortAddress(
+        title="Arbitrator authority"
+        allowedText="The connected wallet matches the protocol arbitrator and can execute dispute resolution."
+        deniedText={`Connect the current arbitrator wallet: ${shortAddress(
           arbitrator
         )}`}
       />
 
       <ArbitrationPanel />
-
-      <section className="workspacePreview">
-        <div>
-          <span>01</span>
-
-          <h3>Accept authority</h3>
-
-          <p>
-            A proposed arbitrator must connect
-            the pending wallet and explicitly
-            accept the role.
-          </p>
-        </div>
-
-        <div>
-          <span>02</span>
-
-          <h3>Review parties</h3>
-
-          <p>
-            Load a disputed order and confirm
-            the buyer, seller, asset, amount,
-            and escrow status.
-          </p>
-        </div>
-
-        <div>
-          <span>03</span>
-
-          <h3>Resolve permanently</h3>
-
-          <p>
-            Release the funds to the buyer or
-            seller. Dispute resolution cannot
-            be reversed.
-          </p>
-        </div>
-      </section>
     </div>
   );
 }
@@ -477,25 +903,26 @@ function AdminPage() {
       <div className="pageHeading">
         <div>
           <span className="eyebrow">
-            Protocol authority
+            Administration / Protocol control
           </span>
 
           <h1>
-            Administration workspace
+            Protocol administration
           </h1>
 
           <p>
-            Manage payment availability, approved
-            tokens, protocol liabilities, solvency,
-            and arbitrator authority.
+            Manage payment availability,
+            assets, liabilities,
+            solvency and arbitrator
+            authority.
           </p>
         </div>
       </div>
 
       <AccessCard
         allowed={isOwner}
-        title="Administrator access"
-        allowedText={`Owner authority confirmed. Protocol status: ${isPaused
+        title="Administrator authority"
+        allowedText={`Owner authority confirmed. Protocol is currently ${isPaused
             ? "paused"
             : "active"
           }.`}
@@ -505,41 +932,6 @@ function AdminPage() {
       />
 
       <AdminPanel />
-
-      <section className="workspacePreview">
-        <div>
-          <span>01</span>
-
-          <h3>Control exposure</h3>
-
-          <p>
-            Pause or unpause the creation of new
-            direct and escrow payments.
-          </p>
-        </div>
-
-        <div>
-          <span>02</span>
-
-          <h3>Manage assets</h3>
-
-          <p>
-            Approve or disable ERC20 assets and
-            review their recorded liabilities.
-          </p>
-        </div>
-
-        <div>
-          <span>03</span>
-
-          <h3>Manage authority</h3>
-
-          <p>
-            Propose a new arbitrator and monitor
-            the two-step transfer process.
-          </p>
-        </div>
-      </section>
     </div>
   );
 }
@@ -561,13 +953,15 @@ function App() {
           className="roleBrand"
           to="/"
         >
-          <span>ESCT</span>
+          <span className="brandGlyph">
+            E
+          </span>
 
           <div>
-            <strong>Protocol</strong>
+            <strong>ESCT</strong>
 
             <small>
-              Secure transaction infrastructure
+              Protocol
             </small>
           </div>
         </NavLink>
@@ -602,21 +996,23 @@ function App() {
         <WalletControl />
       </header>
 
-      <div className="networkWarning testnetWarning">
+      <div className="testnetWarning">
+        <span className="warningIcon">
+          !
+        </span>
+
         <strong>
           TESTNET ENVIRONMENT
         </strong>
 
         <span>
-          Do not use real funds. ESCT is currently
-          running in a development/testing
-          environment.
+          DO NOT USE REAL FUNDS
         </span>
       </div>
 
       {isConnected &&
         !isCorrectNetwork && (
-          <div className="networkWarning">
+          <div className="wrongNetworkWarning">
             Wrong network. Connected chain:{" "}
             {chainId}. Expected chain:{" "}
             {expectedChainId}.
@@ -633,7 +1029,7 @@ function App() {
             </span>
 
             {transaction.hash && (
-              <small>
+              <small className="mono">
                 {shortAddress(
                   transaction.hash
                 )}
@@ -642,44 +1038,58 @@ function App() {
           </div>
         )}
 
-      <main className="roleContent">
-        <Routes>
-          <Route
-            path="/"
-            element={<DashboardPage />}
-          />
+      <div className="protocolShell">
+        <ProtocolSidebar />
 
-          <Route
-            path="/buyer"
-            element={<BuyerPage />}
-          />
+        <main className="roleContent">
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <DashboardPage />
+              }
+            />
 
-          <Route
-            path="/seller"
-            element={<SellerPage />}
-          />
+            <Route
+              path="/buyer"
+              element={
+                <BuyerPage />
+              }
+            />
 
-          <Route
-            path="/arbitration"
-            element={<ArbitrationPage />}
-          />
+            <Route
+              path="/seller"
+              element={
+                <SellerPage />
+              }
+            />
 
-          <Route
-            path="/admin"
-            element={<AdminPage />}
-          />
+            <Route
+              path="/arbitration"
+              element={
+                <ArbitrationPage />
+              }
+            />
 
-          <Route
-            path="*"
-            element={
-              <Navigate
-                to="/"
-                replace
-              />
-            }
-          />
-        </Routes>
-      </main>
+            <Route
+              path="/admin"
+              element={
+                <AdminPage />
+              }
+            />
+
+            <Route
+              path="*"
+              element={
+                <Navigate
+                  to="/"
+                  replace
+                />
+              }
+            />
+          </Routes>
+        </main>
+      </div>
     </div>
   );
 }

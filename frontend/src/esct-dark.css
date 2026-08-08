@@ -1,0 +1,2654 @@
+:root {
+    color-scheme: dark;
+
+    --esct-bg: #050a10;
+    --esct-bg-2: #071019;
+
+    --esct-panel: #0a141d;
+    --esct-panel-2: #0d1822;
+    --esct-panel-3: #101d28;
+
+    --esct-line: #1d2d38;
+    --esct-line-soft: rgba(108, 142, 160, 0.18);
+
+    --esct-text: #f4f8fb;
+    --esct-muted: #8293a2;
+    --esct-muted-2: #5f7180;
+
+    --esct-teal: #16e0cf;
+    --esct-cyan: #25c7ff;
+    --esct-purple: #7557ff;
+    --esct-green: #76ef65;
+    --esct-amber: #ffb21c;
+    --esct-red: #ff5c57;
+
+    --esct-radius: 16px;
+
+    --esct-shadow:
+        0 24px 70px rgba(0, 0, 0, 0.25);
+}
+
+
+/* =========================================================
+   GLOBAL
+   ========================================================= */
+
+html,
+body,
+#root {
+    min-height: 100%;
+}
+
+body {
+    margin: 0;
+
+    background: var(--esct-bg);
+    color: var(--esct-text);
+
+    font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+    font: inherit;
+}
+
+button {
+    transition:
+        transform 0.18s ease,
+        border-color 0.18s ease,
+        background 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+button:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+button:disabled {
+    opacity: 0.42;
+
+    cursor: not-allowed;
+
+    transform: none !important;
+
+    box-shadow: none !important;
+}
+
+.mono {
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        monospace;
+
+    letter-spacing: -0.02em;
+}
+
+
+/* =========================================================
+   APPLICATION
+   ========================================================= */
+
+.roleApp {
+    min-height: 100vh;
+
+    color: var(--esct-text);
+
+    background:
+        radial-gradient(circle at 75% -20%,
+            rgba(37, 199, 255, 0.08),
+            transparent 42rem),
+        radial-gradient(circle at 5% 45%,
+            rgba(22, 224, 207, 0.04),
+            transparent 38rem),
+        linear-gradient(180deg,
+            #050a10 0%,
+            #071019 58%,
+            #050a10 100%);
+}
+
+.roleApp::before {
+    position: fixed;
+    inset: 0;
+
+    z-index: 0;
+
+    content: "";
+
+    pointer-events: none;
+
+    opacity: 0.16;
+
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px,
+            transparent 1px),
+        linear-gradient(90deg,
+            rgba(255, 255, 255, 0.025) 1px,
+            transparent 1px);
+
+    background-size: 44px 44px;
+
+    mask-image:
+        linear-gradient(to bottom,
+            transparent,
+            black 18%,
+            black 78%,
+            transparent);
+}
+
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+.roleHeader {
+    position: sticky;
+    top: 0;
+
+    z-index: 100;
+
+    min-height: 72px;
+
+    padding: 0 22px;
+
+    display: grid;
+
+    grid-template-columns:
+        230px minmax(0, 1fr) auto;
+
+    align-items: center;
+
+    gap: 24px;
+
+    background:
+        rgba(5, 10, 16, 0.94);
+
+    border-bottom:
+        1px solid var(--esct-line);
+
+    backdrop-filter: blur(20px);
+}
+
+.roleBrand {
+    display: flex;
+    align-items: center;
+
+    gap: 12px;
+
+    color: var(--esct-text);
+
+    text-decoration: none;
+}
+
+.brandGlyph {
+    position: relative;
+
+    width: 42px;
+    height: 42px;
+
+    flex: 0 0 42px;
+
+    display: grid;
+    place-items: center;
+
+    overflow: hidden;
+
+    color: #021614;
+
+    background:
+        linear-gradient(145deg,
+            var(--esct-cyan),
+            var(--esct-teal));
+
+    border-radius: 11px;
+
+    font-size: 19px;
+    font-weight: 1000;
+
+    box-shadow:
+        0 0 30px rgba(22, 224, 207, 0.18);
+}
+
+.brandGlyph::after {
+    position: absolute;
+
+    inset: 5px;
+
+    content: "";
+
+    border:
+        1px solid rgba(2, 22, 20, 0.35);
+
+    border-radius: 7px;
+
+    transform: rotate(45deg);
+}
+
+.roleBrand>div strong {
+    display: block;
+
+    color: #ffffff;
+
+    font-size: 22px;
+    font-weight: 900;
+
+    letter-spacing: 0.04em;
+}
+
+.roleBrand>div small {
+    display: block;
+
+    margin-top: 1px;
+
+    color: var(--esct-muted);
+
+    font-size: 10px;
+    font-weight: 800;
+
+    letter-spacing: 0.13em;
+
+    text-transform: uppercase;
+}
+
+.roleNav {
+    height: 72px;
+
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+
+    gap: 14px;
+}
+
+.roleNav a {
+    position: relative;
+
+    display: flex;
+    align-items: center;
+
+    padding: 0 12px;
+
+    color: #9aa8b3;
+
+    text-decoration: none;
+
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.roleNav a::after {
+    position: absolute;
+
+    right: 12px;
+    bottom: 0;
+    left: 12px;
+
+    height: 2px;
+
+    content: "";
+
+    background: transparent;
+}
+
+.roleNav a:hover {
+    color: #ffffff;
+
+    background: transparent;
+}
+
+.roleNav a.active {
+    color: #ffffff;
+
+    background: transparent;
+}
+
+.roleNav a.active::after {
+    background:
+        linear-gradient(90deg,
+            var(--esct-teal),
+            var(--esct-cyan));
+
+    box-shadow:
+        0 0 14px rgba(22, 224, 207, 0.65);
+}
+
+
+/* =========================================================
+   TESTNET
+   ========================================================= */
+
+.testnetWarning {
+    position: relative;
+
+    z-index: 80;
+
+    min-height: 45px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 10px;
+
+    padding: 0 20px;
+
+    color: #ff8a83;
+
+    background:
+        linear-gradient(90deg,
+            rgba(101, 16, 22, 0.22),
+            rgba(47, 11, 18, 0.68),
+            rgba(101, 16, 22, 0.22));
+
+    border-bottom:
+        1px solid rgba(255, 92, 87, 0.42);
+
+    font-size: 12px;
+
+    letter-spacing: 0.045em;
+}
+
+.warningIcon {
+    width: 20px;
+    height: 20px;
+
+    display: grid;
+    place-items: center;
+
+    color: var(--esct-red);
+
+    border:
+        1px solid var(--esct-red);
+
+    border-radius: 50%;
+
+    font-weight: 900;
+}
+
+.wrongNetworkWarning {
+    position: relative;
+
+    z-index: 60;
+
+    padding: 11px 20px;
+
+    color: #ffd382;
+
+    background: #2c2109;
+
+    border-bottom:
+        1px solid rgba(255, 178, 28, 0.4);
+
+    text-align: center;
+
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.transactionBanner {
+    position: relative;
+
+    z-index: 60;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    gap: 12px;
+
+    padding: 11px 20px;
+
+    color: var(--esct-cyan);
+
+    background:
+        rgba(11, 42, 55, 0.94);
+
+    border-bottom:
+        1px solid rgba(37, 199, 255, 0.28);
+
+    font-size: 12px;
+}
+
+.transactionBanner.success {
+    color: var(--esct-green);
+
+    background: #0a291d;
+
+    border-color:
+        rgba(118, 239, 101, 0.32);
+}
+
+.transactionBanner.error {
+    color: #ff8983;
+
+    background: #321114;
+
+    border-color:
+        rgba(255, 92, 87, 0.35);
+}
+
+
+/* =========================================================
+   MAIN SHELL - WIDER DESKTOP VERSION
+   ========================================================= */
+
+.protocolShell {
+    position: relative;
+
+    z-index: 1;
+
+    width:
+        min(1760px,
+            calc(100% - 20px));
+
+    margin: 0 auto;
+
+    display: grid;
+
+    grid-template-columns:
+        220px minmax(0, 1fr);
+
+    gap: 16px;
+}
+
+.roleContent {
+    width: 100%;
+
+    min-width: 0;
+
+    margin: 0;
+
+    padding:
+        16px 0 60px;
+}
+
+.rolePage {
+    width: 100%;
+
+    animation:
+        esctPageIn 0.25s ease;
+}
+
+@keyframes esctPageIn {
+    from {
+        opacity: 0;
+
+        transform:
+            translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+
+        transform:
+            translateY(0);
+    }
+}
+
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+
+.protocolSidebar {
+    position: sticky;
+
+    top: 92px;
+
+    align-self: start;
+
+    min-height:
+        calc(100vh - 110px);
+
+    margin-top: 16px;
+
+    padding: 15px 12px;
+
+    background:
+        linear-gradient(180deg,
+            rgba(10, 20, 29, 0.96),
+            rgba(7, 16, 25, 0.92));
+
+    border:
+        1px solid var(--esct-line);
+
+    border-radius: 14px;
+
+    box-shadow:
+        var(--esct-shadow);
+}
+
+.sidebarLabel {
+    display: block;
+
+    margin:
+        2px 8px 11px;
+
+    color: #667783;
+
+    font-size: 10px;
+    font-weight: 900;
+
+    letter-spacing: 0.14em;
+
+    text-transform: uppercase;
+}
+
+.sidebarNav {
+    display: grid;
+
+    gap: 4px;
+}
+
+.sidebarNav a {
+    min-height: 43px;
+
+    padding: 0 10px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 11px;
+
+    color: #8d9aa5;
+
+    text-decoration: none;
+
+    border:
+        1px solid transparent;
+
+    border-radius: 9px;
+
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.sidebarNav a:hover {
+    color: #ffffff;
+
+    background:
+        rgba(255, 255, 255, 0.025);
+}
+
+.sidebarNav a.active {
+    color: var(--esct-teal);
+
+    background:
+        linear-gradient(90deg,
+            rgba(22, 224, 207, 0.105),
+            rgba(22, 224, 207, 0.025));
+
+    border-color:
+        rgba(22, 224, 207, 0.12);
+
+    box-shadow:
+        inset 2px 0 var(--esct-teal);
+}
+
+.sidebarIcon {
+    width: 25px;
+    height: 25px;
+
+    flex: 0 0 25px;
+
+    display: grid;
+    place-items: center;
+
+    color: currentColor;
+
+    border:
+        1px solid currentColor;
+
+    border-radius: 7px;
+
+    font-size: 9px;
+    font-weight: 900;
+}
+
+.sidebarStatusCard,
+.sidebarInfoCard {
+    margin-top: 15px;
+
+    padding: 13px;
+
+    background:
+        rgba(255, 255, 255, 0.018);
+
+    border:
+        1px solid var(--esct-line);
+
+    border-radius: 11px;
+}
+
+.sidebarStatusHeading {
+    display: flex;
+    align-items: center;
+
+    gap: 8px;
+
+    margin-bottom: 8px;
+
+    color: var(--esct-muted);
+
+    font-size: 10px;
+    font-weight: 900;
+
+    letter-spacing: 0.07em;
+
+    text-transform: uppercase;
+}
+
+.healthDot {
+    width: 7px;
+    height: 7px;
+
+    flex: 0 0 7px;
+
+    display: inline-block;
+
+    background:
+        var(--esct-green);
+
+    border-radius: 50%;
+
+    box-shadow:
+        0 0 12px rgba(118, 239, 101, 0.7);
+}
+
+.healthDot.warning {
+    background:
+        var(--esct-amber);
+
+    box-shadow:
+        0 0 12px rgba(255, 178, 28, 0.6);
+}
+
+.sidebarStatusCard strong,
+.sidebarInfoCard strong {
+    display: block;
+
+    color: var(--esct-text);
+
+    font-size: 13px;
+}
+
+.sidebarStatusCard small,
+.sidebarInfoCard small {
+    display: block;
+
+    margin-top: 5px;
+
+    color: var(--esct-muted-2);
+
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+.sidebarStatusCard>strong {
+    color: var(--esct-green);
+}
+
+.sidebarInfoCard .sidebarLabel {
+    margin:
+        0 0 10px;
+}
+
+.sidebarInfoRow {
+    display: flex;
+    align-items: center;
+
+    gap: 8px;
+}
+
+.sidebarInfoRow strong {
+    display: inline;
+}
+
+.sidebarVersion {
+    margin-top: 18px;
+
+    padding: 8px;
+
+    color: #667783;
+
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.sidebarVersion span {
+    display: block;
+
+    margin-top: 3px;
+
+    color: var(--esct-teal);
+}
+
+
+/* =========================================================
+   PAGE HEADING
+   ========================================================= */
+
+.pageHeading {
+    min-height: 80px;
+
+    margin-bottom: 17px;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+
+    gap: 20px;
+}
+
+.pageHeading h1 {
+    margin:
+        4px 0 8px;
+
+    color: #ffffff;
+
+    font-size:
+        clamp(29px,
+            4vw,
+            42px);
+
+    line-height: 1.05;
+
+    letter-spacing:
+        -0.035em;
+}
+
+.pageHeading p {
+    max-width: 760px;
+
+    margin: 0;
+
+    color: var(--esct-muted);
+
+    font-size: 13px;
+    line-height: 1.65;
+}
+
+.eyebrow {
+    color: var(--esct-teal);
+
+    font-size: 10px;
+    font-weight: 900;
+
+    letter-spacing: 0.11em;
+
+    text-transform: uppercase;
+}
+
+.liveIndicator {
+    padding:
+        8px 11px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 8px;
+
+    color: var(--esct-green);
+
+    background:
+        rgba(118, 239, 101, 0.04);
+
+    border:
+        1px solid rgba(118, 239, 101, 0.16);
+
+    border-radius: 999px;
+
+    font-size: 9px;
+    font-weight: 900;
+
+    letter-spacing: 0.08em;
+}
+
+
+/* =========================================================
+   DASHBOARD METRICS
+   ========================================================= */
+
+.roleStats {
+    display: grid;
+
+    grid-template-columns:
+        repeat(4,
+            minmax(0, 1fr));
+
+    gap: 13px;
+
+    margin-bottom: 15px;
+}
+
+.roleStats article {
+    position: relative;
+
+    min-height: 142px;
+
+    padding: 18px;
+
+    overflow: hidden;
+
+    background:
+        linear-gradient(145deg,
+            rgba(13, 24, 34, 0.98),
+            rgba(8, 18, 27, 0.98));
+
+    border:
+        1px solid var(--esct-line);
+
+    border-radius: 14px;
+
+    box-shadow:
+        0 15px 35px rgba(0, 0, 0, 0.15);
+}
+
+.roleStats article::after {
+    position: absolute;
+
+    right: -20px;
+    bottom: -30px;
+
+    width: 110px;
+    height: 110px;
+
+    content: "";
+
+    background:
+        radial-gradient(circle,
+            rgba(22, 224, 207, 0.08),
+            transparent 68%);
+}
+
+.metricTop {
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    margin-bottom: 17px;
+}
+
+.metricTop>span:last-child {
+    margin: 0;
+
+    color: var(--esct-muted);
+
+    font-size: 10px;
+    font-weight: 900;
+
+    letter-spacing: 0.055em;
+
+    text-transform: uppercase;
+}
+
+.metricIcon {
+    width: 35px;
+    height: 35px;
+
+    flex: 0 0 35px;
+
+    display: grid;
+    place-items: center;
+
+    color: var(--esct-teal);
+
+    background:
+        rgba(22, 224, 207, 0.06);
+
+    border:
+        1px solid rgba(22, 224, 207, 0.2);
+
+    border-radius: 50%;
+
+    font-size: 12px;
+    font-weight: 900;
+
+    box-shadow:
+        0 0 28px rgba(22, 224, 207, 0.08);
+}
+
+.roleStats strong {
+    display: block;
+
+    margin-bottom: 7px;
+
+    color: #ffffff;
+
+    font-size: 28px;
+    font-weight: 700;
+
+    letter-spacing:
+        -0.04em;
+}
+
+.roleStats strong em {
+    color: var(--esct-muted);
+
+    font-size: 12px;
+
+    font-style: normal;
+}
+
+.roleStats small {
+    color: var(--esct-muted-2);
+
+    font-size: 10px;
+}
+
+.healthyText {
+    color:
+        var(--esct-green) !important;
+}
+
+.dangerText {
+    color:
+        var(--esct-red) !important;
+}
+
+
+/* =========================================================
+   DASHBOARD SESSION
+   ========================================================= */
+
+.dashboardMainGrid {
+    margin-bottom: 15px;
+
+    display: grid;
+
+    grid-template-columns:
+        1.05fr 0.95fr;
+
+    gap: 13px;
+}
+
+.dashboardProtocolCard {
+    padding: 18px;
+
+    background:
+        linear-gradient(145deg,
+            rgba(11, 22, 32, 0.98),
+            rgba(8, 17, 25, 0.98));
+
+    border:
+        1px solid var(--esct-line);
+
+    border-radius: 14px;
+}
+
+.dashboardCardHeader {
+    margin-bottom: 17px;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+
+    gap: 15px;
+}
+
+.dashboardCardHeader h2 {
+    margin:
+        4px 0 0;
+
+    color: #ffffff;
+
+    font-size: 18px;
+}
+
+.statusPill,
+.authorityTag {
+    padding:
+        6px 9px;
+
+    color: var(--esct-muted);
+
+    background:
+        rgba(255, 255, 255, 0.03);
+
+    border:
+        1px solid var(--esct-line);
+
+    border-radius: 999px;
+
+    font-size: 8px;
+    font-weight: 900;
+
+    letter-spacing: 0.07em;
+}
+
+.statusPill.active {
+    color: var(--esct-green);
+
+    background:
+        rgba(118, 239, 101, 0.05);
+
+    border-color:
+        rgba(118, 239, 101, 0.24);
+}
+
+.sessionAddress {
+    margin-bottom: 15px;
+
+    padding: 13px;
+
+    background:
+        rgba(0, 0, 0, 0.16);
+
+    border:
+        1px solid var(--esct-line);
+
+    border-radius: 10px;
+}
+
+.sessionAddress span,
+.sessionGrid span,
+.authorityRow span:first-child {
+    display: block;
+
+    margin-bottom: 5px;
+
+    color: var(--esct-muted-2);
+
+    font-size: 9px;
+    font-weight: 800;
+
+    letter-spacing: 0.055em;
+
+    text-transform: uppercase;
+}
+
+.sessionAddress strong {
+    font-size: 14px;
+}
+
+.sessionGrid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(3, 1fr);
+
+    gap: 10px;
+}
+
+.sessionGrid>div {
+    padding: 12px;
+
+    background:
+        rgba(255, 255, 255, 0.018);
+
+    border:
+        1px solid var(--esct-line-soft);
+
+    border-radius: 9px;
+}
+
+.sessionGrid strong {
+    font-size: 12px;
+}
+
+.authorityRow {
+    padding: 14px 0;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    gap: 15px;
+
+    border-top:
+        1px solid var(--esct-line);
+}
+
+.authorityRow strong {
+    color: #dfe7ec;
+
+    font-size: 12px;
+}
+
+.authorityTag {
+    color: var(--esct-teal);
+
+    border-color:
+        rgba(22, 224, 207, 0.18);
+}
+
+.authorityTag.amber {
+    color: var(--esct-amber);
+
+    border-color:
+        rgba(255, 178, 28, 0.2);
+}
+
+
+/* =========================================================
+   ROLE CARDS
+   ========================================================= */
+
+.roleGrid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, 1fr);
+
+    gap: 13px;
+}
+
+.roleCard {
+    min-width: 0;
+
+    padding: 17px;
+
+    display: flex;
+
+    gap: 13px;
+
+    background:
+        linear-gradient(145deg,
+            rgba(11, 21, 30, 0.96),
+            rgba(7, 15, 22, 0.96));
+
+    border:
+        1px solid var(--esct-line);
+
+    border-radius: 14px;
+
+    box-shadow: none;
+}
+
+.roleIcon {
+    width: 38px;
+    height: 38px;
+
+    flex: 0 0 38px;
+
+    display: grid;
+    place-items: center;
+
+    color: var(--esct-purple);
+
+    background:
+        rgba(117, 87, 255, 0.07);
+
+    border:
+        1px solid rgba(117, 87, 255, 0.25);
+
+    border-radius: 10px;
+}
+
+.roleIcon.seller {
+    color: var(--esct-amber);
+
+    background:
+        rgba(255, 178, 28, 0.05);
+
+    border-color:
+        rgba(255, 178, 28, 0.2);
+}
+
+.roleIcon.arbitration,
+.roleIcon.admin {
+    color: var(--esct-teal);
+
+    background:
+        rgba(22, 224, 207, 0.05);
+
+    border-color:
+        rgba(22, 224, 207, 0.18);
+}
+
+.roleCardLabel {
+    color: var(--esct-muted-2);
+
+    font-size: 8px;
+    font-weight: 900;
+
+    letter-spacing: 0.1em;
+}
+
+.roleCard h2 {
+    margin:
+        4px 0 7px;
+
+    color: #ffffff;
+
+    font-size: 15px;
+}
+
+.roleCard p {
+    min-height: 54px;
+
+    margin:
+        0 0 11px;
+
+    color: var(--esct-muted);
+
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.roleCard a {
+    display: inline-flex;
+    align-items: center;
+
+    gap: 7px;
+
+    color: var(--esct-teal);
+
+    text-decoration: none;
+
+    font-size: 10px;
+    font-weight: 900;
+}
+
+
+/* =========================================================
+   BUYER LAYOUT
+   ========================================================= */
+
+.buyerWorkspaceGrid {
+    margin-bottom: 16px;
+
+    display: grid;
+
+    grid-template-columns:
+        minmax(420px, 0.9fr) minmax(520px, 1.1fr);
+
+    gap: 16px;
+
+    align-items: stretch;
+}
+
+.buyerWorkspaceGrid .buyerPaymentPanel,
+.buyerWorkspaceGrid .buyerOrderPanel {
+    width: 100%;
+
+    height: 100%;
+
+    margin: 0;
+}
+
+
+/* =========================================================
+   PANELS
+   ========================================================= */
+
+.buyerPaymentPanel,
+.buyerOrderPanel,
+.sellerOrderPanel,
+.arbitrationPanel,
+.accessCard,
+.workspacePreview>div,
+.protocolIdentity,
+.adminSection {
+    color: var(--esct-text) !important;
+
+    background:
+        linear-gradient(145deg,
+            rgba(11, 22, 32, 0.98),
+            rgba(7, 16, 24, 0.98)) !important;
+
+    border:
+        1px solid var(--esct-line) !important;
+
+    box-shadow:
+        0 20px 55px rgba(0, 0, 0, 0.16) !important;
+}
+
+.buyerPaymentPanel,
+.buyerOrderPanel,
+.sellerOrderPanel,
+.arbitrationPanel {
+    padding: 22px;
+
+    border-radius: 15px !important;
+}
+
+.buyerPaymentPanel {
+    border-color:
+        rgba(117, 87, 255, 0.3) !important;
+}
+
+.buyerOrderPanel {
+    border-color:
+        rgba(22, 224, 207, 0.22) !important;
+}
+
+
+/* =========================================================
+   INPUTS
+   ========================================================= */
+
+label,
+.buyerPaymentPanel label,
+.buyerOrderPanel label,
+.sellerOrderPanel label,
+.arbitrationPanel label {
+    color: var(--esct-muted) !important;
+
+    font-size: 10px;
+    font-weight: 800;
+
+    letter-spacing: 0.035em;
+}
+
+input,
+textarea,
+select,
+.buyerOrderInput input,
+.sellerOrderSearch input,
+.arbitrationSearch input {
+    width: 100%;
+
+    color: #eaf1f5 !important;
+
+    background:
+        rgba(3, 10, 16, 0.75) !important;
+
+    border:
+        1px solid #263845 !important;
+
+    border-radius: 9px !important;
+
+    outline: none;
+
+    box-shadow:
+        inset 0 1px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+input {
+    min-height: 44px;
+
+    padding:
+        0 13px;
+}
+
+textarea {
+    padding: 13px;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #51616e !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    border-color:
+        rgba(37, 199, 255, 0.65) !important;
+
+    box-shadow:
+        0 0 0 3px rgba(37, 199, 255, 0.06) !important;
+}
+
+
+/* =========================================================
+   BUYER PAYMENT
+   ========================================================= */
+
+.buyerPaymentHeader {
+    margin-bottom: 18px;
+}
+
+.buyerPaymentHeader h2,
+.buyerOrderHeading h2,
+.sellerOrderHeader h2,
+.arbitrationHeader h2 {
+    margin:
+        5px 0 6px;
+
+    color: #ffffff !important;
+
+    font-size: 20px;
+}
+
+.buyerPaymentHeader p,
+.buyerOrderHeading p,
+.sellerOrderHeader p,
+.arbitrationHeader p {
+    color: var(--esct-muted) !important;
+
+    font-size: 11px;
+    line-height: 1.55;
+}
+
+.protocolState {
+    padding:
+        6px 9px;
+
+    border:
+        1px solid var(--esct-line);
+
+    font-size: 8px;
+}
+
+.protocolState.active {
+    color: var(--esct-green);
+
+    background:
+        rgba(118, 239, 101, 0.045);
+
+    border-color:
+        rgba(118, 239, 101, 0.2);
+}
+
+.protocolState.paused {
+    color: var(--esct-red);
+
+    background:
+        rgba(255, 92, 87, 0.05);
+
+    border-color:
+        rgba(255, 92, 87, 0.2);
+}
+
+.paymentChoiceGrid {
+    gap: 11px;
+
+    margin-bottom: 13px;
+}
+
+.segmentedControl {
+    padding: 3px;
+
+    gap: 3px;
+
+    background:
+        #071019 !important;
+
+    border:
+        1px solid #20313d;
+
+    border-radius: 9px;
+}
+
+.segmentedControl button {
+    min-height: 38px;
+
+    color: #7e8e9b;
+
+    background:
+        transparent;
+
+    border:
+        1px solid transparent;
+
+    border-radius: 7px;
+
+    font-size: 11px;
+}
+
+.segmentedControl button.active {
+    color: #ffffff;
+
+    background:
+        linear-gradient(135deg,
+            rgba(64, 89, 255, 0.42),
+            rgba(117, 87, 255, 0.29));
+
+    border-color:
+        rgba(117, 87, 255, 0.6);
+
+    box-shadow:
+        0 0 25px rgba(117, 87, 255, 0.13);
+}
+
+.paymentSummary {
+    gap: 6px;
+
+    margin:
+        5px 0 13px;
+
+    padding: 12px;
+
+    background:
+        rgba(0, 0, 0, 0.16) !important;
+
+    border:
+        1px solid var(--esct-line) !important;
+
+    border-radius: 10px;
+}
+
+.paymentSummary span {
+    color: var(--esct-muted-2) !important;
+
+    font-size: 8px;
+}
+
+.paymentSummary strong {
+    color: #ffffff;
+
+    font-size: 10px;
+}
+
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.primary,
+.paymentActions button {
+    min-height: 42px;
+
+    padding:
+        0 17px;
+
+    color: #031614;
+
+    background:
+        linear-gradient(135deg,
+            #19d9c7,
+            #25b9e6);
+
+    border: 0;
+
+    border-radius: 9px;
+
+    font-size: 11px;
+    font-weight: 900;
+
+    box-shadow:
+        0 7px 25px rgba(22, 224, 207, 0.11);
+}
+
+.secondary,
+.paymentActions .secondary {
+    color: #b9c5cd !important;
+
+    background:
+        #0b151e !important;
+
+    border:
+        1px solid var(--esct-line) !important;
+
+    box-shadow: none !important;
+}
+
+.danger {
+    color: #ff7d77 !important;
+
+    background:
+        rgba(255, 92, 87, 0.04) !important;
+
+    border:
+        1px solid rgba(255, 92, 87, 0.45) !important;
+}
+
+
+/* =========================================================
+   CREATED ORDER
+   ========================================================= */
+
+.createdOrderNotice {
+    color: #b8ffd4 !important;
+
+    background:
+        linear-gradient(145deg,
+            rgba(10, 51, 40, 0.78),
+            rgba(7, 32, 28, 0.76)) !important;
+
+    border:
+        1px solid rgba(118, 239, 101, 0.25) !important;
+
+    border-radius: 10px;
+
+    font-size: 11px;
+}
+
+.paymentFormError {
+    color: #ff8c86 !important;
+
+    background:
+        rgba(255, 92, 87, 0.055) !important;
+
+    border:
+        1px solid rgba(255, 92, 87, 0.22) !important;
+}
+
+
+/* =========================================================
+   BUYER ORDER
+   ========================================================= */
+
+.buyerOrderEyebrow {
+    color: var(--esct-teal);
+}
+
+.buyerOrderLookup {
+    gap: 8px;
+}
+
+.buyerOrderLoadButton {
+    height: 44px;
+
+    color: #ffffff;
+
+    background:
+        linear-gradient(135deg,
+            #3e59ff,
+            #7557ff);
+
+    border: 0;
+
+    border-radius: 9px;
+
+    font-size: 11px;
+
+    box-shadow:
+        0 8px 24px rgba(117, 87, 255, 0.16);
+}
+
+.buyerLoadedOrder {
+    margin-top: 13px;
+
+    padding: 16px;
+
+    background:
+        linear-gradient(145deg,
+            rgba(11, 22, 32, 0.98),
+            rgba(9, 17, 28, 0.98)) !important;
+
+    border:
+        1px solid rgba(117, 87, 255, 0.24) !important;
+
+    border-radius: 12px;
+}
+
+.buyerLoadedOrderTop h3 {
+    color: #ffffff;
+
+    font-size: 24px;
+}
+
+.buyerLoadedOrderTop span,
+.buyerOrderData span {
+    color: var(--esct-muted-2) !important;
+}
+
+.buyerOrderData {
+    gap: 8px;
+}
+
+.buyerOrderData>div {
+    padding: 11px;
+
+    background:
+        rgba(0, 0, 0, 0.14) !important;
+
+    border:
+        1px solid var(--esct-line) !important;
+
+    border-radius: 9px;
+}
+
+.buyerOrderData strong {
+    color: #e8eff3;
+}
+
+.buyerOrderStatus {
+    border:
+        1px solid currentColor;
+}
+
+.status-0 {
+    color: var(--esct-teal);
+
+    background:
+        rgba(22, 224, 207, 0.07);
+}
+
+.status-1 {
+    color: var(--esct-red);
+
+    background:
+        rgba(255, 92, 87, 0.07);
+}
+
+.status-2 {
+    color: var(--esct-green);
+
+    background:
+        rgba(118, 239, 101, 0.07);
+}
+
+.status-3 {
+    color: var(--esct-muted);
+
+    background:
+        rgba(130, 147, 162, 0.07);
+}
+
+.buyerConfirmButton {
+    color: #031a17;
+
+    background:
+        linear-gradient(135deg,
+            var(--esct-teal),
+            #20bdaa);
+
+    border: 0;
+
+    box-shadow:
+        0 8px 25px rgba(22, 224, 207, 0.12);
+}
+
+.buyerDisputeButton {
+    color: var(--esct-amber);
+
+    background:
+        rgba(255, 178, 28, 0.035);
+
+    border:
+        1px solid rgba(255, 178, 28, 0.55);
+}
+
+.buyerOrderNotice {
+    color: var(--esct-green) !important;
+
+    background:
+        rgba(118, 239, 101, 0.055) !important;
+
+    border:
+        1px solid rgba(118, 239, 101, 0.18) !important;
+}
+
+.buyerOrderError,
+.buyerOrderWarning {
+    color: #ff8f89 !important;
+
+    background:
+        rgba(255, 92, 87, 0.06) !important;
+
+    border:
+        1px solid rgba(255, 92, 87, 0.2) !important;
+}
+
+
+/* =========================================================
+   SELLER
+   ========================================================= */
+
+.sellerOrderPanel {
+    width: 100%;
+}
+
+.sellerOrderCard {
+    margin-top: 20px;
+
+    padding: 22px;
+
+    color: var(--esct-text) !important;
+
+    background:
+        linear-gradient(145deg,
+            #0a151e,
+            #071019) !important;
+
+    border:
+        1px solid var(--esct-line) !important;
+
+    border-radius: 12px !important;
+
+    box-shadow: none !important;
+}
+
+.sellerOrderTop h3 {
+    color: #ffffff !important;
+}
+
+.sellerOrderTop>div>span,
+.sellerOrderDetails span {
+    color: var(--esct-muted-2) !important;
+}
+
+.sellerOrderDetails>div {
+    color: #dfe8ed !important;
+
+    background:
+        #0d1822 !important;
+
+    border:
+        1px solid #1e303c !important;
+
+    border-radius: 10px !important;
+
+    box-shadow: none !important;
+}
+
+.sellerOrderDetails strong {
+    color: #edf3f6 !important;
+}
+
+.sellerAccessNotice {
+    color: #91a2ae !important;
+
+    background:
+        #0b161f !important;
+
+    border:
+        1px solid #223440 !important;
+
+    border-radius: 10px !important;
+}
+
+.sellerAccessWarning {
+    color: #ff8c86 !important;
+
+    background:
+        rgba(255, 92, 87, 0.055) !important;
+
+    border:
+        1px solid rgba(255, 92, 87, 0.22) !important;
+
+    border-radius: 10px !important;
+}
+
+
+/* =========================================================
+   ARBITRATION
+   ========================================================= */
+
+.arbitrationPanel {
+    width: 100%;
+}
+
+.arbitratorIdentity {
+    color: var(--esct-text) !important;
+
+    background:
+        rgba(255, 255, 255, 0.02) !important;
+
+    border:
+        1px solid var(--esct-line) !important;
+}
+
+.arbitratorIdentity.active {
+    color: var(--esct-green) !important;
+
+    background:
+        rgba(118, 239, 101, 0.05) !important;
+
+    border-color:
+        rgba(118, 239, 101, 0.24) !important;
+}
+
+.arbitratorIdentity.restricted {
+    color: var(--esct-red) !important;
+
+    background:
+        rgba(255, 92, 87, 0.05) !important;
+
+    border-color:
+        rgba(255, 92, 87, 0.22) !important;
+}
+
+.arbitrationOrderCard {
+    margin-top: 20px;
+
+    padding: 22px;
+
+    color: var(--esct-text) !important;
+
+    background:
+        linear-gradient(145deg,
+            #0a151e,
+            #071019) !important;
+
+    border:
+        1px solid var(--esct-line) !important;
+
+    border-radius: 12px !important;
+
+    box-shadow: none !important;
+}
+
+.arbitrationOrderTop h3 {
+    color: #ffffff !important;
+}
+
+.arbitrationOrderTop>div>span,
+.arbitrationOrderDetails span,
+.arbitrationParties span {
+    color: var(--esct-muted-2) !important;
+}
+
+.arbitrationParties article,
+.arbitrationOrderDetails>div {
+    color: #dfe8ed !important;
+
+    background:
+        #0d1822 !important;
+
+    border:
+        1px solid #1e303c !important;
+
+    border-radius: 10px !important;
+
+    box-shadow: none !important;
+}
+
+.arbitrationParties strong,
+.arbitrationOrderDetails strong {
+    color: #edf3f6 !important;
+}
+
+.resolutionWarning {
+    color: #ffd173 !important;
+
+    background:
+        rgba(255, 178, 28, 0.055) !important;
+
+    border:
+        1px solid rgba(255, 178, 28, 0.24) !important;
+
+    border-radius: 10px !important;
+}
+
+.arbitrationActions {
+    gap: 9px;
+}
+
+.arbitrationActions button:first-child {
+    color: #092009;
+
+    background:
+        linear-gradient(135deg,
+            #b7ef32,
+            #75df37);
+
+    border: 0;
+}
+
+.arbitrationActions button:last-child {
+    color: #1c1300;
+
+    background:
+        linear-gradient(135deg,
+            #ffbf24,
+            #e69c08);
+
+    border: 0;
+}
+
+
+/* =========================================================
+   ARBITRATOR ACCEPTANCE
+   FIXES CURRENT/PENDING WHITE BOX
+   ========================================================= */
+
+.rolePage .adminSection {
+    width: 100%;
+
+    margin-bottom: 16px !important;
+
+    padding: 20px !important;
+
+    color: var(--esct-text) !important;
+
+    background:
+        linear-gradient(145deg,
+            rgba(10, 21, 30, 0.98),
+            rgba(6, 15, 23, 0.98)) !important;
+
+    border:
+        1px solid var(--esct-line) !important;
+
+    border-radius: 15px !important;
+
+    box-shadow:
+        0 20px 55px rgba(0, 0, 0, 0.18) !important;
+}
+
+.rolePage .adminSectionHeading {
+    margin-bottom: 18px !important;
+}
+
+.rolePage .adminSectionHeading h2,
+.rolePage .adminSectionHeading h3 {
+    margin:
+        5px 0 7px !important;
+
+    color: #ffffff !important;
+
+    font-size: 20px !important;
+}
+
+.rolePage .adminSectionHeading p {
+    max-width: 800px;
+
+    margin: 0 !important;
+
+    color: var(--esct-muted) !important;
+
+    font-size: 11px !important;
+
+    line-height: 1.6 !important;
+}
+
+.rolePage .adminAuthorityGrid {
+    display: grid !important;
+
+    grid-template-columns:
+        repeat(2,
+            minmax(0, 1fr)) !important;
+
+    gap: 10px !important;
+
+    margin-top: 16px !important;
+}
+
+.rolePage .adminAuthorityGrid article {
+    min-width: 0;
+
+    padding: 16px !important;
+
+    color: var(--esct-text) !important;
+
+    background:
+        linear-gradient(145deg,
+            #0d1923,
+            #09131c) !important;
+
+    border:
+        1px solid #20323e !important;
+
+    border-radius: 11px !important;
+
+    box-shadow: none !important;
+}
+
+.rolePage .adminAuthorityGrid article span {
+    display: block !important;
+
+    margin-bottom: 7px !important;
+
+    color: #667987 !important;
+
+    font-size: 9px !important;
+    font-weight: 900 !important;
+
+    letter-spacing: 0.07em !important;
+
+    text-transform: uppercase !important;
+}
+
+.rolePage .adminAuthorityGrid article strong {
+    display: block !important;
+
+    overflow-wrap: anywhere;
+
+    color: var(--esct-teal) !important;
+
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        monospace !important;
+
+    font-size: 13px !important;
+}
+
+.rolePage .adminSection .sellerAccessNotice {
+    margin-top: 14px !important;
+
+    color: #899ba7 !important;
+
+    background:
+        rgba(255, 255, 255, 0.018) !important;
+
+    border:
+        1px solid #20323e !important;
+
+    border-radius: 10px !important;
+}
+
+.rolePage .adminSection .sellerAccessWarning {
+    margin-top: 14px !important;
+
+    color: #ff8b85 !important;
+
+    background:
+        rgba(255, 92, 87, 0.055) !important;
+
+    border:
+        1px solid rgba(255, 92, 87, 0.22) !important;
+
+    border-radius: 10px !important;
+}
+
+.rolePage .adminActionRow {
+    margin-top: 16px !important;
+
+    padding-top: 16px !important;
+
+    display: flex !important;
+    justify-content: flex-end !important;
+
+    border-top:
+        1px solid var(--esct-line) !important;
+}
+
+.rolePage .adminActionRow .primary {
+    min-height: 42px !important;
+
+    padding:
+        0 18px !important;
+
+    color: #031614 !important;
+
+    background:
+        linear-gradient(135deg,
+            var(--esct-teal),
+            var(--esct-cyan)) !important;
+
+    border: 0 !important;
+
+    border-radius: 9px !important;
+}
+
+
+/* =========================================================
+   ACCESS AUTHORITY CARD
+   ========================================================= */
+
+.accessCard {
+    margin-bottom: 14px;
+
+    padding: 17px;
+
+    position: relative;
+
+    border-radius: 13px !important;
+}
+
+.accessCard.allowed {
+    border-color:
+        rgba(118, 239, 101, 0.2) !important;
+}
+
+.accessCard.denied {
+    border-color:
+        rgba(255, 92, 87, 0.2) !important;
+}
+
+.accessStateRow {
+    display: flex;
+    align-items: center;
+
+    gap: 8px;
+
+    color: var(--esct-muted);
+
+    font-size: 9px;
+    font-weight: 900;
+
+    letter-spacing: 0.06em;
+
+    text-transform: uppercase;
+}
+
+.accessCard.allowed .accessStateDot {
+    width: 7px;
+    height: 7px;
+
+    background:
+        var(--esct-green);
+
+    border-radius: 50%;
+
+    box-shadow:
+        0 0 10px rgba(118, 239, 101, 0.65);
+}
+
+.accessCard.denied .accessStateDot {
+    width: 7px;
+    height: 7px;
+
+    background:
+        var(--esct-red);
+
+    border-radius: 50%;
+}
+
+.accessCard h3 {
+    margin:
+        7px 0 5px;
+
+    color: #ffffff !important;
+
+    font-size: 17px;
+}
+
+.accessCard p {
+    margin: 0;
+
+    color: var(--esct-muted) !important;
+
+    font-size: 11px;
+}
+
+
+/* =========================================================
+   EMPTY STATES
+   ========================================================= */
+
+.emptyState,
+.arbitrationPanel .emptyState,
+.sellerOrderPanel .emptyState {
+    margin-top: 16px !important;
+
+    padding: 22px !important;
+
+    min-height: 76px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    color: #728593 !important;
+
+    background:
+        linear-gradient(145deg,
+            rgba(8, 18, 27, 0.96),
+            rgba(6, 14, 21, 0.98)) !important;
+
+    border:
+        1px dashed #263945 !important;
+
+    border-radius: 11px !important;
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.018) !important;
+
+    text-align: center;
+
+    font-size: 11px;
+
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   WORKSPACE PROCESS CARDS
+   ========================================================= */
+
+.workspacePreview {
+    margin-top: 15px;
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(3, 1fr);
+
+    gap: 11px;
+}
+
+.workspacePreview>div {
+    min-height: 110px;
+
+    padding: 15px;
+
+    border-radius: 12px !important;
+}
+
+.workspacePreview>div>span {
+    color: var(--esct-teal);
+
+    font-size: 10px;
+}
+
+.workspacePreview h3 {
+    margin:
+        7px 0 5px;
+
+    color: #ffffff;
+
+    font-size: 13px;
+}
+
+.workspacePreview p {
+    margin: 0;
+
+    color: var(--esct-muted) !important;
+
+    font-size: 10px;
+
+    line-height: 1.5;
+}
+
+
+/* =========================================================
+   ADMIN PANEL
+   ========================================================= */
+
+.adminPanel {
+    width: 100%;
+
+    color: var(--esct-text) !important;
+
+    background:
+        transparent !important;
+}
+
+.adminPanel [class*="Card"],
+.adminPanel [class*="card"],
+.adminPanel [class*="Section"],
+.adminPanel [class*="section"] {
+    color: var(--esct-text) !important;
+
+    background:
+        var(--esct-panel) !important;
+
+    border-color:
+        var(--esct-line) !important;
+}
+
+.adminPanel article,
+.adminPanel>div {
+    border-color:
+        var(--esct-line);
+}
+
+.adminPanel p,
+.adminPanel small,
+.adminPanel label {
+    color: var(--esct-muted) !important;
+}
+
+.adminPanel strong,
+.adminPanel h2,
+.adminPanel h3 {
+    color: #ffffff;
+}
+
+
+/* =========================================================
+   TABLES
+   ========================================================= */
+
+table {
+    color: var(--esct-text);
+
+    background:
+        transparent;
+}
+
+th {
+    color: var(--esct-muted-2) !important;
+
+    border-color:
+        var(--esct-line) !important;
+}
+
+td {
+    color: #d7e0e6;
+
+    border-color:
+        var(--esct-line) !important;
+}
+
+tr:hover td {
+    background:
+        rgba(255, 255, 255, 0.015);
+}
+
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+* {
+    scrollbar-width: thin;
+
+    scrollbar-color:
+        #28404d #071019;
+}
+
+::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+}
+
+::-webkit-scrollbar-track {
+    background: #071019;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #243a46;
+
+    border:
+        2px solid #071019;
+
+    border-radius: 999px;
+}
+
+
+/* =========================================================
+   RESPONSIVE - LARGE LAPTOP
+   ========================================================= */
+
+@media (max-width: 1400px) {
+    .protocolShell {
+        grid-template-columns:
+            205px minmax(0, 1fr);
+    }
+
+    .buyerWorkspaceGrid {
+        grid-template-columns:
+            minmax(350px, 0.9fr) minmax(420px, 1.1fr);
+    }
+
+    .roleGrid {
+        grid-template-columns:
+            repeat(2, 1fr);
+    }
+}
+
+
+/* =========================================================
+   RESPONSIVE - TABLET
+   ========================================================= */
+
+@media (max-width: 1100px) {
+    .protocolShell {
+        grid-template-columns:
+            180px minmax(0, 1fr);
+    }
+
+    .roleStats {
+        grid-template-columns:
+            repeat(2, 1fr);
+    }
+
+    .buyerWorkspaceGrid {
+        grid-template-columns:
+            1fr;
+    }
+
+    .dashboardMainGrid {
+        grid-template-columns:
+            1fr;
+    }
+}
+
+
+/* =========================================================
+   RESPONSIVE - SMALL TABLET
+   ========================================================= */
+
+@media (max-width: 900px) {
+    .roleHeader {
+        grid-template-columns:
+            auto minmax(0, 1fr) auto;
+
+        padding:
+            0 14px;
+    }
+
+    .roleNav {
+        justify-content:
+            flex-start;
+
+        overflow-x: auto;
+    }
+
+    .protocolShell {
+        width:
+            calc(100% - 20px);
+
+        display: block;
+    }
+
+    .protocolSidebar {
+        display: none;
+    }
+
+    .roleContent {
+        padding-top: 14px;
+    }
+}
+
+
+/* =========================================================
+   RESPONSIVE - MOBILE
+   ========================================================= */
+
+@media (max-width: 700px) {
+    .roleHeader {
+        min-height: auto;
+
+        grid-template-columns:
+            1fr auto;
+
+        padding:
+            11px 13px;
+    }
+
+    .roleNav {
+        grid-column:
+            1 / -1;
+
+        grid-row: 2;
+
+        height: auto;
+
+        padding-top: 7px;
+
+        overflow-x: auto;
+    }
+
+    .roleNav a {
+        min-height: 38px;
+
+        white-space: nowrap;
+    }
+
+    .testnetWarning {
+        min-height: 42px;
+
+        padding:
+            8px 12px;
+
+        flex-wrap: wrap;
+
+        font-size: 10px;
+    }
+
+    .pageHeading {
+        align-items:
+            flex-start;
+
+        flex-direction:
+            column;
+    }
+
+    .roleStats,
+    .roleGrid,
+    .sessionGrid,
+    .workspacePreview,
+    .rolePage .adminAuthorityGrid {
+        grid-template-columns:
+            1fr !important;
+    }
+
+    .roleStats article {
+        min-height: 120px;
+    }
+
+    .buyerWorkspaceGrid {
+        display: block;
+    }
+
+    .buyerWorkspaceGrid .buyerPaymentPanel {
+        margin-bottom: 14px;
+    }
+
+    .rolePage .adminActionRow {
+        display: block !important;
+    }
+
+    .rolePage .adminActionRow .primary {
+        width: 100% !important;
+    }
+}
+
+
+/* =========================================================
+   RESPONSIVE - PHONE
+   ========================================================= */
+
+@media (max-width: 520px) {
+    .roleBrand>div small {
+        display: none;
+    }
+
+    .brandGlyph {
+        width: 36px;
+        height: 36px;
+
+        flex-basis: 36px;
+    }
+
+    .roleBrand>div strong {
+        font-size: 17px;
+    }
+
+    .protocolShell {
+        width:
+            calc(100% - 14px);
+    }
+
+    .roleContent {
+        padding-top: 12px;
+    }
+
+    .pageHeading h1 {
+        font-size: 30px;
+    }
+
+    .roleStats {
+        grid-template-columns:
+            1fr;
+    }
+
+    .buyerPaymentPanel,
+    .buyerOrderPanel,
+    .sellerOrderPanel,
+    .arbitrationPanel,
+    .rolePage .adminSection {
+        padding: 16px !important;
+    }
+}
