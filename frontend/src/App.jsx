@@ -7,7 +7,6 @@
 
 import "./App.css";
 
-import LegacyApp from "./LegacyApp.jsx";
 import AdminPanel from "./components/admin/AdminPanel.jsx";
 import ArbitrationPanel from "./components/arbitration/ArbitrationPanel.jsx";
 import ArbitratorAcceptancePanel from "./components/arbitration/ArbitratorAcceptancePanel.jsx";
@@ -15,6 +14,7 @@ import BuyerOrderPanel from "./components/orders/BuyerOrderPanel.jsx";
 import SellerOrderPanel from "./components/orders/SellerOrderPanel.jsx";
 import BuyerPaymentPanel from "./components/payments/BuyerPaymentPanel.jsx";
 import WalletControl from "./components/wallet/WalletControl.jsx";
+
 import { useWeb3 } from "./hooks/useWeb3.js";
 
 function shortAddress(address) {
@@ -165,8 +165,9 @@ function DashboardPage() {
 
             <p>
               Create direct or escrow payments,
-              confirm successful delivery, and
-              open disputes.
+              manage existing orders, confirm
+              successful delivery, and open
+              disputes.
             </p>
 
             <NavLink to="/buyer">
@@ -220,7 +221,9 @@ function DashboardPage() {
           </span>
 
           <div>
-            <h2>Protocol administration</h2>
+            <h2>
+              Protocol administration
+            </h2>
 
             <p>
               Manage pause controls, approved
@@ -262,16 +265,15 @@ function BuyerPage() {
       <div className="pageHeading">
         <div>
           <span className="eyebrow">
-            Contextual role
+            Buyer
           </span>
 
           <h1>Buyer workspace</h1>
 
           <p>
-            Create direct or escrow payments.
-            Your connected wallet becomes the
-            on-chain buyer for every payment
-            created from this workspace.
+            Create protected payments and manage
+            existing escrow orders from the
+            connected wallet.
           </p>
         </div>
       </div>
@@ -287,9 +289,9 @@ function BuyerPage() {
           <h3>Create payment</h3>
 
           <p>
-            Choose ETH or ERC20 and decide
-            whether the payment should be direct
-            or protected by escrow.
+            Choose ETH or ERC20 and decide whether
+            the payment should be direct or
+            protected by escrow.
           </p>
         </div>
 
@@ -301,7 +303,7 @@ function BuyerPage() {
           <p>
             For escrow payments, funds remain
             protected while the seller completes
-            the agreement.
+            the agreed delivery.
           </p>
         </div>
 
@@ -327,7 +329,7 @@ function SellerPage() {
       <div className="pageHeading">
         <div>
           <span className="eyebrow">
-            Contextual role
+            Seller
           </span>
 
           <h1>Seller workspace</h1>
@@ -349,7 +351,7 @@ function SellerPage() {
           <h3>Find the order</h3>
 
           <p>
-            Enter the on-chain order ID to load
+            Enter the on-chain Order ID to load
             the parties, asset, amount, payment
             type, and current status.
           </p>
@@ -397,7 +399,9 @@ function ArbitrationPage() {
             Protocol authority
           </span>
 
-          <h1>Arbitration workspace</h1>
+          <h1>
+            Arbitration workspace
+          </h1>
 
           <p>
             Accept a proposed arbitrator role,
@@ -476,7 +480,9 @@ function AdminPage() {
             Protocol authority
           </span>
 
-          <h1>Administration workspace</h1>
+          <h1>
+            Administration workspace
+          </h1>
 
           <p>
             Manage payment availability, approved
@@ -540,15 +546,11 @@ function AdminPage() {
 
 function App() {
   const {
-    account,
     isConnected,
-    isConnecting,
     isCorrectNetwork,
     chainId,
     expectedChainId,
     isOwner,
-    isArbitrator,
-    connectWallet,
     transaction,
   } = useWeb3();
 
@@ -595,25 +597,22 @@ function App() {
               Admin
             </NavLink>
           )}
-
-          <NavLink to="/workspace">
-            Legacy workspace
-          </NavLink>
         </nav>
 
-        <button
-          type="button"
-          className="walletButton"
-          onClick={connectWallet}
-          disabled={isConnecting}
-        >
-          {isConnecting
-            ? "Connecting..."
-            : isConnected
-              ? shortAddress(account)
-              : "Connect wallet"}
-        </button>
+        <WalletControl />
       </header>
+
+      <div className="networkWarning testnetWarning">
+        <strong>
+          TESTNET ENVIRONMENT
+        </strong>
+
+        <span>
+          Do not use real funds. ESCT is currently
+          running in a development/testing
+          environment.
+        </span>
+      </div>
 
       {isConnected &&
         !isCorrectNetwork && (
@@ -671,11 +670,6 @@ function App() {
           />
 
           <Route
-            path="/workspace"
-            element={<LegacyApp />}
-          />
-
-          <Route
             path="*"
             element={
               <Navigate
@@ -691,6 +685,3 @@ function App() {
 }
 
 export default App;
-
-
-
