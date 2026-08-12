@@ -7,22 +7,52 @@ import {
     useState,
 } from "react";
 
-import { contractAddress } from "../contract/contractAddress.js";
+import {
+    contractAddress,
+} from "../contract/contractAddress.js";
+
 import contractABI from "../contract/MultiPaymentABI.json";
 
-export const Web3Context = createContext(null);
+import {
+    agreementContractAddress,
+} from "../contract/agreementContractAddress.js";
+
+import agreementABI from "../contract/AgreementEscrowABI.json";
+
+export const Web3Context =
+    createContext(null);
 
 const DEFAULT_CHAIN_ID = 31337;
 
-const resolvedContractABI = Array.isArray(contractABI)
-    ? contractABI
-    : contractABI?.abi;
+/* =========================================================
+                           ABI SETUP
+   ========================================================= */
+
+const resolvedContractABI =
+    Array.isArray(contractABI)
+        ? contractABI
+        : contractABI?.abi;
+
+const resolvedAgreementABI =
+    Array.isArray(agreementABI)
+        ? agreementABI
+        : agreementABI?.abi;
 
 if (!Array.isArray(resolvedContractABI)) {
     throw new Error(
-        "The ESCT contract ABI is invalid. Expected an ABI array."
+        "The ESCT MultiPayment ABI is invalid. Expected an ABI array."
     );
 }
+
+if (!Array.isArray(resolvedAgreementABI)) {
+    throw new Error(
+        "The ESCT AgreementEscrow ABI is invalid. Expected an ABI array."
+    );
+}
+
+/* =========================================================
+                           HELPERS
+   ========================================================= */
 
 function getExpectedChainId() {
     const configured = Number(
@@ -60,20 +90,37 @@ function getErrorMessage(error) {
     );
 }
 
-export function Web3Provider({ children }) {
+/* =========================================================
+                         PROVIDER
+   ========================================================= */
+
+export function Web3Provider({
+    children,
+}) {
+    /* =====================================================
+                         WALLET STATE
+       ===================================================== */
+
     const [provider, setProvider] =
         useState(null);
 
     const [signer, setSigner] =
         useState(null);
 
-    const [contract, setContract] =
-        useState(null);
-
     const [account, setAccount] =
         useState("");
 
     const [chainId, setChainId] =
+        useState(null);
+
+    const [isConnecting, setIsConnecting] =
+        useState(false);
+
+    /* =====================================================
+                      MULTIPAYMENT STATE
+       ===================================================== */
+
+    const [contract, setContract] =
         useState(null);
 
     const [owner, setOwner] =
@@ -85,56 +132,170 @@ export function Web3Provider({ children }) {
     const [isPaused, setIsPaused] =
         useState(false);
 
-    const [isConnecting, setIsConnecting] =
-        useState(false);
+    /* =====================================================
+                       AGREEMENT STATE
+       ===================================================== */
 
-    const [transaction, setTransaction] =
-        useState({
-            status: "idle",
-            message: "",
-            hash: "",
-            error: "",
-        });
+    const [
+        agreementContract,
+        setAgreementContract,
+    ] = useState(null);
+
+    const [
+        agreementOwner,
+        setAgreementOwner,
+    ] = useState("");
+
+    const [
+        agreementArbitrator,
+        setAgreementArbitrator,
+    ] = useState("");
+
+    const [
+        isAgreementPaused,
+        setIsAgreementPaused,
+    ] = useState(false);
+
+    /* =====================================================
+                       TRANSACTION STATE
+       ===================================================== */
+
+    const [
+        transaction,
+        setTransaction,
+    ] = useState({
+        status: "idle",
+        message: "",
+        hash: "",
+        error: "",
+    });
 
     const expectedChainId =
         getExpectedChainId();
 
+    /* =====================================================
+                    CLEAR MULTIPAYMENT
+       ===================================================== */
+
     const clearProtocolState =
         useCallback(() => {
             setContract(null);
+
             setOwner("");
+
             setArbitrator("");
+
             setIsPaused(false);
         }, []);
+
+    /* =====================================================
+                     CLEAR AGREEMENT
+       ===================================================== */
+
+    const clearAgreementState =
+        useCallback(() => {
+            setAgreementContract(null);
+
+            setAgreementOwner("");
+
+            setAgreementArbitrator("");
+
+            setIsAgreementPaused(false);
+        }, []);
+
+    /* =====================================================
+                     RESET CONNECTION
+       ===================================================== */
 
     const resetConnection =
         useCallback(() => {
             setProvider(null);
+
             setSigner(null);
+
             setAccount("");
+
             setChainId(null);
 
             clearProtocolState();
-        }, [clearProtocolState]);
+
+            clearAgreementState();
+        }, [
+            clearProtocolState,
+            clearAgreementState,
+        ]);
+
+    /* =====================================================
+                  LOAD MULTIPAYMENT STATE
+       ===================================================== */
 
     const loadProtocolState =
-        useCallback(async (appContract) => {
-            const [
-                protocolOwner,
-                protocolArbitrator,
-                paused,
-            ] = await Promise.all([
-                appContract.owner(),
-                appContract.arbitrator(),
-                appContract.paused(),
-            ]);
+        useCallback(
+            async (
+                appContract
+            ) => {
+                const [
+                    protocolOwner,
+                    protocolArbitrator,
+                    paused,
+                ] = await Promise.all([
+                    appContract.owner(),
+                    appContract.arbitrator(),
+                    appContract.paused(),
+                ]);
 
-            setOwner(protocolOwner);
-            setArbitrator(
-                protocolArbitrator
-            );
-            setIsPaused(Boolean(paused));
-        }, []);
+                setOwner(
+                    protocolOwner
+                );
+
+                setArbitrator(
+                    protocolArbitrator
+                );
+
+                setIsPaused(
+                    Boolean(paused)
+                );
+            },
+            []
+        );
+
+    /* =====================================================
+                   LOAD AGREEMENT STATE
+       ===================================================== */
+
+    const loadAgreementState =
+        useCallback(
+            async (
+                appContract
+            ) => {
+                const [
+                    protocolOwner,
+                    protocolArbitrator,
+                    paused,
+                ] = await Promise.all([
+                    appContract.owner(),
+                    appContract.arbitrator(),
+                    appContract.paused(),
+                ]);
+
+                setAgreementOwner(
+                    protocolOwner
+                );
+
+                setAgreementArbitrator(
+                    protocolArbitrator
+                );
+
+                setIsAgreementPaused(
+                    Boolean(paused)
+                );
+            },
+            []
+        );
+
+    /* =====================================================
+                     INITIALIZE WALLET
+       ===================================================== */
 
     const initializeConnection =
         useCallback(
@@ -158,6 +319,12 @@ export function Web3Provider({ children }) {
 
                 let accounts;
 
+                /*
+                 * Keep the existing ESCT behavior:
+                 * only ask wallet permission after
+                 * Connect Wallet is explicitly pressed.
+                 */
+
                 if (requestAccess) {
                     try {
                         await browserProvider.send(
@@ -168,16 +335,24 @@ export function Web3Provider({ children }) {
                                 },
                             ]
                         );
-                    } catch (permissionError) {
+                    } catch (
+                    permissionError
+                    ) {
                         const permissionCode =
                             permissionError?.code ??
-                            permissionError?.error?.code ??
-                            permissionError?.info?.error?.code;
+                            permissionError
+                                ?.error
+                                ?.code ??
+                            permissionError
+                                ?.info
+                                ?.error
+                                ?.code;
 
                         if (
-                            permissionCode === 4001 ||
+                            permissionCode ===
+                            4001 ||
                             permissionError?.code ===
-                                "ACTION_REJECTED"
+                            "ACTION_REJECTED"
                         ) {
                             throw permissionError;
                         }
@@ -211,10 +386,14 @@ export function Web3Provider({ children }) {
                     await browserProvider.getNetwork();
 
                 const detectedChainId =
-                    Number(network.chainId);
+                    Number(
+                        network.chainId
+                    );
 
                 const selectedAccount =
-                    ethers.getAddress(accounts[0]);
+                    ethers.getAddress(
+                        accounts[0]
+                    );
 
                 const walletSigner =
                     await browserProvider.getSigner(
@@ -228,13 +407,23 @@ export function Web3Provider({ children }) {
                     browserProvider
                 );
 
-                setSigner(walletSigner);
+                setSigner(
+                    walletSigner
+                );
 
-                setAccount(walletAccount);
+                setAccount(
+                    walletAccount
+                );
 
                 setChainId(
                     detectedChainId
                 );
+
+                /*
+                 * Wrong network:
+                 * keep wallet identity but remove
+                 * protocol instances.
+                 */
 
                 if (
                     detectedChainId !==
@@ -242,8 +431,14 @@ export function Web3Provider({ children }) {
                 ) {
                     clearProtocolState();
 
+                    clearAgreementState();
+
                     return true;
                 }
+
+                /* =========================================
+                         MULTIPAYMENT CONTRACT
+                   ========================================= */
 
                 const deployedCode =
                     await browserProvider.getCode(
@@ -256,8 +451,10 @@ export function Web3Provider({ children }) {
                 ) {
                     clearProtocolState();
 
+                    clearAgreementState();
+
                     throw new Error(
-                        `No ESCT contract was found at ${contractAddress} on chain ${detectedChainId}. Make sure the local Hardhat node is running and deploy the contract again.`
+                        `No ESCT MultiPayment contract was found at ${contractAddress} on chain ${detectedChainId}. Make sure the local Hardhat node is running and deploy MultiPayment again.`
                     );
                 }
 
@@ -272,108 +469,281 @@ export function Web3Provider({ children }) {
                     appContract
                 );
 
-                setContract(appContract);
+                setContract(
+                    appContract
+                );
+
+                /* =========================================
+                       AGREEMENT ESCROW CONTRACT
+                   ========================================= */
+
+                const agreementDeployedCode =
+                    await browserProvider.getCode(
+                        agreementContractAddress
+                    );
+
+                /*
+                 * Agreement V1 is added alongside
+                 * MultiPayment.
+                 *
+                 * If AgreementEscrow is unavailable,
+                 * do NOT destroy the existing RC2
+                 * MultiPayment session.
+                 */
+
+                if (
+                    !agreementDeployedCode ||
+                    agreementDeployedCode ===
+                    "0x"
+                ) {
+                    clearAgreementState();
+
+                    console.warn(
+                        `No AgreementEscrow contract was found at ${agreementContractAddress} on chain ${detectedChainId}. MultiPayment remains available.`
+                    );
+
+                    return true;
+                }
+
+                const agreementAppContract =
+                    new ethers.Contract(
+                        agreementContractAddress,
+                        resolvedAgreementABI,
+                        walletSigner
+                    );
+
+                await loadAgreementState(
+                    agreementAppContract
+                );
+
+                setAgreementContract(
+                    agreementAppContract
+                );
 
                 return true;
             },
             [
                 clearProtocolState,
+                clearAgreementState,
                 expectedChainId,
                 loadProtocolState,
+                loadAgreementState,
                 resetConnection,
             ]
         );
 
+    /* =====================================================
+                       CONNECT WALLET
+       ===================================================== */
+
     const connectWallet =
-        useCallback(async () => {
-            try {
-                setIsConnecting(true);
-
-                setTransaction({
-                    status: "connecting",
-                    message:
-                        "Connecting wallet...",
-                    hash: "",
-                    error: "",
-                });
-
-                const connected =
-                    await initializeConnection(
+        useCallback(
+            async () => {
+                try {
+                    setIsConnecting(
                         true
                     );
 
-                if (!connected) {
-                    throw new Error(
-                        "No wallet account was selected."
+                    setTransaction({
+                        status:
+                            "connecting",
+
+                        message:
+                            "Connecting wallet...",
+
+                        hash: "",
+
+                        error: "",
+                    });
+
+                    const connected =
+                        await initializeConnection(
+                            true
+                        );
+
+                    if (!connected) {
+                        throw new Error(
+                            "No wallet account was selected."
+                        );
+                    }
+
+                    setTransaction({
+                        status:
+                            "success",
+
+                        message:
+                            "Wallet connected successfully.",
+
+                        hash: "",
+
+                        error: "",
+                    });
+                } catch (error) {
+                    const message =
+                        getErrorMessage(
+                            error
+                        );
+
+                    console.error(
+                        "Wallet connection failed:",
+                        error
+                    );
+
+                    setTransaction({
+                        status:
+                            "error",
+
+                        message,
+
+                        hash: "",
+
+                        error:
+                            message,
+                    });
+                } finally {
+                    setIsConnecting(
+                        false
                     );
                 }
+            },
+            [
+                initializeConnection,
+            ]
+        );
 
-                setTransaction({
-                    status: "success",
-                    message:
-                        "Wallet connected successfully.",
-                    hash: "",
-                    error: "",
-                });
-            } catch (error) {
-                const message =
-                    getErrorMessage(error);
+    /* =====================================================
+                  REFRESH AGREEMENT STATE
+       ===================================================== */
 
-                console.error(
-                    "Wallet connection failed:",
-                    error
-                );
+    const refreshAgreementState =
+        useCallback(
+            async () => {
+                if (
+                    !agreementContract
+                ) {
+                    return;
+                }
 
-                setTransaction({
-                    status: "error",
-                    message,
-                    hash: "",
-                    error: message,
-                });
-            } finally {
-                setIsConnecting(false);
-            }
-        }, [initializeConnection]);
+                try {
+                    await loadAgreementState(
+                        agreementContract
+                    );
+                } catch (error) {
+                    console.error(
+                        "Unable to refresh Agreement protocol state:",
+                        error
+                    );
+
+                    const message =
+                        getErrorMessage(
+                            error
+                        );
+
+                    setTransaction({
+                        status:
+                            "error",
+
+                        message,
+
+                        hash: "",
+
+                        error:
+                            message,
+                    });
+                }
+            },
+            [
+                agreementContract,
+                loadAgreementState,
+            ]
+        );
+
+    /* =====================================================
+                  REFRESH ALL PROTOCOL STATE
+       ===================================================== */
 
     const refreshProtocolState =
-        useCallback(async () => {
-            if (!contract) {
-                return;
-            }
+        useCallback(
+            async () => {
+                if (
+                    !contract &&
+                    !agreementContract
+                ) {
+                    return;
+                }
 
-            try {
-                await loadProtocolState(
-                    contract
-                );
-            } catch (error) {
-                console.error(
-                    "Unable to refresh protocol state:",
-                    error
-                );
+                try {
+                    const refreshTasks =
+                        [];
 
-                const message =
-                    getErrorMessage(error);
+                    if (contract) {
+                        refreshTasks.push(
+                            loadProtocolState(
+                                contract
+                            )
+                        );
+                    }
 
-                setTransaction({
-                    status: "error",
-                    message,
-                    hash: "",
-                    error: message,
-                });
-            }
-        }, [
-            contract,
-            loadProtocolState,
-        ]);
+                    if (
+                        agreementContract
+                    ) {
+                        refreshTasks.push(
+                            loadAgreementState(
+                                agreementContract
+                            )
+                        );
+                    }
+
+                    await Promise.all(
+                        refreshTasks
+                    );
+                } catch (error) {
+                    console.error(
+                        "Unable to refresh protocol state:",
+                        error
+                    );
+
+                    const message =
+                        getErrorMessage(
+                            error
+                        );
+
+                    setTransaction({
+                        status:
+                            "error",
+
+                        message,
+
+                        hash: "",
+
+                        error:
+                            message,
+                    });
+                }
+            },
+            [
+                contract,
+                agreementContract,
+                loadProtocolState,
+                loadAgreementState,
+            ]
+        );
+
+    /* =====================================================
+                    EXECUTE TRANSACTION
+       ===================================================== */
 
     const executeTransaction =
         useCallback(
             async ({
                 action,
+
                 pendingMessage =
                 "Confirm the transaction in your wallet.",
+
                 submittedMessage =
                 "Transaction submitted.",
+
                 successMessage =
                 "Transaction confirmed.",
             }) => {
@@ -390,9 +760,12 @@ export function Web3Provider({ children }) {
                     setTransaction({
                         status:
                             "awaiting-signature",
+
                         message:
                             pendingMessage,
+
                         hash: "",
+
                         error: "",
                     });
 
@@ -400,10 +773,15 @@ export function Web3Provider({ children }) {
                         await action();
 
                     setTransaction({
-                        status: "pending",
+                        status:
+                            "pending",
+
                         message:
                             submittedMessage,
-                        hash: tx.hash,
+
+                        hash:
+                            tx.hash,
+
                         error: "",
                     });
 
@@ -411,21 +789,32 @@ export function Web3Provider({ children }) {
                         await tx.wait();
 
                     setTransaction({
-                        status: "success",
+                        status:
+                            "success",
+
                         message:
                             successMessage,
+
                         hash:
                             receipt.hash ||
                             tx.hash,
+
                         error: "",
                     });
+
+                    /*
+                     * Refresh both protocol layers
+                     * after every successful transaction.
+                     */
 
                     await refreshProtocolState();
 
                     return receipt;
                 } catch (error) {
                     const message =
-                        getErrorMessage(error);
+                        getErrorMessage(
+                            error
+                        );
 
                     console.error(
                         "Transaction failed:",
@@ -433,27 +822,46 @@ export function Web3Provider({ children }) {
                     );
 
                     setTransaction({
-                        status: "error",
+                        status:
+                            "error",
+
                         message,
+
                         hash: "",
-                        error: message,
+
+                        error:
+                            message,
                     });
 
                     throw error;
                 }
             },
-            [refreshProtocolState]
+            [
+                refreshProtocolState,
+            ]
         );
+
+    /* =====================================================
+                    CLEAR TRANSACTION
+       ===================================================== */
 
     const clearTransaction =
         useCallback(() => {
             setTransaction({
-                status: "idle",
+                status:
+                    "idle",
+
                 message: "",
+
                 hash: "",
+
                 error: "",
             });
         }, []);
+
+    /* =====================================================
+                     WALLET LISTENERS
+       ===================================================== */
 
     useEffect(() => {
         if (
@@ -467,15 +875,17 @@ export function Web3Provider({ children }) {
         const handleAccountsChanged =
             (accounts) => {
                 /*
-                 * Do not silently connect ESCT just
-                 * because MetaMask already knows
-                 * about an authorized account.
+                 * Preserve RC2 behavior:
                  *
-                 * Account changes are only handled
-                 * after the user has explicitly
-                 * connected during this ESCT session.
+                 * MetaMask account events must not
+                 * silently create a new ESCT session
+                 * before the user explicitly connects.
                  */
-                if (!account || !signer) {
+
+                if (
+                    !account ||
+                    !signer
+                ) {
                     return;
                 }
 
@@ -483,9 +893,13 @@ export function Web3Provider({ children }) {
                     resetConnection();
 
                     setTransaction({
-                        status: "idle",
+                        status:
+                            "idle",
+
                         message: "",
+
                         hash: "",
+
                         error: "",
                     });
 
@@ -494,55 +908,75 @@ export function Web3Provider({ children }) {
 
                 initializeConnection(
                     false
-                ).catch((error) => {
-                    const message =
-                        getErrorMessage(
+                ).catch(
+                    (error) => {
+                        const message =
+                            getErrorMessage(
+                                error
+                            );
+
+                        console.error(
+                            "Account refresh failed:",
                             error
                         );
 
-                    console.error(
-                        "Account refresh failed:",
-                        error
-                    );
+                        setTransaction({
+                            status:
+                                "error",
 
-                    setTransaction({
-                        status: "error",
-                        message,
-                        hash: "",
-                        error: message,
-                    });
-                });
+                            message,
+
+                            hash: "",
+
+                            error:
+                                message,
+                        });
+                    }
+                );
             };
 
-        const handleChainChanged = () => {
-            /*
-             * Same rule for networks:
-             * no automatic ESCT session until
-             * Connect wallet has been pressed.
-             */
-            if (!account || !signer) {
-                return;
-            }
+        const handleChainChanged =
+            () => {
+                /*
+                 * Same explicit-session rule
+                 * applies to chain changes.
+                 */
 
-            initializeConnection(
-                false
-            ).catch((error) => {
-                const message =
-                    getErrorMessage(error);
+                if (
+                    !account ||
+                    !signer
+                ) {
+                    return;
+                }
 
-                console.error(
-                    "Network refresh failed:",
-                    error
+                initializeConnection(
+                    false
+                ).catch(
+                    (error) => {
+                        const message =
+                            getErrorMessage(
+                                error
+                            );
+
+                        console.error(
+                            "Network refresh failed:",
+                            error
+                        );
+
+                        setTransaction({
+                            status:
+                                "error",
+
+                            message,
+
+                            hash: "",
+
+                            error:
+                                message,
+                        });
+                    }
                 );
-
-                setTransaction({
-                    status: "error",
-                    message,
-                    hash: "",
-                    error: message,
-                });
-            });
-        };
+            };
 
         window.ethereum.on(
             "accountsChanged",
@@ -572,88 +1006,180 @@ export function Web3Provider({ children }) {
         resetConnection,
     ]);
 
+    /* =====================================================
+                         ROLE STATE
+       ===================================================== */
+
     const normalizedAccount =
         account.toLowerCase();
 
-    const isConnected = Boolean(
-        account && signer
-    );
+    const isConnected =
+        Boolean(
+            account &&
+            signer
+        );
 
     const isCorrectNetwork =
-        chainId === expectedChainId;
+        chainId ===
+        expectedChainId;
 
-    const isProtocolReady = Boolean(
-        isConnected &&
-        isCorrectNetwork &&
-        contract
-    );
+    /* =====================================================
+                      MULTIPAYMENT ROLES
+       ===================================================== */
 
-    const isOwner = Boolean(
-        isProtocolReady &&
-        normalizedAccount &&
-        owner &&
-        normalizedAccount ===
-        owner.toLowerCase()
-    );
+    const isProtocolReady =
+        Boolean(
+            isConnected &&
+            isCorrectNetwork &&
+            contract
+        );
 
-    const isArbitrator = Boolean(
-        isProtocolReady &&
-        normalizedAccount &&
-        arbitrator &&
-        normalizedAccount ===
-        arbitrator.toLowerCase()
-    );
+    const isOwner =
+        Boolean(
+            isProtocolReady &&
+            normalizedAccount &&
+            owner &&
+            normalizedAccount ===
+            owner.toLowerCase()
+        );
 
-    const value = useMemo(
-        () => ({
-            provider,
-            signer,
-            contract,
+    const isArbitrator =
+        Boolean(
+            isProtocolReady &&
+            normalizedAccount &&
+            arbitrator &&
+            normalizedAccount ===
+            arbitrator.toLowerCase()
+        );
 
-            account,
-            chainId,
-            expectedChainId,
-            owner,
-            arbitrator,
-            isPaused,
+    /* =====================================================
+                       AGREEMENT ROLES
+       ===================================================== */
 
-            isConnected,
-            isCorrectNetwork,
-            isProtocolReady,
-            isOwner,
-            isArbitrator,
-            isConnecting,
+    const isAgreementReady =
+        Boolean(
+            isConnected &&
+            isCorrectNetwork &&
+            agreementContract
+        );
 
-            transaction,
+    const isAgreementOwner =
+        Boolean(
+            isAgreementReady &&
+            normalizedAccount &&
+            agreementOwner &&
+            normalizedAccount ===
+            agreementOwner.toLowerCase()
+        );
 
-            connectWallet,
-            executeTransaction,
-            refreshProtocolState,
-            clearTransaction,
-        }),
-        [
-            provider,
-            signer,
-            contract,
-            account,
-            chainId,
-            expectedChainId,
-            owner,
-            arbitrator,
-            isPaused,
-            isConnected,
-            isCorrectNetwork,
-            isProtocolReady,
-            isOwner,
-            isArbitrator,
-            isConnecting,
-            transaction,
-            connectWallet,
-            executeTransaction,
-            refreshProtocolState,
-            clearTransaction,
-        ]
-    );
+    const isAgreementArbitrator =
+        Boolean(
+            isAgreementReady &&
+            normalizedAccount &&
+            agreementArbitrator &&
+            normalizedAccount ===
+            agreementArbitrator.toLowerCase()
+        );
+
+    /* =====================================================
+                        CONTEXT VALUE
+       ===================================================== */
+
+    const value =
+        useMemo(
+            () => ({
+                /* Wallet */
+
+                provider,
+                signer,
+
+                account,
+                chainId,
+                expectedChainId,
+
+                isConnected,
+                isCorrectNetwork,
+                isConnecting,
+
+                /* MultiPayment RC2 */
+
+                contract,
+
+                owner,
+                arbitrator,
+                isPaused,
+
+                isProtocolReady,
+                isOwner,
+                isArbitrator,
+
+                /* Agreement V1 */
+
+                agreementContract,
+
+                agreementOwner,
+                agreementArbitrator,
+                isAgreementPaused,
+
+                isAgreementReady,
+                isAgreementOwner,
+                isAgreementArbitrator,
+
+                /* Transactions */
+
+                transaction,
+
+                connectWallet,
+                executeTransaction,
+
+                refreshProtocolState,
+                refreshAgreementState,
+
+                clearTransaction,
+            }),
+            [
+                provider,
+                signer,
+
+                account,
+                chainId,
+                expectedChainId,
+
+                isConnected,
+                isCorrectNetwork,
+                isConnecting,
+
+                contract,
+
+                owner,
+                arbitrator,
+                isPaused,
+
+                isProtocolReady,
+                isOwner,
+                isArbitrator,
+
+                agreementContract,
+
+                agreementOwner,
+                agreementArbitrator,
+                isAgreementPaused,
+
+                isAgreementReady,
+                isAgreementOwner,
+                isAgreementArbitrator,
+
+                transaction,
+
+                connectWallet,
+                executeTransaction,
+
+                refreshProtocolState,
+                refreshAgreementState,
+
+                clearTransaction,
+            ]
+        );
 
     return (
         <Web3Context.Provider
@@ -663,5 +1189,3 @@ export function Web3Provider({ children }) {
         </Web3Context.Provider>
     );
 }
-
-

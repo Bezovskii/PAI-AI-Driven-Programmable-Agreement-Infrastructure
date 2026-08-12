@@ -15,6 +15,7 @@ import { ethers } from "ethers";
 import "./App.css";
 
 import AdminPanel from "./components/admin/AdminPanel.jsx";
+import AgreementWorkspace from "./components/agreements/AgreementWorkspace.jsx";
 import ArbitrationPanel from "./components/arbitration/ArbitrationPanel.jsx";
 import ArbitratorAcceptancePanel from "./components/arbitration/ArbitratorAcceptancePanel.jsx";
 import BuyerOrderPanel from "./components/orders/BuyerOrderPanel.jsx";
@@ -137,6 +138,14 @@ function ProtocolSidebar() {
             </span>
 
             Dashboard
+          </NavLink>
+
+          <NavLink to="/agreements">
+            <span className="sidebarIcon">
+              G
+            </span>
+
+            Agreements
           </NavLink>
 
           <NavLink to="/buyer">
@@ -617,7 +626,15 @@ function DashboardPage() {
               existing orders.
             </p>
 
-            <NavLink to="/buyer">
+            <NavLink to="/agreements">
+            <span className="sidebarIcon">
+              G
+            </span>
+
+            Agreements
+          </NavLink>
+
+          <NavLink to="/buyer">
               Open workspace
               <span>→</span>
             </NavLink>
@@ -974,6 +991,14 @@ function App() {
             Overview
           </NavLink>
 
+          <NavLink to="/agreements">
+            <span className="sidebarIcon">
+              G
+            </span>
+
+            Agreements
+          </NavLink>
+
           <NavLink to="/buyer">
             Buyer
           </NavLink>
@@ -1051,6 +1076,12 @@ function App() {
             />
 
             <Route
+              path="/agreements"
+              element={
+                <AgreementWorkspace />
+              }
+            />
+            <Route
               path="/buyer"
               element={
                 <BuyerPage />
@@ -1095,3 +1126,5 @@ function App() {
 }
 
 export default App;
+
+

@@ -20,6 +20,22 @@ const PAYMENT_TYPE = [
     "Escrow",
 ];
 
+const AGREEMENT_STATUS = [
+    "Proposed",
+    "Accepted",
+    "Active",
+    "Completed",
+    "Cancelled",
+];
+
+const MILESTONE_STATUS = [
+    "Pending",
+    "Submitted",
+    "Disputed",
+    "Released",
+    "Refunded",
+];
+
 function shortAddress(address) {
     if (!address) {
         return "-";
@@ -44,204 +60,15 @@ function getErrorMessage(error) {
     );
 }
 
-function buildLifecycle(order) {
-    if (!order) {
-        return [];
+function makeEvidenceHash(value) {
+    const trimmed = value.trim();
+
+    if (/^0x[a-fA-F0-9]{64}$/.test(trimmed)) {
+        return trimmed;
     }
 
-    /*
-     * Direct payments do not enter escrow.
-     */
-    if (order.paymentType === 0) {
-        return [
-            {
-                label: "Created",
-                state: "done",
-                detail: "Order created",
-            },
-            {
-                label: "Direct payment",
-                state: "done",
-                detail: "Funds sent directly",
-            },
-            {
-                label: "Completed",
-                state: "current success",
-                detail: "Transaction completed",
-            },
-        ];
-    }
-
-    /*
-     * Escrow status:
-     * 0 = In Escrow
-     * 1 = Disputed
-     * 2 = Completed
-     * 3 = Refunded
-     */
-
-    if (order.status === 0) {
-        return [
-            {
-                label: "Created",
-                state: "done",
-                detail: "Order created",
-            },
-            {
-                label: "In Escrow",
-                state: "current",
-                detail: "Funds protected",
-            },
-            {
-                label: "Outcome",
-                state: "pending",
-                detail: "Release, dispute or refund",
-            },
-        ];
-    }
-
-    if (order.status === 1) {
-        return [
-            {
-                label: "Created",
-                state: "done",
-                detail: "Order created",
-            },
-            {
-                label: "In Escrow",
-                state: "done",
-                detail: "Funds protected",
-            },
-            {
-                label: "Disputed",
-                state: "current dispute",
-                detail: "Awaiting arbitration",
-            },
-            {
-                label: "Resolution",
-                state: "pending",
-                detail: "Arbitrator decision",
-            },
-        ];
-    }
-
-    if (order.status === 2) {
-        return [
-            {
-                label: "Created",
-                state: "done",
-                detail: "Order created",
-            },
-            {
-                label: "In Escrow",
-                state: "done",
-                detail: "Funds protected",
-            },
-            {
-                label: "Completed",
-                state: "current success",
-                detail: "Escrow settled",
-            },
-        ];
-    }
-
-    if (order.status === 3) {
-        return [
-            {
-                label: "Created",
-                state: "done",
-                detail: "Order created",
-            },
-            {
-                label: "In Escrow",
-                state: "done",
-                detail: "Funds protected",
-            },
-            {
-                label: "Refunded",
-                state: "current refund",
-                detail: "Funds returned",
-            },
-        ];
-    }
-
-    return [];
-}
-
-/*
- * We intentionally reuse the same lifecycle classes
- * used by BuyerOrderPanel so Buyer and Seller see
- * exactly the same protocol-state language.
- */
-function OrderLifecycle({ order }) {
-    const steps = buildLifecycle(order);
-
-    return (
-        <div className="buyerOrderLifecycle">
-            <div className="buyerLifecycleHeader">
-                <div>
-                    <span>
-                        ORDER LIFECYCLE
-                    </span>
-
-                    <strong>
-                        On-chain status
-                    </strong>
-                </div>
-
-                <small>
-                    {order.paymentType === 1
-                        ? "ESCROW FLOW"
-                        : "DIRECT FLOW"}
-                </small>
-            </div>
-
-            <div
-                className="buyerLifecycleTrack"
-                style={{
-                    "--lifecycle-columns":
-                        steps.length,
-                }}
-            >
-                {steps.map(
-                    (step, index) => (
-                        <div
-                            key={`${step.label}-${index}`}
-                            className={`buyerLifecycleStep ${step.state}`}
-                        >
-                            <div className="buyerLifecycleMarker">
-                                <span>
-                                    {step.state.includes(
-                                        "done"
-                                    )
-                                        ? "✓"
-                                        : step.state.includes(
-                                            "current"
-                                        )
-                                            ? "●"
-                                            : ""}
-                                </span>
-                            </div>
-
-                            {index <
-                                steps.length - 1 && (
-                                    <div className="buyerLifecycleLine" />
-                                )}
-
-                            <div className="buyerLifecycleText">
-                                <strong>
-                                    {step.label}
-                                </strong>
-
-                                <small>
-                                    {step.detail}
-                                </small>
-                            </div>
-                        </div>
-                    )
-                )}
-            </div>
-        </div>
+    return ethers.keccak256(
+        ethers.toUtf8Bytes(trimmed)
     );
 }
 
@@ -250,35 +77,61 @@ export default function SellerOrderPanel() {
         account,
         provider,
         contract,
+        agreementContract,
+        isAgreementReady,
         isConnected,
         isCorrectNetwork,
         executeTransaction,
     } = useWeb3();
 
-    const [orderId, setOrderId] =
+    // =========================================================
+    // LEGACY / ONE-OFF ORDER STATE
+    // =========================================================
+
+    const [orderId, setOrderId] = useState("");
+    const [order, setOrder] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [notice, setNotice] = useState("");
+
+    // =========================================================
+    // AGREEMENT / CONTRACTOR STATE
+    // =========================================================
+
+    const [agreementId, setAgreementId] =
         useState("");
 
-    const [order, setOrder] =
+    const [agreement, setAgreement] =
         useState(null);
 
-    const [isLoading, setIsLoading] =
+    const [milestones, setMilestones] =
+        useState([]);
+
+    const [agreementAsset, setAgreementAsset] =
+        useState({
+            symbol: "ETH",
+            decimals: 18,
+        });
+
+    const [agreementLoading, setAgreementLoading] =
         useState(false);
 
-    const [error, setError] =
+    const [agreementError, setAgreementError] =
         useState("");
 
-    const [notice, setNotice] =
+    const [agreementNotice, setAgreementNotice] =
         useState("");
+
+    const [evidenceByMilestone, setEvidenceByMilestone] =
+        useState({});
+
+    // =========================================================
+    // SHARED HELPERS
+    // =========================================================
 
     function validateConnection() {
-        if (
-            !isConnected ||
-            !contract ||
-            !provider
-        ) {
-            throw new Error(
-                "Connect your wallet first."
-            );
+        if (!isConnected || !provider) {
+            throw new Error("Connect your wallet first.");
         }
 
         if (!isCorrectNetwork) {
@@ -288,27 +141,7 @@ export default function SellerOrderPanel() {
         }
     }
 
-    function validateOrderId() {
-        const parsedOrderId =
-            Number(orderId);
-
-        if (
-            !Number.isInteger(
-                parsedOrderId
-            ) ||
-            parsedOrderId <= 0
-        ) {
-            throw new Error(
-                "Enter a valid order ID greater than zero."
-            );
-        }
-
-        return parsedOrderId;
-    }
-
-    async function getAssetMetadata(
-        tokenAddress
-    ) {
+    async function getAssetMetadata(tokenAddress) {
         if (
             tokenAddress.toLowerCase() ===
             ethers.ZeroAddress.toLowerCase()
@@ -326,95 +159,431 @@ export default function SellerOrderPanel() {
                 provider
             );
 
-        const [
-            symbol,
-            decimalsResult,
-        ] = await Promise.all([
-            tokenContract.symbol(),
-            tokenContract.decimals(),
-        ]);
+        const [symbol, decimalsResult] =
+            await Promise.all([
+                tokenContract.symbol(),
+                tokenContract.decimals(),
+            ]);
 
         return {
             symbol,
-            decimals:
-                Number(decimalsResult),
+            decimals: Number(decimalsResult),
         };
     }
 
-    async function fetchOrder() {
-        validateConnection();
+    // =========================================================
+    // AGREEMENT / CONTRACTOR LOGIC
+    // =========================================================
 
-        const parsedOrderId =
-            validateOrderId();
+    function validateAgreementId() {
+        const parsedAgreementId =
+            Number(agreementId);
 
-        const result =
-            await contract.orderById(
-                parsedOrderId
-            );
-
-        const exists =
-            Boolean(result[7]);
-
-        if (!exists) {
+        if (
+            !Number.isInteger(parsedAgreementId) ||
+            parsedAgreementId <= 0
+        ) {
             throw new Error(
-                `Order #${parsedOrderId} does not exist.`
+                "Enter a valid Agreement ID greater than zero."
             );
         }
 
-        const tokenAddress =
-            result[3];
+        return parsedAgreementId;
+    }
 
-        const metadata =
-            await getAssetMetadata(
-                tokenAddress
+    async function loadAgreement(
+        explicitId = null
+    ) {
+        try {
+            setAgreementError("");
+            setAgreementNotice("");
+            setAgreementLoading(true);
+
+            validateConnection();
+
+            if (
+                !agreementContract ||
+                !isAgreementReady
+            ) {
+                throw new Error(
+                    "Agreement V1 contract is not ready."
+                );
+            }
+
+            const parsedAgreementId =
+                explicitId !== null
+                    ? Number(explicitId)
+                    : validateAgreementId();
+
+            if (
+                !Number.isInteger(
+                    parsedAgreementId
+                ) ||
+                parsedAgreementId <= 0
+            ) {
+                throw new Error(
+                    "Enter a valid Agreement ID greater than zero."
+                );
+            }
+
+            const raw =
+                await agreementContract
+                    .agreementById(
+                        parsedAgreementId
+                    );
+
+            if (!raw.exists) {
+                throw new Error(
+                    `Agreement #${parsedAgreementId} does not exist.`
+                );
+            }
+
+            const metadata =
+                await getAssetMetadata(
+                    raw.token
+                );
+
+            const milestoneCount =
+                Number(raw.milestoneCount);
+
+            const loadedMilestones =
+                await Promise.all(
+                    Array.from(
+                        {
+                            length:
+                                milestoneCount,
+                        },
+                        (_, index) =>
+                            agreementContract
+                                .milestoneById(
+                                    parsedAgreementId,
+                                    index + 1
+                                )
+                    )
+                );
+
+            setAgreementAsset(metadata);
+
+            setAgreement({
+                id: raw.id,
+                client: raw.client,
+                contractor:
+                    raw.contractor,
+                token: raw.token,
+                totalAmount:
+                    raw.totalAmount,
+                remainingEscrow:
+                    raw.remainingEscrow,
+                status:
+                    Number(raw.status),
+                metadataURI:
+                    raw.metadataURI,
+                milestoneCount,
+                exists: raw.exists,
+            });
+
+            setMilestones(
+                loadedMilestones.map(
+                    (item) => ({
+                        id: item.id,
+                        amount:
+                            item.amount,
+                        status:
+                            Number(
+                                item.status
+                            ),
+                        metadataURI:
+                            item.metadataURI,
+                        evidenceURI:
+                            item.evidenceURI,
+                        evidenceHash:
+                            item.evidenceHash,
+                        exists:
+                            item.exists,
+                    })
+                )
             );
 
-        const parsedOrder = {
-            id: result[0].toString(),
+            setAgreementId(
+                parsedAgreementId.toString()
+            );
 
-            buyer: result[1],
+            setAgreementNotice(
+                `Agreement #${parsedAgreementId} loaded.`
+            );
+        } catch (loadError) {
+            console.error(loadError);
 
-            seller: result[2],
+            setAgreement(null);
+            setMilestones([]);
 
-            token: tokenAddress,
+            setAgreementError(
+                getErrorMessage(loadError)
+            );
+        } finally {
+            setAgreementLoading(false);
+        }
+    }
 
-            amount: result[4],
+    async function runAgreementAction({
+        action,
+        pendingMessage,
+        submittedMessage,
+        successMessage,
+    }) {
+        try {
+            setAgreementError("");
+            setAgreementNotice("");
+            setAgreementLoading(true);
 
-            formattedAmount:
-                `${ethers.formatUnits(
-                    result[4],
-                    metadata.decimals
-                )} ${metadata.symbol}`,
+            validateConnection();
 
-            assetSymbol:
-                metadata.symbol,
+            if (
+                !agreementContract ||
+                !isAgreementReady
+            ) {
+                throw new Error(
+                    "Agreement V1 contract is not ready."
+                );
+            }
 
-            paymentType:
-                Number(result[5]),
+            if (!agreement) {
+                throw new Error(
+                    "Load an Agreement first."
+                );
+            }
 
-            status:
-                Number(result[6]),
+            await executeTransaction({
+                action,
+                pendingMessage,
+                submittedMessage,
+                successMessage,
+            });
 
-            exists,
-        };
+            await loadAgreement(
+                Number(
+                    agreement.id
+                        .toString()
+                )
+            );
 
-        setOrder(parsedOrder);
+            setAgreementNotice(
+                successMessage
+            );
+        } catch (actionError) {
+            console.error(actionError);
 
-        return parsedOrder;
+            setAgreementError(
+                getErrorMessage(actionError)
+            );
+        } finally {
+            setAgreementLoading(false);
+        }
+    }
+
+    function updateEvidenceField(
+        milestoneId,
+        field,
+        value
+    ) {
+        const key =
+            milestoneId.toString();
+
+        setEvidenceByMilestone(
+            (current) => ({
+                ...current,
+                [key]: {
+                    ...(current[key] || {}),
+                    [field]: value,
+                },
+            })
+        );
+    }
+
+    async function submitMilestone(
+        milestone
+    ) {
+        const key =
+            milestone.id.toString();
+
+        const entry =
+            evidenceByMilestone[key] ||
+            {};
+
+        const evidenceURI =
+            entry.uri?.trim() || "";
+
+        const evidenceProof =
+            entry.proof?.trim() || "";
+
+        if (!evidenceURI) {
+            setAgreementError(
+                "Enter an evidence URI before submitting the milestone."
+            );
+
+            return;
+        }
+
+        if (!evidenceProof) {
+            setAgreementError(
+                "Enter an evidence hash or proof text before submitting the milestone."
+            );
+
+            return;
+        }
+
+        const evidenceHash =
+            makeEvidenceHash(
+                evidenceProof
+            );
+
+        await runAgreementAction({
+            action: () =>
+                agreementContract
+                    .submitMilestone(
+                        agreement.id,
+                        milestone.id,
+                        evidenceURI,
+                        evidenceHash
+                    ),
+
+            pendingMessage:
+                `Confirm delivery of Milestone #${milestone.id.toString()}.`,
+
+            submittedMessage:
+                `Submitting Milestone #${milestone.id.toString()} evidence on-chain...`,
+
+            successMessage:
+                `Milestone #${milestone.id.toString()} delivered successfully.`,
+        });
+
+        setEvidenceByMilestone(
+            (current) => ({
+                ...current,
+                [key]: {
+                    uri: "",
+                    proof: "",
+                },
+            })
+        );
+    }
+
+    const normalizedAccount =
+        account?.toLowerCase() || "";
+
+    const isAgreementContractor =
+        Boolean(
+            agreement &&
+            normalizedAccount &&
+            normalizedAccount ===
+            agreement.contractor
+                .toLowerCase()
+        );
+
+    const isAgreementClient =
+        Boolean(
+            agreement &&
+            normalizedAccount &&
+            normalizedAccount ===
+            agreement.client
+                .toLowerCase()
+        );
+
+    const agreementStatusText =
+        agreement
+            ? AGREEMENT_STATUS[
+            agreement.status
+            ] || "Unknown"
+            : "-";
+
+    // =========================================================
+    // LEGACY / ONE-OFF ORDER LOGIC
+    // =========================================================
+
+    function validateOrderId() {
+        const parsedOrderId =
+            Number(orderId);
+
+        if (
+            !Number.isInteger(parsedOrderId) ||
+            parsedOrderId <= 0
+        ) {
+            throw new Error(
+                "Enter a valid order ID greater than zero."
+            );
+        }
+
+        return parsedOrderId;
     }
 
     async function loadOrder() {
         try {
             setError("");
             setNotice("");
-            setOrder(null);
             setIsLoading(true);
 
-            const loadedOrder =
-                await fetchOrder();
+            validateConnection();
+
+            if (!contract) {
+                throw new Error(
+                    "Payment contract is not ready."
+                );
+            }
+
+            const parsedOrderId =
+                validateOrderId();
+
+            const result =
+                await contract.orderById(
+                    parsedOrderId
+                );
+
+            const exists =
+                Boolean(result[7]);
+
+            if (!exists) {
+                throw new Error(
+                    `Order #${parsedOrderId} does not exist.`
+                );
+            }
+
+            const tokenAddress =
+                result[3];
+
+            const metadata =
+                await getAssetMetadata(
+                    tokenAddress
+                );
+
+            const parsedOrder = {
+                id:
+                    result[0].toString(),
+                buyer:
+                    result[1],
+                seller:
+                    result[2],
+                token:
+                    tokenAddress,
+                amount:
+                    result[4],
+                formattedAmount:
+                    `${ethers.formatUnits(
+                        result[4],
+                        metadata.decimals
+                    )} ${metadata.symbol}`,
+                assetSymbol:
+                    metadata.symbol,
+                paymentType:
+                    Number(result[5]),
+                status:
+                    Number(result[6]),
+                exists,
+            };
+
+            setOrder(parsedOrder);
 
             setNotice(
-                `Order #${loadedOrder.id} loaded successfully.`
+                `Order #${parsedOrder.id} loaded successfully.`
             );
         } catch (loadError) {
             console.error(loadError);
@@ -422,9 +591,7 @@ export default function SellerOrderPanel() {
             setOrder(null);
 
             setError(
-                getErrorMessage(
-                    loadError
-                )
+                getErrorMessage(loadError)
             );
         } finally {
             setIsLoading(false);
@@ -457,7 +624,7 @@ export default function SellerOrderPanel() {
                 successMessage,
             });
 
-            await fetchOrder();
+            await loadOrder();
 
             setNotice(
                 successMessage
@@ -466,17 +633,12 @@ export default function SellerOrderPanel() {
             console.error(actionError);
 
             setError(
-                getErrorMessage(
-                    actionError
-                )
+                getErrorMessage(actionError)
             );
         } finally {
             setIsLoading(false);
         }
     }
-
-    const normalizedAccount =
-        account?.toLowerCase() || "";
 
     const isSeller = Boolean(
         order &&
@@ -508,334 +670,859 @@ export default function SellerOrderPanel() {
         isEscrowOrder &&
         isInEscrow;
 
-    let orderRole =
-        "Not a participant";
-
-    if (isSeller) {
-        orderRole = "Seller";
-    } else if (isBuyer) {
-        orderRole = "Buyer";
-    }
+    // =========================================================
+    // RENDER
+    // =========================================================
 
     return (
-        <section className="sellerOrderPanel">
-            <div className="sellerOrderHeader">
+        <div className="rolePage">
+            <div className="pageHeading">
                 <div>
                     <span className="eyebrow">
-                        Seller / Order management
+                        Seller / Contractor
                     </span>
 
-                    <h2>
-                        Find an incoming order
-                    </h2>
+                    <h1>
+                        Seller workspace
+                    </h1>
 
                     <p>
-                        Load an on-chain Order ID,
-                        verify your seller role and
-                        inspect the current escrow
-                        lifecycle.
+                        Manage one-off escrow
+                        orders and execute
+                        programmable Agreement
+                        milestones from the same
+                        workspace.
                     </p>
                 </div>
             </div>
 
-            <div className="sellerOrderSearch">
-                <div>
-                    <label
-                        htmlFor="seller-order-id"
-                    >
-                        Order ID
-                    </label>
+            {/* =================================================
+                AGREEMENT WORK
+            ================================================= */}
 
-                    <input
-                        id="seller-order-id"
-                        type="number"
-                        min="1"
-                        step="1"
-                        inputMode="numeric"
-                        placeholder="Example: 1"
-                        value={orderId}
-                        onChange={(event) =>
-                            setOrderId(
-                                event.target
-                                    .value
-                            )
-                        }
-                        onKeyDown={(event) => {
-                            if (
-                                event.key ===
-                                "Enter"
-                            ) {
-                                loadOrder();
-                            }
-                        }}
-                    />
-                </div>
-
-                <button
-                    type="button"
-                    className="primary"
-                    onClick={loadOrder}
-                    disabled={
-                        isLoading ||
-                        !isConnected ||
-                        !isCorrectNetwork
-                    }
-                >
-                    {isLoading
-                        ? "Loading..."
-                        : "Find order"}
-                </button>
-            </div>
-
-            {error && (
-                <div className="paymentFormError">
-                    {error}
-                </div>
-            )}
-
-            {notice && (
-                <div className="createdOrderNotice">
-                    {notice}
-                </div>
-            )}
-
-            {!order && !error && (
-                <div className="emptyState">
-                    No order loaded. Enter an
-                    Order ID to inspect the
-                    transaction and seller
-                    permissions.
-                </div>
-            )}
-
-            {order && (
-                <div className="sellerOrderCard">
-                    <div className="sellerOrderTop">
-                        <div>
-                            <span>
-                                ORDER
-                            </span>
-
-                            <h3>
-                                #{order.id}
-                            </h3>
-                        </div>
-
-                        <span
-                            className={`badge ${[
-                                    "escrow",
-                                    "disputed",
-                                    "completed",
-                                    "refunded",
-                                ][
-                                order.status
-                                ] || ""
-                                }`}
-                        >
-                            {ORDER_STATUS[
-                                order.status
-                            ] || "Unknown"}
+            <section className="sellerOrderPanel">
+                <div className="sellerOrderHeader">
+                    <div>
+                        <span className="eyebrow">
+                            Programmable Agreements
                         </span>
-                    </div>
 
-                    <OrderLifecycle
-                        order={order}
-                    />
+                        <h2>
+                            Agreement work & milestone delivery
+                        </h2>
 
-                    <div className="sellerOrderDetails">
-                        <div>
-                            <span>
-                                Buyer
-                            </span>
-
-                            <strong
-                                className="mono"
-                                title={
-                                    order.buyer
-                                }
-                            >
-                                {shortAddress(
-                                    order.buyer
-                                )}
-                            </strong>
-                        </div>
-
-                        <div>
-                            <span>
-                                Seller
-                            </span>
-
-                            <strong
-                                className="mono"
-                                title={
-                                    order.seller
-                                }
-                            >
-                                {shortAddress(
-                                    order.seller
-                                )}
-                            </strong>
-                        </div>
-
-                        <div>
-                            <span>
-                                Amount
-                            </span>
-
-                            <strong>
-                                {
-                                    order.formattedAmount
-                                }
-                            </strong>
-                        </div>
-
-                        <div>
-                            <span>
-                                Asset
-                            </span>
-
-                            <strong>
-                                {
-                                    order.assetSymbol
-                                }
-                            </strong>
-                        </div>
-
-                        <div>
-                            <span>
-                                Protection
-                            </span>
-
-                            <strong>
-                                {PAYMENT_TYPE[
-                                    order.paymentType
-                                ] || "Unknown"}
-                            </strong>
-                        </div>
-
-                        <div>
-                            <span>
-                                Connected role
-                            </span>
-
-                            <strong>
-                                {orderRole}
-                            </strong>
-                        </div>
-                    </div>
-
-                    {!isSeller && (
-                        <div className="sellerAccessWarning">
-                            The connected wallet is
-                            not the seller for this
-                            order. Seller-only
-                            actions are unavailable.
-                        </div>
-                    )}
-
-                    {isSeller &&
-                        order.status === 1 && (
-                            <div className="sellerAccessNotice">
-                                This order is
-                                disputed. Escrow is
-                                awaiting protocol
-                                arbitration.
-                            </div>
-                        )}
-
-                    {isSeller &&
-                        order.status === 2 && (
-                            <div className="sellerAccessNotice">
-                                This transaction is
-                                completed. The escrow
-                                is no longer active.
-                            </div>
-                        )}
-
-                    {isSeller &&
-                        order.status === 3 && (
-                            <div className="sellerAccessNotice">
-                                This order has been
-                                refunded. The escrow
-                                is no longer active.
-                            </div>
-                        )}
-
-                    {isSeller &&
-                        !isEscrowOrder && (
-                            <div className="sellerAccessNotice">
-                                This was a direct
-                                payment and therefore
-                                has no active escrow
-                                controls.
-                            </div>
-                        )}
-
-                    <div className="sellerOrderActions">
-                        {canRefund && (
-                            <button
-                                type="button"
-                                className="secondary"
-                                disabled={
-                                    isLoading
-                                }
-                                onClick={() =>
-                                    runOrderAction({
-                                        action: () =>
-                                            contract.refund(
-                                                Number(
-                                                    order.id
-                                                )
-                                            ),
-
-                                        pendingMessage:
-                                            "Confirm the refund in your wallet.",
-
-                                        submittedMessage:
-                                            `Refund for Order #${order.id} submitted.`,
-
-                                        successMessage:
-                                            `Order #${order.id} refunded successfully.`,
-                                    })
-                                }
-                            >
-                                Refund buyer
-                            </button>
-                        )}
-
-                        {canOpenDispute && (
-                            <button
-                                type="button"
-                                className="danger"
-                                disabled={
-                                    isLoading
-                                }
-                                onClick={() =>
-                                    runOrderAction({
-                                        action: () =>
-                                            contract.openDispute(
-                                                Number(
-                                                    order.id
-                                                )
-                                            ),
-
-                                        pendingMessage:
-                                            "Confirm the dispute in your wallet.",
-
-                                        submittedMessage:
-                                            `Dispute for Order #${order.id} submitted.`,
-
-                                        successMessage:
-                                            `Dispute opened for Order #${order.id}.`,
-                                    })
-                                }
-                            >
-                                Open dispute
-                            </button>
-                        )}
+                        <p>
+                            Load an Agreement where
+                            your connected wallet is
+                            the contractor. Accept the
+                            terms, then deliver each
+                            funded milestone with
+                            verifiable evidence.
+                        </p>
                     </div>
                 </div>
-            )}
-        </section>
+
+                <div className="sellerOrderSearch">
+                    <div>
+                        <label htmlFor="seller-agreement-id">
+                            Agreement ID
+                        </label>
+
+                        <input
+                            id="seller-agreement-id"
+                            type="number"
+                            min="1"
+                            step="1"
+                            inputMode="numeric"
+                            placeholder="Example: 1"
+                            value={
+                                agreementId
+                            }
+                            onChange={(
+                                event
+                            ) =>
+                                setAgreementId(
+                                    event.target
+                                        .value
+                                )
+                            }
+                            onKeyDown={(
+                                event
+                            ) => {
+                                if (
+                                    event.key ===
+                                    "Enter"
+                                ) {
+                                    loadAgreement();
+                                }
+                            }}
+                        />
+                    </div>
+
+                    <button
+                        type="button"
+                        className="primary"
+                        onClick={() =>
+                            loadAgreement()
+                        }
+                        disabled={
+                            agreementLoading ||
+                            !isConnected ||
+                            !isCorrectNetwork ||
+                            !isAgreementReady
+                        }
+                    >
+                        {agreementLoading
+                            ? "Loading..."
+                            : "Find Agreement"}
+                    </button>
+                </div>
+
+                {agreementError && (
+                    <div className="paymentFormError">
+                        {agreementError}
+                    </div>
+                )}
+
+                {agreementNotice && (
+                    <div className="createdOrderNotice">
+                        {agreementNotice}
+                    </div>
+                )}
+
+                {!agreement && (
+                    <div className="emptyState">
+                        No Agreement loaded.
+                        Enter an Agreement ID
+                        to view contractor work.
+                    </div>
+                )}
+
+                {agreement && (
+                    <div className="sellerOrderCard">
+                        <div className="sellerOrderTop">
+                            <div>
+                                <span>
+                                    Agreement
+                                </span>
+
+                                <h3>
+                                    #
+                                    {agreement.id.toString()}
+                                </h3>
+                            </div>
+
+                            <span
+                                className={`badge ${agreement.status ===
+                                        2
+                                        ? "escrow"
+                                        : agreement.status ===
+                                            3
+                                            ? "completed"
+                                            : agreement.status ===
+                                                4
+                                                ? "refunded"
+                                                : ""
+                                    }`}
+                            >
+                                {
+                                    agreementStatusText
+                                }
+                            </span>
+                        </div>
+
+                        <div className="sellerOrderDetails">
+                            <div>
+                                <span>
+                                    Client
+                                </span>
+
+                                <strong>
+                                    {shortAddress(
+                                        agreement.client
+                                    )}
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>
+                                    Contractor
+                                </span>
+
+                                <strong>
+                                    {shortAddress(
+                                        agreement.contractor
+                                    )}
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>
+                                    Total
+                                </span>
+
+                                <strong>
+                                    {ethers.formatUnits(
+                                        agreement.totalAmount,
+                                        agreementAsset.decimals
+                                    )}{" "}
+                                    {
+                                        agreementAsset.symbol
+                                    }
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>
+                                    Remaining escrow
+                                </span>
+
+                                <strong>
+                                    {ethers.formatUnits(
+                                        agreement.remainingEscrow,
+                                        agreementAsset.decimals
+                                    )}{" "}
+                                    {
+                                        agreementAsset.symbol
+                                    }
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>
+                                    Milestones
+                                </span>
+
+                                <strong>
+                                    {
+                                        agreement.milestoneCount
+                                    }
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>
+                                    Your Agreement role
+                                </span>
+
+                                <strong>
+                                    {isAgreementContractor
+                                        ? "Contractor"
+                                        : isAgreementClient
+                                            ? "Client"
+                                            : "Not a participant"}
+                                </strong>
+                            </div>
+                        </div>
+
+                        {!isAgreementContractor && (
+                            <div className="sellerAccessWarning">
+                                The connected wallet
+                                is not the contractor
+                                for this Agreement.
+                                Contractor actions are
+                                unavailable.
+                            </div>
+                        )}
+
+                        {isAgreementContractor &&
+                            agreement.status ===
+                            0 && (
+                                <div className="sellerOrderActions">
+                                    <button
+                                        type="button"
+                                        className="primary"
+                                        disabled={
+                                            agreementLoading ||
+                                            milestones.length ===
+                                            0
+                                        }
+                                        onClick={() =>
+                                            runAgreementAction(
+                                                {
+                                                    action: () =>
+                                                        agreementContract.acceptAgreement(
+                                                            agreement.id
+                                                        ),
+                                                    pendingMessage:
+                                                        "Confirm Agreement acceptance in your wallet.",
+                                                    submittedMessage:
+                                                        "Accepting Agreement on-chain...",
+                                                    successMessage:
+                                                        `Agreement #${agreement.id.toString()} accepted.`,
+                                                }
+                                            )
+                                        }
+                                    >
+                                        Accept Agreement
+                                    </button>
+                                </div>
+                            )}
+
+                        {isAgreementContractor &&
+                            agreement.status ===
+                            1 && (
+                                <div className="sellerAccessNotice">
+                                    Agreement accepted.
+                                    Waiting for the
+                                    client to fund the
+                                    full escrow before
+                                    milestone execution
+                                    begins.
+                                </div>
+                            )}
+
+                        {isAgreementContractor &&
+                            agreement.status ===
+                            2 && (
+                                <>
+                                    <div className="sellerAccessNotice">
+                                        Agreement is
+                                        funded and
+                                        active. Pending
+                                        milestones can
+                                        now be delivered.
+                                    </div>
+
+                                    <div className="sellerAgreementMilestones">
+                                        {milestones.map(
+                                            (
+                                                milestone
+                                            ) => {
+                                                const key =
+                                                    milestone.id.toString();
+
+                                                const evidence =
+                                                    evidenceByMilestone[
+                                                    key
+                                                    ] ||
+                                                    {};
+
+                                                return (
+                                                    <div
+                                                        className="sellerOrderCard"
+                                                        key={
+                                                            key
+                                                        }
+                                                    >
+                                                        <div className="sellerOrderTop">
+                                                            <div>
+                                                                <span>
+                                                                    Milestone
+                                                                </span>
+
+                                                                <h3>
+                                                                    #
+                                                                    {
+                                                                        key
+                                                                    }
+                                                                </h3>
+                                                            </div>
+
+                                                            <span
+                                                                className={`badge ${milestone.status ===
+                                                                        0
+                                                                        ? "escrow"
+                                                                        : milestone.status ===
+                                                                            2
+                                                                            ? "disputed"
+                                                                            : milestone.status ===
+                                                                                3
+                                                                                ? "completed"
+                                                                                : milestone.status ===
+                                                                                    4
+                                                                                    ? "refunded"
+                                                                                    : ""
+                                                                    }`}
+                                                            >
+                                                                {MILESTONE_STATUS[
+                                                                    milestone
+                                                                        .status
+                                                                ] ||
+                                                                    "Unknown"}
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="sellerOrderDetails">
+                                                            <div>
+                                                                <span>
+                                                                    Amount
+                                                                </span>
+
+                                                                <strong>
+                                                                    {ethers.formatUnits(
+                                                                        milestone.amount,
+                                                                        agreementAsset.decimals
+                                                                    )}{" "}
+                                                                    {
+                                                                        agreementAsset.symbol
+                                                                    }
+                                                                </strong>
+                                                            </div>
+
+                                                            <div>
+                                                                <span>
+                                                                    Specification
+                                                                </span>
+
+                                                                <strong>
+                                                                    {milestone.metadataURI ||
+                                                                        "No URI"}
+                                                                </strong>
+                                                            </div>
+                                                        </div>
+
+                                                        {milestone.status ===
+                                                            0 && (
+                                                                <>
+                                                                    <div className="sellerOrderSearch">
+                                                                        <div>
+                                                                            <label
+                                                                                htmlFor={`evidence-uri-${key}`}
+                                                                            >
+                                                                                Delivery / evidence URI
+                                                                            </label>
+
+                                                                            <input
+                                                                                id={`evidence-uri-${key}`}
+                                                                                type="text"
+                                                                                placeholder="ipfs://... or https://..."
+                                                                                value={
+                                                                                    evidence.uri ||
+                                                                                    ""
+                                                                                }
+                                                                                onChange={(
+                                                                                    event
+                                                                                ) =>
+                                                                                    updateEvidenceField(
+                                                                                        milestone.id,
+                                                                                        "uri",
+                                                                                        event
+                                                                                            .target
+                                                                                            .value
+                                                                                    )
+                                                                                }
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="sellerOrderSearch">
+                                                                        <div>
+                                                                            <label
+                                                                                htmlFor={`evidence-proof-${key}`}
+                                                                            >
+                                                                                Evidence hash or proof text
+                                                                            </label>
+
+                                                                            <input
+                                                                                id={`evidence-proof-${key}`}
+                                                                                type="text"
+                                                                                placeholder="0x bytes32, commit hash, checksum, or proof text"
+                                                                                value={
+                                                                                    evidence.proof ||
+                                                                                    ""
+                                                                                }
+                                                                                onChange={(
+                                                                                    event
+                                                                                ) =>
+                                                                                    updateEvidenceField(
+                                                                                        milestone.id,
+                                                                                        "proof",
+                                                                                        event
+                                                                                            .target
+                                                                                            .value
+                                                                                    )
+                                                                                }
+                                                                            />
+                                                                        </div>
+
+                                                                        <button
+                                                                            type="button"
+                                                                            className="primary"
+                                                                            disabled={
+                                                                                agreementLoading
+                                                                            }
+                                                                            onClick={() =>
+                                                                                submitMilestone(
+                                                                                    milestone
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            Deliver Milestone
+                                                                        </button>
+                                                                    </div>
+
+                                                                    <div className="sellerAccessNotice">
+                                                                        The evidence URI
+                                                                        is stored with
+                                                                        the milestone.
+                                                                        If the second
+                                                                        field is not
+                                                                        already a
+                                                                        bytes32 hash,
+                                                                        ESCT hashes the
+                                                                        entered proof
+                                                                        text locally
+                                                                        before sending
+                                                                        the transaction.
+                                                                    </div>
+                                                                </>
+                                                            )}
+
+                                                        {milestone.status ===
+                                                            1 && (
+                                                                <div className="createdOrderNotice">
+                                                                    Delivered.
+                                                                    Waiting for
+                                                                    client approval
+                                                                    or dispute.
+                                                                </div>
+                                                            )}
+
+                                                        {milestone.status ===
+                                                            2 && (
+                                                                <div className="sellerAccessWarning">
+                                                                    This milestone
+                                                                    is disputed and
+                                                                    awaits
+                                                                    arbitration.
+                                                                </div>
+                                                            )}
+
+                                                        {milestone.status ===
+                                                            3 && (
+                                                                <div className="createdOrderNotice">
+                                                                    Milestone
+                                                                    released to
+                                                                    contractor.
+                                                                </div>
+                                                            )}
+
+                                                        {milestone.status ===
+                                                            4 && (
+                                                                <div className="sellerAccessNotice">
+                                                                    Milestone
+                                                                    refunded to
+                                                                    client.
+                                                                </div>
+                                                            )}
+
+                                                        {milestone.evidenceURI && (
+                                                            <div className="sellerAccessNotice">
+                                                                Submitted
+                                                                evidence:{" "}
+                                                                {
+                                                                    milestone.evidenceURI
+                                                                }
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            }
+                                        )}
+                                    </div>
+                                </>
+                            )}
+
+                        {isAgreementContractor &&
+                            agreement.status ===
+                            3 && (
+                                <div className="createdOrderNotice">
+                                    Agreement completed.
+                                    All escrow liability
+                                    for this Agreement
+                                    has been resolved.
+                                </div>
+                            )}
+
+                        {isAgreementContractor &&
+                            agreement.status ===
+                            4 && (
+                                <div className="sellerAccessNotice">
+                                    Agreement cancelled.
+                                </div>
+                            )}
+                    </div>
+                )}
+            </section>
+
+            {/* =================================================
+                ONE-OFF PAYMENT ORDERS
+            ================================================= */}
+
+            <section className="sellerOrderPanel">
+                <div className="sellerOrderHeader">
+                    <div>
+                        <span className="eyebrow">
+                            One-off payments
+                        </span>
+
+                        <h2>
+                            Find an incoming order
+                        </h2>
+
+                        <p>
+                            Enter an order ID to
+                            verify whether your
+                            connected wallet is
+                            recorded as the seller.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="sellerOrderSearch">
+                    <div>
+                        <label htmlFor="seller-order-id">
+                            Order ID
+                        </label>
+
+                        <input
+                            id="seller-order-id"
+                            type="number"
+                            min="1"
+                            step="1"
+                            inputMode="numeric"
+                            placeholder="Example: 1"
+                            value={orderId}
+                            onChange={(event) =>
+                                setOrderId(
+                                    event.target
+                                        .value
+                                )
+                            }
+                        />
+                    </div>
+
+                    <button
+                        type="button"
+                        className="primary"
+                        onClick={loadOrder}
+                        disabled={
+                            isLoading ||
+                            !isConnected ||
+                            !isCorrectNetwork
+                        }
+                    >
+                        {isLoading
+                            ? "Loading..."
+                            : "Find order"}
+                    </button>
+                </div>
+
+                {error && (
+                    <div className="paymentFormError">
+                        {error}
+                    </div>
+                )}
+
+                {notice && (
+                    <div className="createdOrderNotice">
+                        {notice}
+                    </div>
+                )}
+
+                {!order && (
+                    <div className="emptyState">
+                        No order loaded.
+                        Enter an order ID
+                        to view its details.
+                    </div>
+                )}
+
+                {order && (
+                    <div className="sellerOrderCard">
+                        <div className="sellerOrderTop">
+                            <div>
+                                <span>
+                                    Order
+                                </span>
+
+                                <h3>
+                                    #{order.id}
+                                </h3>
+                            </div>
+
+                            <span
+                                className={`badge ${[
+                                        "escrow",
+                                        "disputed",
+                                        "completed",
+                                        "refunded",
+                                    ][
+                                    order
+                                        .status
+                                    ] || ""
+                                    }`}
+                            >
+                                {ORDER_STATUS[
+                                    order.status
+                                ] ||
+                                    "Unknown"}
+                            </span>
+                        </div>
+
+                        <div className="sellerOrderDetails">
+                            <div>
+                                <span>
+                                    Buyer
+                                </span>
+
+                                <strong>
+                                    {shortAddress(
+                                        order.buyer
+                                    )}
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>
+                                    Seller
+                                </span>
+
+                                <strong>
+                                    {shortAddress(
+                                        order.seller
+                                    )}
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>
+                                    Amount
+                                </span>
+
+                                <strong>
+                                    {
+                                        order.formattedAmount
+                                    }
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>
+                                    Asset
+                                </span>
+
+                                <strong>
+                                    {
+                                        order.assetSymbol
+                                    }
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>
+                                    Payment type
+                                </span>
+
+                                <strong>
+                                    {PAYMENT_TYPE[
+                                        order
+                                            .paymentType
+                                    ] ||
+                                        "Unknown"}
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>
+                                    Your order role
+                                </span>
+
+                                <strong>
+                                    {isSeller
+                                        ? "Seller"
+                                        : isBuyer
+                                            ? "Buyer"
+                                            : "Not a participant"}
+                                </strong>
+                            </div>
+                        </div>
+
+                        {!isSeller && (
+                            <div className="sellerAccessWarning">
+                                The connected wallet
+                                is not the seller for
+                                this order. Seller
+                                actions are
+                                unavailable.
+                            </div>
+                        )}
+
+                        {isSeller &&
+                            (!isEscrowOrder ||
+                                !isInEscrow) && (
+                                <div className="sellerAccessNotice">
+                                    This order has no
+                                    currently available
+                                    seller action.
+                                </div>
+                            )}
+
+                        <div className="sellerOrderActions">
+                            {canRefund && (
+                                <button
+                                    type="button"
+                                    className="secondary"
+                                    disabled={
+                                        isLoading
+                                    }
+                                    onClick={() =>
+                                        runOrderAction(
+                                            {
+                                                action: () =>
+                                                    contract.refund(
+                                                        Number(
+                                                            order.id
+                                                        )
+                                                    ),
+                                                pendingMessage:
+                                                    "Confirm the refund in your wallet.",
+                                                submittedMessage:
+                                                    `Refund for Order #${order.id} submitted.`,
+                                                successMessage:
+                                                    `Order #${order.id} refunded successfully.`,
+                                            }
+                                        )
+                                    }
+                                >
+                                    Refund buyer
+                                </button>
+                            )}
+
+                            {canOpenDispute && (
+                                <button
+                                    type="button"
+                                    className="danger"
+                                    disabled={
+                                        isLoading
+                                    }
+                                    onClick={() =>
+                                        runOrderAction(
+                                            {
+                                                action: () =>
+                                                    contract.openDispute(
+                                                        Number(
+                                                            order.id
+                                                        )
+                                                    ),
+                                                pendingMessage:
+                                                    "Confirm the dispute in your wallet.",
+                                                submittedMessage:
+                                                    `Dispute for Order #${order.id} submitted.`,
+                                                successMessage:
+                                                    `Dispute opened for Order #${order.id}.`,
+                                            }
+                                        )
+                                    }
+                                >
+                                    Open dispute
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </section>
+        </div>
     );
 }
