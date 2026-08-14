@@ -12,7 +12,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  wallets Wallet[]
+  wallets  Wallet[]
   sessions Session[]
 }
 
@@ -28,22 +28,25 @@ model Wallet {
 }
 
 model AuthNonce {
-  id        String    @id @default(cuid())
-  nonce     String    @unique
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
+  id            String    @id @default(cuid())
+  walletAddress String
+  nonce         String    @unique
+  expiresAt     DateTime
+  consumedAt    DateTime?
+  createdAt     DateTime  @default(now())
 
+  @@index([walletAddress])
   @@index([expiresAt])
 }
 
 model Session {
-  id        String    @id @default(cuid())
-  userId    String
-  tokenHash String    @unique
-  expiresAt DateTime
-  revokedAt DateTime?
-  createdAt DateTime  @default(now())
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
