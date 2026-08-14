@@ -1,6 +1,10 @@
-﻿import {
+import {
   buildApp,
 } from "./app.js";
+
+import {
+  createAuthNonceIssuer,
+} from "./auth/nonce.js";
 
 import {
   loadEnv,
@@ -19,6 +23,24 @@ const prisma =
     config.databaseUrl,
   );
 
+const issueAuthNonce =
+  createAuthNonceIssuer(
+    async (record) => {
+      await prisma.authNonce.create({
+        data: {
+          walletAddress:
+            record.walletAddress,
+
+          nonce:
+            record.nonce,
+
+          expiresAt:
+            record.expiresAt,
+        },
+      });
+    },
+  );
+
 const app =
   buildApp({
     logger: true,
@@ -28,6 +50,22 @@ const app =
         isDatabaseReady(
           prisma,
         ),
+
+    auth: {
+      issueNonce:
+        issueAuthNonce,
+
+      siwe: {
+        domain:
+          config.siweDomain,
+
+        uri:
+          config.siweUri,
+
+        chainId:
+          config.chainId,
+      },
+    },
   });
 
 let shuttingDown =

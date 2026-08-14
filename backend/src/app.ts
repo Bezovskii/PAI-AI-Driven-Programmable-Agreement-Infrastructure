@@ -1,4 +1,4 @@
-﻿import Fastify, {
+import Fastify, {
   type FastifyServerOptions,
 } from "fastify";
 
@@ -6,6 +6,11 @@ import {
   Type,
   type TypeBoxTypeProvider,
 } from "@fastify/type-provider-typebox";
+
+import {
+  registerAuthRoutes,
+  type AuthRouteOptions,
+} from "./auth/routes.js";
 
 export type ReadinessProbe =
   () => Promise<boolean>;
@@ -16,6 +21,9 @@ export interface BuildAppOptions {
 
   readonly readinessProbe:
     ReadinessProbe;
+
+  readonly auth?:
+    AuthRouteOptions;
 }
 
 const HealthResponseSchema =
@@ -156,6 +164,13 @@ export function buildApp(
       }
     },
   );
+
+  if (options.auth) {
+    registerAuthRoutes(
+      app,
+      options.auth,
+    );
+  }
 
   return app;
 }

@@ -11,7 +11,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/src/server.js",
-    "test": "node --import tsx --test test/health.test.ts test/readiness.test.ts test/database.integration.test.ts",
+    "test": "node --import tsx --test test/health.test.ts test/readiness.test.ts test/database.integration.test.ts test/auth.nonce.test.ts",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "pretypecheck": "prisma generate",
@@ -19,12 +19,15 @@
     "prebuild": "prisma generate"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.1.2",
     "@fastify/type-provider-typebox": "^6.1.0",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "dotenv": "^17.4.2",
+    "ethers": "^6.17.0",
     "fastify": "^5.11.3",
     "pg": "^8.23.0",
+    "siwe": "^3.0.0",
     "typebox": "^1.3.13"
   },
   "devDependencies": {

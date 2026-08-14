@@ -1,4 +1,4 @@
-﻿import assert from "node:assert/strict";
+import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
@@ -11,6 +11,21 @@ import {
 
 const TEST_DATABASE_URL =
   "postgresql://esct:test@127.0.0.1:5432/esct";
+
+const TEST_REQUIRED_ENV:
+  NodeJS.ProcessEnv = {
+    DATABASE_URL:
+      TEST_DATABASE_URL,
+
+    SIWE_DOMAIN:
+      "localhost:5173",
+
+    SIWE_URI:
+      "http://localhost:5173",
+
+    CHAIN_ID:
+      "31337",
+  };
 
 function buildTestApp() {
   return buildApp({
@@ -59,13 +74,12 @@ test(
 );
 
 test(
-  "loadEnv uses safe non-database defaults",
+  "loadEnv uses safe runtime defaults",
   () => {
     const config =
-      loadEnv({
-        DATABASE_URL:
-          TEST_DATABASE_URL,
-      });
+      loadEnv(
+        TEST_REQUIRED_ENV,
+      );
 
     assert.deepEqual(
       config,
@@ -81,6 +95,15 @@ test(
 
         databaseUrl:
           TEST_DATABASE_URL,
+
+        siweDomain:
+          "localhost:5173",
+
+        siweUri:
+          "http://localhost:5173",
+
+        chainId:
+          31337,
       },
     );
   },
@@ -92,8 +115,7 @@ test(
     assert.throws(
       () => {
         loadEnv({
-          DATABASE_URL:
-            TEST_DATABASE_URL,
+          ...TEST_REQUIRED_ENV,
 
           PORT:
             "70000",
@@ -111,8 +133,7 @@ test(
     assert.throws(
       () => {
         loadEnv({
-          DATABASE_URL:
-            TEST_DATABASE_URL,
+          ...TEST_REQUIRED_ENV,
 
           NODE_ENV:
             "banana",
@@ -129,7 +150,16 @@ test(
   () => {
     assert.throws(
       () => {
-        loadEnv({});
+        loadEnv({
+          SIWE_DOMAIN:
+            "localhost:5173",
+
+          SIWE_URI:
+            "http://localhost:5173",
+
+          CHAIN_ID:
+            "31337",
+        });
       },
 
       /DATABASE_URL is required/,
@@ -143,12 +173,72 @@ test(
     assert.throws(
       () => {
         loadEnv({
+          ...TEST_REQUIRED_ENV,
+
           DATABASE_URL:
             "mysql://localhost/example",
         });
       },
 
       /must use the postgresql:\/\/ or postgres:\/\//,
+    );
+  },
+);
+
+test(
+  "loadEnv requires SIWE_DOMAIN",
+  () => {
+    assert.throws(
+      () => {
+        loadEnv({
+          DATABASE_URL:
+            TEST_DATABASE_URL,
+
+          SIWE_URI:
+            "http://localhost:5173",
+
+          CHAIN_ID:
+            "31337",
+        });
+      },
+
+      /SIWE_DOMAIN is required/,
+    );
+  },
+);
+
+test(
+  "loadEnv rejects a non-http SIWE_URI",
+  () => {
+    assert.throws(
+      () => {
+        loadEnv({
+          ...TEST_REQUIRED_ENV,
+
+          SIWE_URI:
+            "ftp://localhost:5173",
+        });
+      },
+
+      /SIWE_URI must use http:\/\/ or https:\/\//,
+    );
+  },
+);
+
+test(
+  "loadEnv rejects an invalid CHAIN_ID",
+  () => {
+    assert.throws(
+      () => {
+        loadEnv({
+          ...TEST_REQUIRED_ENV,
+
+          CHAIN_ID:
+            "0",
+        });
+      },
+
+      /CHAIN_ID must be a positive safe integer/,
     );
   },
 );
