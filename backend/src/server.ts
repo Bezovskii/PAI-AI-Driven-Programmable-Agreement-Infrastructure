@@ -7,6 +7,10 @@ import {
 } from "./auth/nonce.js";
 
 import {
+  createSiweVerifier,
+} from "./auth/verify.js";
+
+import {
   loadEnv,
 } from "./config/env.js";
 
@@ -41,6 +45,77 @@ const issueAuthNonce =
     },
   );
 
+const verifySiwe =
+  createSiweVerifier(
+    async (nonce) => {
+      return prisma.authNonce
+        .findUnique({
+          where: {
+            nonce,
+          },
+
+          select: {
+            id:
+              true,
+
+            walletAddress:
+              true,
+
+            nonce:
+              true,
+
+            expiresAt:
+              true,
+
+            consumedAt:
+              true,
+          },
+        });
+    },
+
+    async (
+      {
+        id,
+        consumedAt,
+      },
+    ) => {
+      const result =
+        await prisma.authNonce
+          .updateMany({
+            where: {
+              id,
+
+              consumedAt:
+                null,
+
+              expiresAt: {
+                gt:
+                  consumedAt,
+              },
+            },
+
+            data: {
+              consumedAt,
+            },
+          });
+
+      return (
+        result.count === 1
+      );
+    },
+
+    {
+      domain:
+        config.siweDomain,
+
+      uri:
+        config.siweUri,
+
+      chainId:
+        config.chainId,
+    },
+  );
+
 const app =
   buildApp({
     logger: true,
@@ -54,6 +129,8 @@ const app =
     auth: {
       issueNonce:
         issueAuthNonce,
+
+      verifySiwe,
 
       siwe: {
         domain:

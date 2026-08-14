@@ -12,6 +12,11 @@ import {
   type IssueAuthNonce,
 } from "./nonce.js";
 
+import {
+  InvalidSiweAuthenticationError,
+  type VerifySiwe,
+} from "./verify.js";
+
 export interface SiwePublicConfig {
   readonly domain: string;
   readonly uri: string;
@@ -22,9 +27,30 @@ export interface AuthRouteOptions {
   readonly issueNonce:
     IssueAuthNonce;
 
+  readonly verifySiwe?:
+    VerifySiwe;
+
   readonly siwe:
     SiwePublicConfig;
 }
+
+const ValidationErrorResponseSchema =
+  Type.Object(
+    {
+      statusCode:
+        Type.Integer(),
+
+      error:
+        Type.String(),
+
+      message:
+        Type.String(),
+    },
+    {
+      additionalProperties:
+        true,
+    },
+  );
 
 const NonceRequestSchema =
   Type.Object(
@@ -87,29 +113,61 @@ const InvalidWalletResponseSchema =
     },
   );
 
-const ValidationErrorResponseSchema =
-  Type.Object(
-    {
-      statusCode:
-        Type.Integer(),
-
-      error:
-        Type.String(),
-
-      message:
-        Type.String(),
-    },
-    {
-      additionalProperties:
-        true,
-    },
-  );
-
-const BadRequestResponseSchema =
+const NonceBadRequestResponseSchema =
   Type.Union([
     InvalidWalletResponseSchema,
     ValidationErrorResponseSchema,
   ]);
+
+const VerifyRequestSchema =
+  Type.Object(
+    {
+      message:
+        Type.String({
+          minLength: 1,
+          maxLength: 8192,
+        }),
+
+      signature:
+        Type.String({
+          minLength: 1,
+          maxLength: 2048,
+        }),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const VerifyResponseSchema =
+  Type.Object(
+    {
+      authenticated:
+        Type.Literal(true),
+
+      walletAddress:
+        Type.String(),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const AuthenticationFailureSchema =
+  Type.Object(
+    {
+      error:
+        Type.Literal(
+          "invalid_siwe_authentication",
+        ),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
 
 export function registerAuthRoutes(
   app: FastifyInstance,
@@ -130,7 +188,7 @@ export function registerAuthRoutes(
             NonceResponseSchema,
 
           400:
-            BadRequestResponseSchema,
+            NonceBadRequestResponseSchema,
         },
       },
     },
@@ -180,6 +238,73 @@ export function registerAuthRoutes(
             .send({
               error:
                 "invalid_wallet_address",
+            });
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  const verifySiwe =
+    options.verifySiwe;
+
+  if (!verifySiwe) {
+    return;
+  }
+
+  typedApp.post(
+    "/api/v1/auth/verify",
+    {
+      schema: {
+        body:
+          VerifyRequestSchema,
+
+        response: {
+          200:
+            VerifyResponseSchema,
+
+          400:
+            ValidationErrorResponseSchema,
+
+          401:
+            AuthenticationFailureSchema,
+        },
+      },
+    },
+    async (
+      request,
+      reply,
+    ) => {
+      try {
+        const verified =
+          await verifySiwe({
+            message:
+              request.body.message,
+
+            signature:
+              request.body.signature,
+          });
+
+        return reply
+          .code(200)
+          .send({
+            authenticated:
+              true as const,
+
+            walletAddress:
+              verified.walletAddress,
+          });
+      } catch (error) {
+        if (
+          error instanceof
+          InvalidSiweAuthenticationError
+        ) {
+          return reply
+            .code(401)
+            .send({
+              error:
+                "invalid_siwe_authentication",
             });
         }
 

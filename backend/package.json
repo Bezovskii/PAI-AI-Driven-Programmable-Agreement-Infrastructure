@@ -11,7 +11,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/src/server.js",
-    "test": "node --import tsx --test test/health.test.ts test/readiness.test.ts test/database.integration.test.ts test/auth.nonce.test.ts",
+    "test": "node --import tsx --test test/health.test.ts test/readiness.test.ts test/database.integration.test.ts test/auth.nonce.test.ts test/auth.verify.test.ts",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "pretypecheck": "prisma generate",
