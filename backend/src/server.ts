@@ -1,13 +1,37 @@
-﻿import { buildApp } from "./app.js";
-import { loadEnv } from "./config/env.js";
+﻿import {
+  buildApp,
+} from "./app.js";
 
-const config = loadEnv();
+import {
+  loadEnv,
+} from "./config/env.js";
 
-const app = buildApp({
-  logger: true,
-});
+import {
+  createPrismaClient,
+  isDatabaseReady,
+} from "./db/prisma.js";
 
-let shuttingDown = false;
+const config =
+  loadEnv();
+
+const prisma =
+  createPrismaClient(
+    config.databaseUrl,
+  );
+
+const app =
+  buildApp({
+    logger: true,
+
+    readinessProbe:
+      async () =>
+        isDatabaseReady(
+          prisma,
+        ),
+  });
+
+let shuttingDown =
+  false;
 
 async function shutdown(
   signal: NodeJS.Signals,
@@ -16,54 +40,86 @@ async function shutdown(
     return;
   }
 
-  shuttingDown = true;
+  shuttingDown =
+    true;
 
   app.log.info(
     { signal },
     "Shutdown signal received",
   );
 
+  let failed =
+    false;
+
   try {
     await app.close();
-
-    app.log.info(
-      "ESCT backend stopped cleanly",
-    );
   } catch (error) {
+    failed = true;
+
     app.log.error(
       error,
-      "Error during shutdown",
+      "Failed to close HTTP server",
     );
-
-    process.exitCode = 1;
   }
+
+  try {
+    await prisma.$disconnect();
+  } catch (error) {
+    failed = true;
+
+    app.log.error(
+      error,
+      "Failed to disconnect database",
+    );
+  }
+
+  if (failed) {
+    process.exitCode = 1;
+    return;
+  }
+
+  app.log.info(
+    "ESCT backend stopped cleanly",
+  );
 }
 
 process.once(
   "SIGINT",
   () => {
-    void shutdown("SIGINT");
+    void shutdown(
+      "SIGINT",
+    );
   },
 );
 
 process.once(
   "SIGTERM",
   () => {
-    void shutdown("SIGTERM");
+    void shutdown(
+      "SIGTERM",
+    );
   },
 );
 
 try {
   await app.listen({
-    host: config.host,
-    port: config.port,
+    host:
+      config.host,
+
+    port:
+      config.port,
   });
 
   app.log.info(
     {
-      environment: config.nodeEnv,
-      host: config.host,
-      port: config.port,
+      environment:
+        config.nodeEnv,
+
+      host:
+        config.host,
+
+      port:
+        config.port,
     },
     "ESCT backend started",
   );
@@ -72,6 +128,12 @@ try {
     error,
     "Failed to start ESCT backend",
   );
+
+  try {
+    await prisma.$disconnect();
+  } catch {
+    // Startup has already failed.
+  }
 
   process.exitCode = 1;
 }

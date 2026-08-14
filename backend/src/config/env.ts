@@ -1,4 +1,6 @@
-﻿export type NodeEnvironment =
+﻿import "dotenv/config";
+
+export type NodeEnvironment =
   | "development"
   | "test"
   | "production";
@@ -7,6 +9,7 @@ export interface AppConfig {
   readonly nodeEnv: NodeEnvironment;
   readonly host: string;
   readonly port: number;
+  readonly databaseUrl: string;
 }
 
 const VALID_NODE_ENVIRONMENTS =
@@ -19,7 +22,8 @@ const VALID_NODE_ENVIRONMENTS =
 function parseNodeEnvironment(
   value: string | undefined,
 ): NodeEnvironment {
-  const candidate = value ?? "development";
+  const candidate =
+    value ?? "development";
 
   if (
     !VALID_NODE_ENVIRONMENTS.has(
@@ -42,7 +46,8 @@ function parseNodeEnvironment(
 function parseHost(
   value: string | undefined,
 ): string {
-  const host = value?.trim() || "127.0.0.1";
+  const host =
+    value?.trim() || "127.0.0.1";
 
   if (host.length === 0) {
     throw new Error(
@@ -56,8 +61,11 @@ function parseHost(
 function parsePort(
   value: string | undefined,
 ): number {
-  const raw = value ?? "3001";
-  const port = Number(raw);
+  const raw =
+    value ?? "3001";
+
+  const port =
+    Number(raw);
 
   if (
     !Number.isInteger(port) ||
@@ -72,19 +80,60 @@ function parsePort(
   return port;
 }
 
+function parseDatabaseUrl(
+  value: string | undefined,
+): string {
+  if (!value?.trim()) {
+    throw new Error(
+      "DATABASE_URL is required.",
+    );
+  }
+
+  let parsed: URL;
+
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(
+      "DATABASE_URL must be a valid URL.",
+    );
+  }
+
+  if (
+    parsed.protocol !== "postgresql:" &&
+    parsed.protocol !== "postgres:"
+  ) {
+    throw new Error(
+      "DATABASE_URL must use the postgresql:// or postgres:// protocol.",
+    );
+  }
+
+  return value;
+}
+
 export function loadEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): Readonly<AppConfig> {
   const config: AppConfig = {
-    nodeEnv: parseNodeEnvironment(
-      env.NODE_ENV,
-    ),
-    host: parseHost(
-      env.HOST,
-    ),
-    port: parsePort(
-      env.PORT,
-    ),
+    nodeEnv:
+      parseNodeEnvironment(
+        env.NODE_ENV,
+      ),
+
+    host:
+      parseHost(
+        env.HOST,
+      ),
+
+    port:
+      parsePort(
+        env.PORT,
+      ),
+
+    databaseUrl:
+      parseDatabaseUrl(
+        env.DATABASE_URL,
+      ),
   };
 
   return Object.freeze(config);
