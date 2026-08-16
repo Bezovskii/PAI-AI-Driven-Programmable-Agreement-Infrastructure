@@ -7,6 +7,10 @@ import {
 } from "./auth/nonce.js";
 
 import {
+  createSessionIssuer,
+} from "./auth/session.js";
+
+import {
   createSiweVerifier,
 } from "./auth/verify.js";
 
@@ -116,6 +120,74 @@ const verifySiwe =
     },
   );
 
+const issueSession =
+  createSessionIssuer(
+    async (
+      {
+        walletAddress,
+        tokenHash,
+        expiresAt,
+        lastUsedAt,
+      },
+    ) => {
+      return prisma.$transaction(
+        async (transaction) => {
+          const wallet =
+            await transaction
+              .wallet
+              .upsert({
+                where: {
+                  address:
+                    walletAddress,
+                },
+
+                update: {},
+
+                create: {
+                  address:
+                    walletAddress,
+
+                  user: {
+                    create: {},
+                  },
+                },
+
+                select: {
+                  userId:
+                    true,
+                },
+              });
+
+          await transaction
+            .session
+            .create({
+              data: {
+                userId:
+                  wallet.userId,
+
+                tokenHash,
+
+                expiresAt,
+
+                lastUsedAt,
+              },
+            });
+
+          return {
+            userId:
+              wallet.userId,
+          };
+        },
+      );
+    },
+
+    {
+      ttlSeconds:
+        config
+          .sessionTtlSeconds,
+    },
+  );
+
 const app =
   buildApp({
     logger: true,
@@ -131,6 +203,22 @@ const app =
         issueAuthNonce,
 
       verifySiwe,
+
+      issueSession,
+
+      sessionCookie: {
+        name:
+          config
+            .sessionCookieName,
+
+        secure:
+          config.nodeEnv ===
+          "production",
+
+        maxAgeSeconds:
+          config
+            .sessionTtlSeconds,
+      },
 
       siwe: {
         domain:

@@ -13,6 +13,10 @@ import {
 } from "./nonce.js";
 
 import {
+  type IssueSession,
+} from "./session.js";
+
+import {
   InvalidSiweAuthenticationError,
   type VerifySiwe,
 } from "./verify.js";
@@ -23,12 +27,24 @@ export interface SiwePublicConfig {
   readonly chainId: number;
 }
 
+export interface SessionCookieConfig {
+  readonly name: string;
+  readonly secure: boolean;
+  readonly maxAgeSeconds: number;
+}
+
 export interface AuthRouteOptions {
   readonly issueNonce:
     IssueAuthNonce;
 
   readonly verifySiwe?:
     VerifySiwe;
+
+  readonly issueSession?:
+    IssueSession;
+
+  readonly sessionCookie?:
+    SessionCookieConfig;
 
   readonly siwe:
     SiwePublicConfig;
@@ -253,6 +269,27 @@ export function registerAuthRoutes(
     return;
   }
 
+  const issueSession =
+    options.issueSession;
+
+  const sessionCookie =
+    options.sessionCookie;
+
+  if (
+    (
+      issueSession &&
+      !sessionCookie
+    ) ||
+    (
+      !issueSession &&
+      sessionCookie
+    )
+  ) {
+    throw new Error(
+      "issueSession and sessionCookie must be configured together.",
+    );
+  }
+
   typedApp.post(
     "/api/v1/auth/verify",
     {
@@ -285,6 +322,41 @@ export function registerAuthRoutes(
             signature:
               request.body.signature,
           });
+
+        if (
+          issueSession &&
+          sessionCookie
+        ) {
+          const session =
+            await issueSession(
+              verified.walletAddress,
+            );
+
+          reply.setCookie(
+            sessionCookie.name,
+            session.token,
+            {
+              httpOnly:
+                true,
+
+              secure:
+                sessionCookie.secure,
+
+              sameSite:
+                "lax",
+
+              path:
+                "/",
+
+              maxAge:
+                sessionCookie
+                  .maxAgeSeconds,
+
+              expires:
+                session.expiresAt,
+            },
+          );
+        }
 
         return reply
           .code(200)

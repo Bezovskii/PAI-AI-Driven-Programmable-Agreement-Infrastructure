@@ -1,3 +1,5 @@
+import cookie from "@fastify/cookie";
+
 import Fastify, {
   type FastifyServerOptions,
 } from "fastify";
@@ -86,6 +88,10 @@ export function buildApp(
         options.logger ??
         false,
     }).withTypeProvider<TypeBoxTypeProvider>();
+
+  app.register(
+    cookie,
+  );
 
   app.get(
     "/healthz",

@@ -25,6 +25,12 @@ const TEST_REQUIRED_ENV:
 
     CHAIN_ID:
       "31337",
+
+    SESSION_COOKIE_NAME:
+      "esct_session",
+
+    SESSION_TTL_SECONDS:
+      "604800",
   };
 
 function buildTestApp() {
@@ -104,6 +110,12 @@ test(
 
         chainId:
           31337,
+
+        sessionCookieName:
+          "esct_session",
+
+        sessionTtlSeconds:
+          604800,
       },
     );
   },

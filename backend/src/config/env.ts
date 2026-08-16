@@ -26,6 +26,12 @@ export interface AppConfig {
 
   readonly chainId:
     number;
+
+  readonly sessionCookieName:
+    string;
+
+  readonly sessionTtlSeconds:
+    number;
 }
 
 const VALID_NODE_ENVIRONMENTS =
@@ -217,6 +223,57 @@ function parseChainId(
   return chainId;
 }
 
+function parseSessionCookieName(
+  value: string | undefined,
+): string {
+  const name =
+    value?.trim();
+
+  if (!name) {
+    throw new Error(
+      "SESSION_COOKIE_NAME is required.",
+    );
+  }
+
+  if (
+    !/^[A-Za-z0-9_-]+$/.test(
+      name,
+    )
+  ) {
+    throw new Error(
+      "SESSION_COOKIE_NAME contains invalid characters.",
+    );
+  }
+
+  return name;
+}
+
+function parseSessionTtlSeconds(
+  value: string | undefined,
+): number {
+  if (!value?.trim()) {
+    throw new Error(
+      "SESSION_TTL_SECONDS is required.",
+    );
+  }
+
+  const ttl =
+    Number(value);
+
+  if (
+    !Number.isSafeInteger(
+      ttl,
+    ) ||
+    ttl < 1
+  ) {
+    throw new Error(
+      `SESSION_TTL_SECONDS must be a positive safe integer. Received: ${value}`,
+    );
+  }
+
+  return ttl;
+}
+
 export function loadEnv(
   env: NodeJS.ProcessEnv =
     process.env,
@@ -255,6 +312,16 @@ export function loadEnv(
     chainId:
       parseChainId(
         env.CHAIN_ID,
+      ),
+
+    sessionCookieName:
+      parseSessionCookieName(
+        env.SESSION_COOKIE_NAME,
+      ),
+
+    sessionTtlSeconds:
+      parseSessionTtlSeconds(
+        env.SESSION_TTL_SECONDS,
       ),
   };
 
