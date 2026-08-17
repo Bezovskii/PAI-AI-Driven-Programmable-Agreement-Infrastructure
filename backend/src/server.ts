@@ -31,6 +31,10 @@ const prisma =
     config.databaseUrl,
   );
 
+/* =========================================================
+   AUTH NONCE
+   ========================================================= */
+
 const issueAuthNonce =
   createAuthNonceIssuer(
     async (record) => {
@@ -48,6 +52,10 @@ const issueAuthNonce =
       });
     },
   );
+
+/* =========================================================
+   SIWE VERIFICATION
+   ========================================================= */
 
 const verifySiwe =
   createSiweVerifier(
@@ -120,6 +128,10 @@ const verifySiwe =
     },
   );
 
+/* =========================================================
+   SESSION ISSUANCE
+   ========================================================= */
+
 const issueSession =
   createSessionIssuer(
     async (
@@ -132,6 +144,14 @@ const issueSession =
     ) => {
       return prisma.$transaction(
         async (transaction) => {
+          /*
+           * Upsert the authenticated wallet.
+           *
+           * Important:
+           * We select BOTH wallet.id and wallet.userId
+           * because the session must now be tied to
+           * the exact wallet used during SIWE.
+           */
           const wallet =
             await transaction
               .wallet
@@ -153,17 +173,30 @@ const issueSession =
                 },
 
                 select: {
+                  id:
+                    true,
+
                   userId:
                     true,
                 },
               });
 
+          /*
+           * Store only the HASH of the opaque session token.
+           *
+           * The session is bound to:
+           *   - the ESCT user
+           *   - the exact authenticated wallet
+           */
           await transaction
             .session
             .create({
               data: {
                 userId:
                   wallet.userId,
+
+                walletId:
+                  wallet.id,
 
                 tokenHash,
 
@@ -187,6 +220,10 @@ const issueSession =
           .sessionTtlSeconds,
     },
   );
+
+/* =========================================================
+   APPLICATION
+   ========================================================= */
 
 const app =
   buildApp({
@@ -232,6 +269,10 @@ const app =
       },
     },
   });
+
+/* =========================================================
+   GRACEFUL SHUTDOWN
+   ========================================================= */
 
 let shuttingDown =
   false;
@@ -303,6 +344,10 @@ process.once(
     );
   },
 );
+
+/* =========================================================
+   START SERVER
+   ========================================================= */
 
 try {
   await app.listen({
