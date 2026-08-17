@@ -19,6 +19,15 @@ import {
 
 import agreementABI from "../contract/AgreementEscrowABI.json";
 
+import {
+    buildSiweMessage,
+    fetchCurrentSession,
+    logoutSession,
+    requestAuthNonce,
+    verifySiweAuthentication,
+} from "../auth/esctAuth.js";
+
+// eslint-disable-next-line react-refresh/only-export-components
 export const Web3Context =
     createContext(null);
 
@@ -117,6 +126,26 @@ export function Web3Provider({
         useState(false);
 
     /* =====================================================
+                         AUTH STATE
+       ===================================================== */
+
+    const [authStatus, setAuthStatus] =
+        useState("checking");
+
+    const [
+        authenticatedWallet,
+        setAuthenticatedWallet,
+    ] = useState("");
+
+    const [authError, setAuthError] =
+        useState("");
+
+    const [
+        isAuthenticating,
+        setIsAuthenticating,
+    ] = useState(false);
+
+    /* =====================================================
                       MULTIPAYMENT STATE
        ===================================================== */
 
@@ -180,11 +209,8 @@ export function Web3Provider({
     const clearProtocolState =
         useCallback(() => {
             setContract(null);
-
             setOwner("");
-
             setArbitrator("");
-
             setIsPaused(false);
         }, []);
 
@@ -195,12 +221,28 @@ export function Web3Provider({
     const clearAgreementState =
         useCallback(() => {
             setAgreementContract(null);
-
             setAgreementOwner("");
-
             setAgreementArbitrator("");
-
             setIsAgreementPaused(false);
+        }, []);
+
+    /* =====================================================
+                   CLEAR AUTHENTICATION
+       ===================================================== */
+
+    const clearAuthentication =
+        useCallback(() => {
+            setAuthStatus(
+                "unauthenticated"
+            );
+
+            setAuthenticatedWallet(
+                ""
+            );
+
+            setAuthError(
+                ""
+            );
         }, []);
 
     /* =====================================================
@@ -210,15 +252,11 @@ export function Web3Provider({
     const resetConnection =
         useCallback(() => {
             setProvider(null);
-
             setSigner(null);
-
             setAccount("");
-
             setChainId(null);
 
             clearProtocolState();
-
             clearAgreementState();
         }, [
             clearProtocolState,
@@ -319,12 +357,6 @@ export function Web3Provider({
 
                 let accounts;
 
-                /*
-                 * Keep the existing ESCT behavior:
-                 * only ask wallet permission after
-                 * Connect Wallet is explicitly pressed.
-                 */
-
                 if (requestAccess) {
                     try {
                         await browserProvider.send(
@@ -419,18 +451,11 @@ export function Web3Provider({
                     detectedChainId
                 );
 
-                /*
-                 * Wrong network:
-                 * keep wallet identity but remove
-                 * protocol instances.
-                 */
-
                 if (
                     detectedChainId !==
                     expectedChainId
                 ) {
                     clearProtocolState();
-
                     clearAgreementState();
 
                     return true;
@@ -450,7 +475,6 @@ export function Web3Provider({
                     deployedCode === "0x"
                 ) {
                     clearProtocolState();
-
                     clearAgreementState();
 
                     throw new Error(
@@ -481,15 +505,6 @@ export function Web3Provider({
                     await browserProvider.getCode(
                         agreementContractAddress
                     );
-
-                /*
-                 * Agreement V1 is added alongside
-                 * MultiPayment.
-                 *
-                 * If AgreementEscrow is unavailable,
-                 * do NOT destroy the existing RC2
-                 * MultiPayment session.
-                 */
 
                 if (
                     !agreementDeployedCode ||
@@ -608,6 +623,308 @@ export function Web3Provider({
             },
             [
                 initializeConnection,
+            ]
+        );
+
+    /* =====================================================
+                     RESTORE SESSION
+       ===================================================== */
+
+    const restoreSession =
+        useCallback(
+            async () => {
+                try {
+                    setAuthStatus(
+                        "checking"
+                    );
+
+                    setAuthError(
+                        ""
+                    );
+
+                    const session =
+                        await fetchCurrentSession();
+
+                    if (!session) {
+                        clearAuthentication();
+
+                        return null;
+                    }
+
+                    const walletAddress =
+                        ethers.getAddress(
+                            session.walletAddress
+                        );
+
+                    setAuthenticatedWallet(
+                        walletAddress
+                    );
+
+                    setAuthStatus(
+                        "authenticated"
+                    );
+
+                    setAuthError(
+                        ""
+                    );
+
+                    return session;
+                } catch (error) {
+                    const message =
+                        error?.message ||
+                        "Unable to restore ESCT session.";
+
+                    console.error(
+                        "ESCT session restore failed:",
+                        error
+                    );
+
+                    setAuthenticatedWallet(
+                        ""
+                    );
+
+                    setAuthStatus(
+                        "error"
+                    );
+
+                    setAuthError(
+                        message
+                    );
+
+                    return null;
+                }
+            },
+            [
+                clearAuthentication,
+            ]
+        );
+
+    /* =====================================================
+                       AUTHENTICATE
+       ===================================================== */
+
+    const authenticate =
+        useCallback(
+            async () => {
+                try {
+                    if (
+                        !account ||
+                        !signer
+                    ) {
+                        throw new Error(
+                            "Connect your wallet before signing in to ESCT."
+                        );
+                    }
+
+                    if (
+                        chainId !==
+                        expectedChainId
+                    ) {
+                        throw new Error(
+                            `Switch to chain ${expectedChainId} before signing in to ESCT.`
+                        );
+                    }
+
+                    setIsAuthenticating(
+                        true
+                    );
+
+                    setAuthStatus(
+                        "authenticating"
+                    );
+
+                    setAuthError(
+                        ""
+                    );
+
+                    const walletAddress =
+                        ethers.getAddress(
+                            account
+                        );
+
+                    const nonce =
+                        await requestAuthNonce(
+                            walletAddress
+                        );
+
+                    const nonceWallet =
+                        ethers.getAddress(
+                            nonce.walletAddress
+                        );
+
+                    if (
+                        nonceWallet !==
+                        walletAddress
+                    ) {
+                        throw new Error(
+                            "Nonce wallet does not match the connected wallet."
+                        );
+                    }
+
+                    if (
+                        Number(
+                            nonce.chainId
+                        ) !==
+                        chainId
+                    ) {
+                        throw new Error(
+                            "SIWE chain does not match the connected network."
+                        );
+                    }
+
+                    const message =
+                        buildSiweMessage({
+                            domain:
+                                nonce.domain,
+
+                            walletAddress,
+
+                            uri:
+                                nonce.uri,
+
+                            version:
+                                nonce.version,
+
+                            chainId:
+                                nonce.chainId,
+
+                            nonce:
+                                nonce.nonce,
+
+                            expiresAt:
+                                nonce.expiresAt,
+                        });
+
+                    const signature =
+                        await signer.signMessage(
+                            message
+                        );
+
+                    const verified =
+                        await verifySiweAuthentication({
+                            message,
+                            signature,
+                        });
+
+                    const verifiedWallet =
+                        ethers.getAddress(
+                            verified.walletAddress
+                        );
+
+                    if (
+                        verifiedWallet !==
+                        walletAddress
+                    ) {
+                        throw new Error(
+                            "Authenticated wallet does not match the connected wallet."
+                        );
+                    }
+
+                    setAuthenticatedWallet(
+                        verifiedWallet
+                    );
+
+                    setAuthStatus(
+                        "authenticated"
+                    );
+
+                    setAuthError(
+                        ""
+                    );
+
+                    return verified;
+                } catch (error) {
+                    const rejected =
+                        error?.code === 4001 ||
+                        error?.code ===
+                        "ACTION_REJECTED";
+
+                    const message =
+                        rejected
+                            ? "Sign-in request rejected in wallet."
+                            : (
+                                error?.message ||
+                                "ESCT authentication failed."
+                            );
+
+                    console.error(
+                        "ESCT authentication failed:",
+                        error
+                    );
+
+                    setAuthenticatedWallet(
+                        ""
+                    );
+
+                    setAuthStatus(
+                        "error"
+                    );
+
+                    setAuthError(
+                        message
+                    );
+
+                    throw error;
+                } finally {
+                    setIsAuthenticating(
+                        false
+                    );
+                }
+            },
+            [
+                account,
+                signer,
+                chainId,
+                expectedChainId,
+            ]
+        );
+
+    /* =====================================================
+                          LOGOUT
+       ===================================================== */
+
+    const logout =
+        useCallback(
+            async () => {
+                try {
+                    setIsAuthenticating(
+                        true
+                    );
+
+                    setAuthError(
+                        ""
+                    );
+
+                    await logoutSession();
+
+                    clearAuthentication();
+                } catch (error) {
+                    const message =
+                        error?.message ||
+                        "Unable to log out of ESCT.";
+
+                    console.error(
+                        "ESCT logout failed:",
+                        error
+                    );
+
+                    setAuthStatus(
+                        "error"
+                    );
+
+                    setAuthError(
+                        message
+                    );
+
+                    throw error;
+                } finally {
+                    setIsAuthenticating(
+                        false
+                    );
+                }
+            },
+            [
+                clearAuthentication,
             ]
         );
 
@@ -802,11 +1119,6 @@ export function Web3Provider({
                         error: "",
                     });
 
-                    /*
-                     * Refresh both protocol layers
-                     * after every successful transaction.
-                     */
-
                     await refreshProtocolState();
 
                     return receipt;
@@ -860,6 +1172,90 @@ export function Web3Provider({
         }, []);
 
     /* =====================================================
+                 INITIAL SESSION RESTORE
+       ===================================================== */
+
+    useEffect(() => {
+        let cancelled =
+            false;
+
+        void fetchCurrentSession()
+            .then(
+                (session) => {
+                    if (cancelled) {
+                        return;
+                    }
+
+                    if (!session) {
+                        setAuthenticatedWallet(
+                            ""
+                        );
+
+                        setAuthStatus(
+                            "unauthenticated"
+                        );
+
+                        setAuthError(
+                            ""
+                        );
+
+                        return;
+                    }
+
+                    const walletAddress =
+                        ethers.getAddress(
+                            session.walletAddress
+                        );
+
+                    setAuthenticatedWallet(
+                        walletAddress
+                    );
+
+                    setAuthStatus(
+                        "authenticated"
+                    );
+
+                    setAuthError(
+                        ""
+                    );
+                }
+            )
+            .catch(
+                (error) => {
+                    if (cancelled) {
+                        return;
+                    }
+
+                    const message =
+                        error?.message ||
+                        "Unable to restore ESCT session.";
+
+                    console.error(
+                        "Initial ESCT session restore failed:",
+                        error
+                    );
+
+                    setAuthenticatedWallet(
+                        ""
+                    );
+
+                    setAuthStatus(
+                        "error"
+                    );
+
+                    setAuthError(
+                        message
+                    );
+                }
+            );
+
+        return () => {
+            cancelled =
+                true;
+        };
+    }, []);
+
+    /* =====================================================
                      WALLET LISTENERS
        ===================================================== */
 
@@ -874,14 +1270,6 @@ export function Web3Provider({
 
         const handleAccountsChanged =
             (accounts) => {
-                /*
-                 * Preserve RC2 behavior:
-                 *
-                 * MetaMask account events must not
-                 * silently create a new ESCT session
-                 * before the user explicitly connects.
-                 */
-
                 if (
                     !account ||
                     !signer
@@ -937,11 +1325,6 @@ export function Web3Provider({
 
         const handleChainChanged =
             () => {
-                /*
-                 * Same explicit-session rule
-                 * applies to chain changes.
-                 */
-
                 if (
                     !account ||
                     !signer
@@ -1017,6 +1400,19 @@ export function Web3Provider({
         Boolean(
             account &&
             signer
+        );
+
+    const isAuthenticated =
+        authStatus ===
+        "authenticated";
+
+    const isAuthenticatedWalletConnected =
+        Boolean(
+            isAuthenticated &&
+            account &&
+            authenticatedWallet &&
+            account.toLowerCase() ===
+            authenticatedWallet.toLowerCase()
         );
 
     const isCorrectNetwork =
@@ -1101,7 +1497,23 @@ export function Web3Provider({
                 isCorrectNetwork,
                 isConnecting,
 
-                /* MultiPayment RC2 */
+                connectWallet,
+
+                /* Authentication */
+
+                authStatus,
+                authenticatedWallet,
+                authError,
+                isAuthenticating,
+
+                isAuthenticated,
+                isAuthenticatedWalletConnected,
+
+                authenticate,
+                restoreSession,
+                logout,
+
+                /* MultiPayment */
 
                 contract,
 
@@ -1113,7 +1525,7 @@ export function Web3Provider({
                 isOwner,
                 isArbitrator,
 
-                /* Agreement V1 */
+                /* Agreement */
 
                 agreementContract,
 
@@ -1129,7 +1541,6 @@ export function Web3Provider({
 
                 transaction,
 
-                connectWallet,
                 executeTransaction,
 
                 refreshProtocolState,
@@ -1149,6 +1560,20 @@ export function Web3Provider({
                 isCorrectNetwork,
                 isConnecting,
 
+                connectWallet,
+
+                authStatus,
+                authenticatedWallet,
+                authError,
+                isAuthenticating,
+
+                isAuthenticated,
+                isAuthenticatedWalletConnected,
+
+                authenticate,
+                restoreSession,
+                logout,
+
                 contract,
 
                 owner,
@@ -1171,7 +1596,6 @@ export function Web3Provider({
 
                 transaction,
 
-                connectWallet,
                 executeTransaction,
 
                 refreshProtocolState,
