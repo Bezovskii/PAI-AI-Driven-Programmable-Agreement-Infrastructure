@@ -6,6 +6,10 @@ import {
 export const SESSION_TOKEN_BYTES =
   32;
 
+/* =========================================================
+   SESSION ISSUANCE
+   ========================================================= */
+
 export interface PersistSessionInput {
   readonly walletAddress: string;
   readonly tokenHash: string;
@@ -43,6 +47,10 @@ export interface SessionIssuerDependencies {
   readonly generateToken?: () => string;
 }
 
+/* =========================================================
+   TOKEN HASHING
+   ========================================================= */
+
 export function hashSessionToken(
   token: string,
 ): string {
@@ -59,13 +67,17 @@ export function hashSessionToken(
 }
 
 export function generateSessionToken():
-string {
+  string {
   return randomBytes(
     SESSION_TOKEN_BYTES,
   ).toString(
     "base64url",
   );
 }
+
+/* =========================================================
+   SESSION ISSUER
+   ========================================================= */
 
 export function createSessionIssuer(
   persistSession:
@@ -113,8 +125,8 @@ export function createSessionIssuer(
     const expiresAt =
       new Date(
         createdAt.getTime() +
-          config.ttlSeconds *
-            1000,
+        config.ttlSeconds *
+        1000,
       );
 
     const persisted =
@@ -136,5 +148,137 @@ export function createSessionIssuer(
 
       expiresAt,
     };
+  };
+}
+
+/* =========================================================
+   SESSION RESOLUTION
+   ========================================================= */
+
+export interface StoredSession {
+  readonly userId: string;
+  readonly walletAddress: string;
+  readonly expiresAt: Date;
+  readonly revokedAt: Date | null;
+}
+
+export type FindSessionByTokenHash =
+  (
+    tokenHash: string,
+  ) => Promise<StoredSession | null>;
+
+export interface ResolvedSession {
+  readonly userId: string;
+  readonly walletAddress: string;
+}
+
+export type ResolveSession =
+  (
+    rawToken: string,
+  ) => Promise<ResolvedSession | null>;
+
+export interface SessionResolverDependencies {
+  readonly now?: () => Date;
+}
+
+export function createSessionResolver(
+  findSession:
+    FindSessionByTokenHash,
+
+  dependencies:
+    SessionResolverDependencies = {},
+): ResolveSession {
+  const now =
+    dependencies.now ??
+    (() => new Date());
+
+  return async (
+    rawToken: string,
+  ): Promise<ResolvedSession | null> => {
+    if (!rawToken) {
+      return null;
+    }
+
+    const tokenHash =
+      hashSessionToken(
+        rawToken,
+      );
+
+    const session =
+      await findSession(
+        tokenHash,
+      );
+
+    if (!session) {
+      return null;
+    }
+
+    if (session.revokedAt) {
+      return null;
+    }
+
+    if (
+      session.expiresAt.getTime() <=
+      now().getTime()
+    ) {
+      return null;
+    }
+
+    return {
+      userId:
+        session.userId,
+
+      walletAddress:
+        session.walletAddress,
+    };
+  };
+}
+
+/* =========================================================
+   SESSION REVOCATION
+   ========================================================= */
+
+export type RevokeSessionByTokenHash =
+  (
+    tokenHash: string,
+    revokedAt: Date,
+  ) => Promise<boolean>;
+
+export type RevokeSession =
+  (
+    rawToken: string,
+  ) => Promise<boolean>;
+
+export interface SessionRevokerDependencies {
+  readonly now?: () => Date;
+}
+
+export function createSessionRevoker(
+  revokeSessionByTokenHash:
+    RevokeSessionByTokenHash,
+
+  dependencies:
+    SessionRevokerDependencies = {},
+): RevokeSession {
+  const now =
+    dependencies.now ??
+    (() => new Date());
+
+  return async (
+    rawToken: string,
+  ): Promise<boolean> => {
+    if (!rawToken) {
+      return false;
+    }
+
+    const tokenHash =
+      hashSessionToken(
+        rawToken,
+      );
+
+    return revokeSessionByTokenHash(
+      tokenHash,
+      now(),
+    );
   };
 }

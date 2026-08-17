@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   createSessionIssuer,
+  createSessionResolver,
+  createSessionRevoker,
   hashSessionToken,
   type PersistSessionInput,
 } from "../src/auth/session.js";
@@ -20,6 +22,10 @@ const RAW_TOKEN =
 
 const SEVEN_DAYS =
   7 * 24 * 60 * 60;
+
+/* =========================================================
+   TOKEN HASHING
+   ========================================================= */
 
 test(
   "hashSessionToken returns SHA-256 hex digest",
@@ -45,6 +51,10 @@ test(
     );
   },
 );
+
+/* =========================================================
+   SESSION ISSUANCE
+   ========================================================= */
 
 test(
   "session issuer stores only token hash and returns raw opaque token",
@@ -161,6 +171,320 @@ test(
       },
 
       /Session TTL must be a positive safe integer/,
+    );
+  },
+);
+
+/* =========================================================
+   SESSION RESOLUTION
+   ========================================================= */
+
+test(
+  "session resolver accepts active session",
+  async () => {
+    const resolveSession =
+      createSessionResolver(
+        async () => ({
+          userId:
+            "user-1",
+
+          walletAddress:
+            WALLET,
+
+          expiresAt:
+            new Date(
+              NOW.getTime() +
+              60_000,
+            ),
+
+          revokedAt:
+            null,
+        }),
+
+        {
+          now:
+            () =>
+              NOW,
+        },
+      );
+
+    const resolved =
+      await resolveSession(
+        RAW_TOKEN,
+      );
+
+    assert.deepEqual(
+      resolved,
+      {
+        userId:
+          "user-1",
+
+        walletAddress:
+          WALLET,
+      },
+    );
+  },
+);
+
+test(
+  "session resolver hashes raw token before lookup",
+  async () => {
+    let receivedHash =
+      "";
+
+    const resolveSession =
+      createSessionResolver(
+        async (
+          tokenHash,
+        ) => {
+          receivedHash =
+            tokenHash;
+
+          return {
+            userId:
+              "user-1",
+
+            walletAddress:
+              WALLET,
+
+            expiresAt:
+              new Date(
+                NOW.getTime() +
+                60_000,
+              ),
+
+            revokedAt:
+              null,
+          };
+        },
+
+        {
+          now:
+            () =>
+              NOW,
+        },
+      );
+
+    await resolveSession(
+      RAW_TOKEN,
+    );
+
+    assert.equal(
+      receivedHash,
+      hashSessionToken(
+        RAW_TOKEN,
+      ),
+    );
+
+    assert.notEqual(
+      receivedHash,
+      RAW_TOKEN,
+    );
+  },
+);
+
+test(
+  "session resolver rejects unknown session",
+  async () => {
+    const resolveSession =
+      createSessionResolver(
+        async () =>
+          null,
+
+        {
+          now:
+            () =>
+              NOW,
+        },
+      );
+
+    const resolved =
+      await resolveSession(
+        RAW_TOKEN,
+      );
+
+    assert.equal(
+      resolved,
+      null,
+    );
+  },
+);
+
+test(
+  "session resolver rejects expired session",
+  async () => {
+    const resolveSession =
+      createSessionResolver(
+        async () => ({
+          userId:
+            "user-1",
+
+          walletAddress:
+            WALLET,
+
+          expiresAt:
+            new Date(
+              NOW.getTime() -
+              1,
+            ),
+
+          revokedAt:
+            null,
+        }),
+
+        {
+          now:
+            () =>
+              NOW,
+        },
+      );
+
+    const resolved =
+      await resolveSession(
+        RAW_TOKEN,
+      );
+
+    assert.equal(
+      resolved,
+      null,
+    );
+  },
+);
+
+test(
+  "session resolver rejects revoked session",
+  async () => {
+    const resolveSession =
+      createSessionResolver(
+        async () => ({
+          userId:
+            "user-1",
+
+          walletAddress:
+            WALLET,
+
+          expiresAt:
+            new Date(
+              NOW.getTime() +
+              60_000,
+            ),
+
+          revokedAt:
+            new Date(
+              NOW.getTime() -
+              1_000,
+            ),
+        }),
+
+        {
+          now:
+            () =>
+              NOW,
+        },
+      );
+
+    const resolved =
+      await resolveSession(
+        RAW_TOKEN,
+      );
+
+    assert.equal(
+      resolved,
+      null,
+    );
+  },
+);
+
+/* =========================================================
+   SESSION REVOCATION
+   ========================================================= */
+
+test(
+  "session revoker hashes token and supplies revocation timestamp",
+  async () => {
+    let receivedHash =
+      "";
+
+    let receivedDate:
+      Date |
+      undefined;
+
+    const revokeSession =
+      createSessionRevoker(
+        async (
+          tokenHash,
+          revokedAt,
+        ) => {
+          receivedHash =
+            tokenHash;
+
+          receivedDate =
+            revokedAt;
+
+          return true;
+        },
+
+        {
+          now:
+            () =>
+              NOW,
+        },
+      );
+
+    const revoked =
+      await revokeSession(
+        RAW_TOKEN,
+      );
+
+    assert.equal(
+      revoked,
+      true,
+    );
+
+    assert.equal(
+      receivedHash,
+      hashSessionToken(
+        RAW_TOKEN,
+      ),
+    );
+
+    assert.equal(
+      receivedDate
+        ?.toISOString(),
+      NOW.toISOString(),
+    );
+  },
+);
+
+test(
+  "session revoker rejects empty token without database call",
+  async () => {
+    let called =
+      false;
+
+    const revokeSession =
+      createSessionRevoker(
+        async () => {
+          called =
+            true;
+
+          return true;
+        },
+      );
+
+    const revoked =
+      await revokeSession(
+        "",
+      );
+
+    assert.equal(
+      revoked,
+      false,
+    );
+
+    assert.equal(
+      called,
+      false,
     );
   },
 );

@@ -8,6 +8,8 @@ import {
 
 import {
   createSessionIssuer,
+  createSessionResolver,
+  createSessionRevoker,
 } from "./auth/session.js";
 
 import {
@@ -144,14 +146,6 @@ const issueSession =
     ) => {
       return prisma.$transaction(
         async (transaction) => {
-          /*
-           * Upsert the authenticated wallet.
-           *
-           * Important:
-           * We select BOTH wallet.id and wallet.userId
-           * because the session must now be tied to
-           * the exact wallet used during SIWE.
-           */
           const wallet =
             await transaction
               .wallet
@@ -181,13 +175,6 @@ const issueSession =
                 },
               });
 
-          /*
-           * Store only the HASH of the opaque session token.
-           *
-           * The session is bound to:
-           *   - the ESCT user
-           *   - the exact authenticated wallet
-           */
           await transaction
             .session
             .create({
@@ -222,6 +209,92 @@ const issueSession =
   );
 
 /* =========================================================
+   SESSION RESOLUTION
+   ========================================================= */
+
+const resolveSession =
+  createSessionResolver(
+    async (
+      tokenHash,
+    ) => {
+      const session =
+        await prisma.session
+          .findUnique({
+            where: {
+              tokenHash,
+            },
+
+            select: {
+              userId:
+                true,
+
+              expiresAt:
+                true,
+
+              revokedAt:
+                true,
+
+              wallet: {
+                select: {
+                  address:
+                    true,
+                },
+              },
+            },
+          });
+
+      if (!session) {
+        return null;
+      }
+
+      return {
+        userId:
+          session.userId,
+
+        walletAddress:
+          session.wallet.address,
+
+        expiresAt:
+          session.expiresAt,
+
+        revokedAt:
+          session.revokedAt,
+      };
+    },
+  );
+
+/* =========================================================
+   SESSION REVOCATION
+   ========================================================= */
+
+const revokeSession =
+  createSessionRevoker(
+    async (
+      tokenHash,
+      revokedAt,
+    ) => {
+      const result =
+        await prisma.session
+          .updateMany({
+            where: {
+              tokenHash,
+
+              revokedAt:
+                null,
+            },
+
+            data: {
+              revokedAt,
+            },
+          });
+
+      return (
+        result.count === 1
+      );
+    },
+  );
+
+/* =========================================================
    APPLICATION
    ========================================================= */
 
@@ -242,6 +315,10 @@ const app =
       verifySiwe,
 
       issueSession,
+
+      resolveSession,
+
+      revokeSession,
 
       sessionCookie: {
         name:

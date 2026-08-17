@@ -14,6 +14,8 @@ import {
 
 import {
   type IssueSession,
+  type ResolveSession,
+  type RevokeSession,
 } from "./session.js";
 
 import {
@@ -35,19 +37,25 @@ export interface SessionCookieConfig {
 
 export interface AuthRouteOptions {
   readonly issueNonce:
-    IssueAuthNonce;
+  IssueAuthNonce;
 
   readonly verifySiwe?:
-    VerifySiwe;
+  VerifySiwe;
 
   readonly issueSession?:
-    IssueSession;
+  IssueSession;
+
+  readonly resolveSession?:
+  ResolveSession;
+
+  readonly revokeSession?:
+  RevokeSession;
 
   readonly sessionCookie?:
-    SessionCookieConfig;
+  SessionCookieConfig;
 
   readonly siwe:
-    SiwePublicConfig;
+  SiwePublicConfig;
 }
 
 const ValidationErrorResponseSchema =
@@ -171,7 +179,7 @@ const VerifyResponseSchema =
     },
   );
 
-const AuthenticationFailureSchema =
+const SiweAuthenticationFailureSchema =
   Type.Object(
     {
       error:
@@ -185,12 +193,57 @@ const AuthenticationFailureSchema =
     },
   );
 
+const SessionResponseSchema =
+  Type.Object(
+    {
+      authenticated:
+        Type.Literal(true),
+
+      walletAddress:
+        Type.String(),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const SessionAuthenticationFailureSchema =
+  Type.Object(
+    {
+      error:
+        Type.Literal(
+          "unauthenticated",
+        ),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const LogoutResponseSchema =
+  Type.Object(
+    {
+      loggedOut:
+        Type.Literal(true),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
 export function registerAuthRoutes(
   app: FastifyInstance,
   options: AuthRouteOptions,
 ): void {
   const typedApp =
     app.withTypeProvider<TypeBoxTypeProvider>();
+
+  /* =======================================================
+     NONCE
+     ======================================================= */
 
   typedApp.post(
     "/api/v1/auth/nonce",
@@ -265,97 +318,191 @@ export function registerAuthRoutes(
   const verifySiwe =
     options.verifySiwe;
 
-  if (!verifySiwe) {
-    return;
-  }
-
   const issueSession =
     options.issueSession;
+
+  const resolveSession =
+    options.resolveSession;
+
+  const revokeSession =
+    options.revokeSession;
 
   const sessionCookie =
     options.sessionCookie;
 
   if (
-    (
-      issueSession &&
-      !sessionCookie
-    ) ||
-    (
-      !issueSession &&
-      sessionCookie
-    )
+    issueSession &&
+    !sessionCookie
   ) {
     throw new Error(
-      "issueSession and sessionCookie must be configured together.",
+      "issueSession requires sessionCookie.",
     );
   }
 
-  typedApp.post(
-    "/api/v1/auth/verify",
-    {
-      schema: {
-        body:
-          VerifyRequestSchema,
+  if (
+    (
+      resolveSession ||
+      revokeSession
+    ) &&
+    !sessionCookie
+  ) {
+    throw new Error(
+      "Session lifecycle requires sessionCookie.",
+    );
+  }
 
-        response: {
-          200:
-            VerifyResponseSchema,
+  /* =======================================================
+     SIWE VERIFY + SESSION ISSUANCE
+     ======================================================= */
 
-          400:
-            ValidationErrorResponseSchema,
+  if (verifySiwe) {
+    typedApp.post(
+      "/api/v1/auth/verify",
+      {
+        schema: {
+          body:
+            VerifyRequestSchema,
 
-          401:
-            AuthenticationFailureSchema,
+          response: {
+            200:
+              VerifyResponseSchema,
+
+            400:
+              ValidationErrorResponseSchema,
+
+            401:
+              SiweAuthenticationFailureSchema,
+          },
         },
       },
-    },
-    async (
-      request,
-      reply,
-    ) => {
-      try {
-        const verified =
-          await verifySiwe({
-            message:
-              request.body.message,
+      async (
+        request,
+        reply,
+      ) => {
+        try {
+          const verified =
+            await verifySiwe({
+              message:
+                request.body.message,
 
-            signature:
-              request.body.signature,
-          });
+              signature:
+                request.body.signature,
+            });
 
-        if (
-          issueSession &&
-          sessionCookie
-        ) {
-          const session =
-            await issueSession(
-              verified.walletAddress,
+          if (
+            issueSession &&
+            sessionCookie
+          ) {
+            const session =
+              await issueSession(
+                verified.walletAddress,
+              );
+
+            reply.setCookie(
+              sessionCookie.name,
+              session.token,
+              {
+                httpOnly:
+                  true,
+
+                secure:
+                  sessionCookie.secure,
+
+                sameSite:
+                  "lax",
+
+                path:
+                  "/",
+
+                maxAge:
+                  sessionCookie
+                    .maxAgeSeconds,
+
+                expires:
+                  session.expiresAt,
+              },
             );
+          }
 
-          reply.setCookie(
-            sessionCookie.name,
-            session.token,
-            {
-              httpOnly:
-                true,
+          return reply
+            .code(200)
+            .send({
+              authenticated:
+                true as const,
 
-              secure:
-                sessionCookie.secure,
+              walletAddress:
+                verified.walletAddress,
+            });
+        } catch (error) {
+          if (
+            error instanceof
+            InvalidSiweAuthenticationError
+          ) {
+            return reply
+              .code(401)
+              .send({
+                error:
+                  "invalid_siwe_authentication",
+              });
+          }
 
-              sameSite:
-                "lax",
+          throw error;
+        }
+      },
+    );
+  }
 
-              path:
-                "/",
+  /* =======================================================
+     SESSION RESTORE
+     ======================================================= */
 
-              maxAge:
-                sessionCookie
-                  .maxAgeSeconds,
+  if (
+    resolveSession &&
+    sessionCookie
+  ) {
+    typedApp.get(
+      "/api/v1/auth/session",
+      {
+        schema: {
+          response: {
+            200:
+              SessionResponseSchema,
 
-              expires:
-                session.expiresAt,
-            },
+            401:
+              SessionAuthenticationFailureSchema,
+          },
+        },
+      },
+      async (
+        request,
+        reply,
+      ) => {
+        const rawToken =
+          request.cookies[
+          sessionCookie.name
+          ];
+
+        if (!rawToken) {
+          return reply
+            .code(401)
+            .send({
+              error:
+                "unauthenticated",
+            });
+        }
+
+        const session =
+          await resolveSession(
+            rawToken,
           );
+
+        if (!session) {
+          return reply
+            .code(401)
+            .send({
+              error:
+                "unauthenticated",
+            });
         }
 
         return reply
@@ -365,23 +512,66 @@ export function registerAuthRoutes(
               true as const,
 
             walletAddress:
-              verified.walletAddress,
+              session.walletAddress,
           });
-      } catch (error) {
-        if (
-          error instanceof
-          InvalidSiweAuthenticationError
-        ) {
-          return reply
-            .code(401)
-            .send({
-              error:
-                "invalid_siwe_authentication",
-            });
+      },
+    );
+  }
+
+  /* =======================================================
+     LOGOUT / SESSION REVOCATION
+     ======================================================= */
+
+  if (
+    revokeSession &&
+    sessionCookie
+  ) {
+    typedApp.post(
+      "/api/v1/auth/logout",
+      {
+        schema: {
+          response: {
+            200:
+              LogoutResponseSchema,
+          },
+        },
+      },
+      async (
+        request,
+        reply,
+      ) => {
+        const rawToken =
+          request.cookies[
+          sessionCookie.name
+          ];
+
+        if (rawToken) {
+          await revokeSession(
+            rawToken,
+          );
         }
 
-        throw error;
-      }
-    },
-  );
+        reply.clearCookie(
+          sessionCookie.name,
+          {
+            path:
+              "/",
+
+            secure:
+              sessionCookie.secure,
+
+            sameSite:
+              "lax",
+          },
+        );
+
+        return reply
+          .code(200)
+          .send({
+            loggedOut:
+              true as const,
+          });
+      },
+    );
+  }
 }
