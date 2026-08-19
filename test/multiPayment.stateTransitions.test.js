@@ -1,92 +1,175 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { deployFixture } = require("./helpers/deployFixture");
 
-const {
-    deployMultiPaymentFixture,
-} = require("./helpers/setup");
+describe("MultiPayment - state transitions and administration", function () {
+    let c;
 
-describe("stateTransitions", function () {
-    const ONE_ETH = ethers.parseEther("1");
-    const TWO_ETH = ethers.parseEther("2");
-    const FIRST_ORDER_ID = 1;
-    const SECOND_ORDER_ID = 2;
-
-    async function createEscrow() {
-        const fixture = await deployMultiPaymentFixture();
-
-        await fixture.multiPayment
-            .connect(fixture.buyer)
-            .createEscrowPayment(
-                fixture.seller.address,
-                { value: ONE_ETH }
-            );
-
-        return fixture;
-    }
-
-    it("reverts refund after completed", async function () {
-        const { multiPayment, buyer, seller } = await createEscrow();
-
-        await multiPayment
-            .connect(buyer)
-            .confirmReceipt(FIRST_ORDER_ID);
-
-        await expect(
-            multiPayment.connect(seller).refund(FIRST_ORDER_ID)
-        ).to.be.revertedWith("not in escrow");
+    beforeEach(async function () {
+        c = await deployFixture();
     });
 
-    it("reverts confirm after refunded", async function () {
-        const { multiPayment, buyer, seller } = await createEscrow();
+    it("assigns sequential order IDs", async function () {
+        await (
+            await c.multiPayment.connect(c.buyer).createEscrowPayment(
+                c.seller.address,
+                { value: c.ETH_AMOUNT }
+            )
+        ).wait();
 
-        await multiPayment
-            .connect(seller)
-            .refund(FIRST_ORDER_ID);
+        await (
+            await c.multiPayment.connect(c.buyer).createDirectPayment(
+                c.seller.address,
+                { value: c.ETH_AMOUNT }
+            )
+        ).wait();
 
-        await expect(
-            multiPayment.connect(buyer).confirmReceipt(FIRST_ORDER_ID)
-        ).to.be.revertedWith("not in escrow");
+        expect((await c.multiPayment.orderById(1)).id).to.equal(1n);
+        expect((await c.multiPayment.orderById(2)).id).to.equal(2n);
+        expect(await c.multiPayment.nextOrderId()).to.equal(3n);
     });
 
-    it("keeps multiple escrow orders independent", async function () {
-        const { multiPayment, buyer, seller, other } =
-            await deployMultiPaymentFixture();
+    it("completed order cannot become disputed", async function () {
+        await (
+            await c.multiPayment.connect(c.buyer).createEscrowPayment(
+                c.seller.address,
+                { value: c.ETH_AMOUNT }
+            )
+        ).wait();
 
-        await multiPayment
-            .connect(buyer)
-            .createEscrowPayment(
-                seller.address,
-                { value: ONE_ETH }
-            );
+        await (await c.multiPayment.connect(c.buyer).confirmReceipt(1)).wait();
 
-        await multiPayment
-            .connect(other)
-            .createEscrowPayment(
-                seller.address,
-                { value: TWO_ETH }
-            );
+        await expect(
+            c.multiPayment.connect(c.buyer).openDispute(1)
+        )
+            .to.be.revertedWithCustomError(
+                c.multiPayment,
+                "InvalidOrderStatus"
+            )
+            .withArgs(1n, 2n);
+    });
 
-        await multiPayment
-            .connect(buyer)
-            .confirmReceipt(FIRST_ORDER_ID);
+    it("refunded order cannot become disputed", async function () {
+        await (
+            await c.multiPayment.connect(c.buyer).createEscrowPayment(
+                c.seller.address,
+                { value: c.ETH_AMOUNT }
+            )
+        ).wait();
 
-        await multiPayment
-            .connect(seller)
-            .refund(SECOND_ORDER_ID);
+        await (await c.multiPayment.connect(c.seller).refund(1)).wait();
 
-        const firstOrder =
-            await multiPayment.orderById(FIRST_ORDER_ID);
+        await expect(
+            c.multiPayment.connect(c.buyer).openDispute(1)
+        )
+            .to.be.revertedWithCustomError(
+                c.multiPayment,
+                "InvalidOrderStatus"
+            )
+            .withArgs(1n, 3n);
+    });
 
-        const secondOrder =
-            await multiPayment.orderById(SECOND_ORDER_ID);
+    it("disputed order cannot be confirmed or refunded directly", async function () {
+        await (
+            await c.multiPayment.connect(c.buyer).createEscrowPayment(
+                c.seller.address,
+                { value: c.ETH_AMOUNT }
+            )
+        ).wait();
 
-        expect(firstOrder.status).to.equal(2); // Completed
-        expect(secondOrder.status).to.equal(3); // Refunded
+        await (await c.multiPayment.connect(c.buyer).openDispute(1)).wait();
 
-        expect(firstOrder.amount).to.equal(ONE_ETH);
-        expect(secondOrder.amount).to.equal(TWO_ETH);
+        await expect(
+            c.multiPayment.connect(c.buyer).confirmReceipt(1)
+        )
+            .to.be.revertedWithCustomError(
+                c.multiPayment,
+                "InvalidOrderStatus"
+            )
+            .withArgs(1n, 1n);
 
-        expect(firstOrder.buyer).to.equal(buyer.address);
-        expect(secondOrder.buyer).to.equal(other.address);
+        await expect(
+            c.multiPayment.connect(c.seller).refund(1)
+        )
+            .to.be.revertedWithCustomError(
+                c.multiPayment,
+                "InvalidOrderStatus"
+            )
+            .withArgs(1n, 1n);
+    });
+
+    it("only owner can pause", async function () {
+        await expect(
+            c.multiPayment.connect(c.outsider).pauseNewPayments()
+        )
+            .to.be.revertedWithCustomError(
+                c.multiPayment,
+                "OwnableUnauthorizedAccount"
+            )
+            .withArgs(c.outsider.address);
+    });
+
+    it("owner can pause and unpause new payments", async function () {
+        await (await c.multiPayment.connect(c.owner).pauseNewPayments()).wait();
+        expect(await c.multiPayment.paused()).to.equal(true);
+
+        await (await c.multiPayment.connect(c.owner).unpauseNewPayments()).wait();
+        expect(await c.multiPayment.paused()).to.equal(false);
+    });
+
+    it("rejects direct ETH sent to receive()", async function () {
+        await expect(
+            c.buyer.sendTransaction({
+                to: c.multiPaymentAddress,
+                value: c.ETH_AMOUNT,
+            })
+        ).to.be.revertedWithCustomError(
+            c.multiPayment,
+            "DirectEtherNotAccepted"
+        );
+    });
+
+    it("disables ownership renunciation", async function () {
+        await expect(
+            c.multiPayment.connect(c.owner).renounceOwnership()
+        ).to.be.revertedWithCustomError(
+            c.multiPayment,
+            "OwnershipRenunciationDisabled"
+        );
+    });
+
+    it("uses two-step ownership transfer", async function () {
+        await (
+            await c.multiPayment
+                .connect(c.owner)
+                .transferOwnership(c.outsider.address)
+        ).wait();
+
+        expect(await c.multiPayment.owner()).to.equal(c.owner.address);
+        expect(await c.multiPayment.pendingOwner()).to.equal(
+            c.outsider.address
+        );
+
+        await (
+            await c.multiPayment.connect(c.outsider).acceptOwnership()
+        ).wait();
+
+        expect(await c.multiPayment.owner()).to.equal(c.outsider.address);
+    });
+
+    it("initial owner and arbitrator are separate roles", async function () {
+        expect(await c.multiPayment.owner()).to.equal(c.owner.address);
+        expect(await c.multiPayment.arbitrator()).to.equal(
+            c.arbitrator.address
+        );
+        expect(c.owner.address).not.to.equal(c.arbitrator.address);
+    });
+    it("rejects arbitrator acceptance when no transfer is pending", async function () {
+        await expect(
+            c.multiPayment.connect(c.outsider).acceptArbitratorRole()
+        ).to.be.revertedWithCustomError(
+            c.multiPayment,
+            "NoPendingArbitrator"
+        );
     });
 });

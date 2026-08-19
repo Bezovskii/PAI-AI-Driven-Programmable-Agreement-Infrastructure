@@ -1,0 +1,274 @@
+.walletControl {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    min-width: 0;
+    flex-wrap: nowrap;
+}
+
+.walletControl .walletButton {
+    min-height: 40px;
+    padding: 0 15px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #031514;
+    background:
+        linear-gradient(
+            135deg,
+            #16e0cf,
+            #25c7ff
+        );
+    border:
+        1px solid
+        rgba(37, 199, 255, 0.35);
+    border-radius: 11px;
+    box-shadow:
+        0 8px 26px
+        rgba(22, 224, 207, 0.16);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.walletControl .walletButton:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow:
+        0 10px 30px
+        rgba(22, 224, 207, 0.24);
+}
+
+.walletControl .walletButton:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.walletButtonDot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #031514;
+    opacity: 0.72;
+}
+
+.walletIdentityCard {
+    min-width: 174px;
+    min-height: 42px;
+    padding: 6px 11px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: #f4f8fb;
+    background:
+        linear-gradient(
+            145deg,
+            rgba(13, 24, 34, 0.98),
+            rgba(8, 17, 25, 0.98)
+        );
+    border:
+        1px solid
+        rgba(108, 142, 160, 0.24);
+    border-radius: 11px;
+    box-shadow:
+        inset 0 1px 0
+        rgba(255, 255, 255, 0.025);
+    user-select: none;
+}
+
+.walletIdentityCard.authenticated {
+    border-color:
+        rgba(22, 224, 207, 0.3);
+    background:
+        linear-gradient(
+            145deg,
+            rgba(8, 36, 35, 0.98),
+            rgba(7, 24, 28, 0.98)
+        );
+}
+
+.walletIdentityCard.wrongNetwork {
+    border-color:
+        rgba(255, 178, 28, 0.38);
+    background:
+        rgba(48, 35, 10, 0.9);
+}
+
+.walletConnectionDot {
+    position: relative;
+    width: 8px;
+    height: 8px;
+    flex: 0 0 8px;
+    background: #76ef65;
+    border-radius: 999px;
+    box-shadow:
+        0 0 11px
+        rgba(118, 239, 101, 0.7);
+}
+
+.walletIdentityCard.authenticated
+.walletConnectionDot {
+    background: #16e0cf;
+    box-shadow:
+        0 0 12px
+        rgba(22, 224, 207, 0.75);
+}
+
+.walletIdentityCard.wrongNetwork
+.walletConnectionDot {
+    background: #ffb21c;
+    box-shadow:
+        0 0 11px
+        rgba(255, 178, 28, 0.65);
+}
+
+.walletIdentity {
+    min-width: 0;
+    display: grid;
+    line-height: 1.15;
+}
+
+.walletIdentity strong {
+    overflow: hidden;
+    color: #f4f8fb;
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        monospace;
+    font-size: 11px;
+    font-weight: 850;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.walletIdentity small {
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    overflow: hidden;
+    color: #8293a2;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.walletMetaDivider {
+    color: #50616d;
+}
+
+.walletAuthenticatedLabel {
+    color: #16e0cf;
+}
+
+.walletAuthButton,
+.walletLogoutButton {
+    min-height: 36px;
+    padding: 0 11px;
+    border-radius: 9px;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 850;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.walletAuthButton {
+    color: #bdfbf4;
+    background:
+        rgba(22, 224, 207, 0.08);
+    border:
+        1px solid
+        rgba(22, 224, 207, 0.25);
+}
+
+.walletAuthButton:hover:not(:disabled) {
+    background:
+        rgba(22, 224, 207, 0.14);
+    border-color:
+        rgba(22, 224, 207, 0.42);
+}
+
+.walletLogoutButton {
+    color: #9aa8b3;
+    background:
+        rgba(255, 255, 255, 0.025);
+    border:
+        1px solid
+        rgba(108, 142, 160, 0.18);
+}
+
+.walletLogoutButton:hover:not(:disabled) {
+    color: #ffffff;
+    border-color:
+        rgba(108, 142, 160, 0.34);
+    background:
+        rgba(255, 255, 255, 0.045);
+}
+
+.walletAuthButton:disabled,
+.walletLogoutButton:disabled {
+    opacity: 0.48;
+    cursor: not-allowed;
+}
+
+.walletInlineStatus {
+    max-width: 210px;
+    overflow: hidden;
+    padding: 7px 9px;
+    color: #8293a2;
+    background:
+        rgba(255, 255, 255, 0.02);
+    border:
+        1px solid
+        rgba(108, 142, 160, 0.16);
+    border-radius: 8px;
+    font-size: 9px;
+    font-weight: 750;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.walletInlineStatus.warning {
+    color: #ffcf73;
+    border-color:
+        rgba(255, 178, 28, 0.24);
+    background:
+        rgba(255, 178, 28, 0.05);
+}
+
+.walletInlineStatus.error {
+    color: #ff8d89;
+    border-color:
+        rgba(255, 92, 87, 0.26);
+    background:
+        rgba(255, 92, 87, 0.06);
+}
+
+@media (max-width: 760px) {
+    .walletControl {
+        gap: 5px;
+    }
+
+    .walletIdentityCard {
+        min-width: 0;
+        width: 148px;
+    }
+
+    .walletIdentity small {
+        display: none;
+    }
+
+    .walletInlineStatus {
+        display: none;
+    }
+
+    .walletAuthButton,
+    .walletLogoutButton {
+        padding: 0 9px;
+    }
+}

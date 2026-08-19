@@ -1,678 +1,1191 @@
+import {
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  Navigate,
+  NavLink,
+  Route,
+  Routes,
+} from "react-router-dom";
+
 import { ethers } from "ethers";
-import { useMemo, useState } from "react";
+
 import "./App.css";
 
-import { contractAddress } from "./contract/contractAddress.js";
-import contractABI from "./contract/MultiPaymentABI.json";
+import AdminPanel from "./components/admin/AdminPanel.jsx";
+import AgreementWorkspace from "./components/agreements/AgreementWorkspace.jsx";
+import ArbitrationPanel from "./components/arbitration/ArbitrationPanel.jsx";
+import ArbitratorAcceptancePanel from "./components/arbitration/ArbitratorAcceptancePanel.jsx";
+import BuyerOrderPanel from "./components/orders/BuyerOrderPanel.jsx";
+import SellerOrderPanel from "./components/orders/SellerOrderPanel.jsx";
+import BuyerPaymentPanel from "./components/payments/BuyerPaymentPanel.jsx";
+import WalletControl from "./components/wallet/WalletControl.jsx";
 
-const DEMO = {
-  buyer: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-  arbitrator: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-  seller: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-};
+import { useWeb3 } from "./hooks/useWeb3.js";
 
-const ERC20_ABI = [
-  "function approve(address spender, uint256 amount) external returns (bool)",
-  "function decimals() external view returns (uint8)",
-  "function symbol() external view returns (string)",
-];
+/*
+ * Load this AFTER component CSS so the ESCT dark
+ * protocol theme wins the cascade.
+ */
+import "./esct-dark.css";
 
-function App() {
-  const [account, setAccount] = useState("");
-  const [contract, setContract] = useState(null);
-  const [arbitrator, setArbitrator] = useState("");
-
-  const [sellerAddress, setSellerAddress] = useState("");
-  const [ethAmount, setEthAmount] = useState("");
-  const [tokenAddress, setTokenAddress] = useState("");
-  const [erc20Amount, setErc20Amount] = useState("");
-
-  const [orderId, setOrderId] = useState("");
-  const [selectedOrderId, setSelectedOrderId] = useState("");
-  const [orderData, setOrderData] = useState(null);
-  const [recentOrders, setRecentOrders] = useState([]);
-  const [activeAsset, setActiveAsset] = useState("ETH");
-
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-
-  const isConnected = Boolean(account && contract);
-  const isArbitrator =
-    account && arbitrator && account.toLowerCase() === arbitrator.toLowerCase();
-
-  const metrics = useMemo(() => {
-    return {
-      total: recentOrders.length,
-      completed: recentOrders.filter((o) => o.status === 2).length,
-      disputed: recentOrders.filter((o) => o.status === 1).length,
-      escrow: recentOrders.filter((o) => o.status === 0).length,
-    };
-  }, [recentOrders]);
-
-  function short(address) {
-    if (!address) return "-";
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+function shortAddress(address) {
+  if (!address) {
+    return "Not connected";
   }
 
-  function statusName(status) {
-    return ["In Escrow", "Disputed", "Completed", "Refunded"][status] || "Unknown";
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function networkName(chainId) {
+  if (!chainId) {
+    return "Not connected";
   }
 
-  function paymentTypeName(type) {
-    return ["Direct", "Escrow"][type] || "Unknown";
+  const id = Number(chainId);
+
+  if (id === 31337) {
+    return "Hardhat Local";
   }
 
-  function statusClass(status) {
-    return ["escrow", "disputed", "completed", "refunded"][status] || "";
+  if (id === 11155111) {
+    return "Sepolia Testnet";
   }
 
-  async function connectWallet() {
-    if (!window.ethereum) return alert("MetaMask is not installed");
+  return `Chain ${id}`;
+}
 
-    try {
-      setLoading(true);
-      setMessage("Connecting wallet...");
+function formatEscrowEth(value) {
+  try {
+    const number = Number(
+      ethers.formatEther(value)
+    );
 
-      await window.ethereum.request({
-        method: "wallet_requestPermissions",
-        params: [{ eth_accounts: {} }],
-      });
+    return number.toLocaleString(
+      undefined,
+      {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 4,
+      }
+    );
+  } catch {
+    return "-";
+  }
+}
 
-      const accounts = await window.ethereum.request({
-        method: "eth_requestAccounts",
-      });
+function AccessCard({
+  allowed,
+  title,
+  allowedText,
+  deniedText,
+}) {
+  return (
+    <div
+      className={
+        allowed
+          ? "accessCard allowed"
+          : "accessCard denied"
+      }
+    >
+      <div className="accessStateRow">
+        <span className="accessStateDot" />
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
+        <span>
+          {allowed
+            ? "Access granted"
+            : "Restricted area"}
+        </span>
+      </div>
 
-      const appContract = new ethers.Contract(
-        contractAddress,
-        contractABI.abi,
-        signer
+      <h3>{title}</h3>
+
+      <p>
+        {allowed
+          ? allowedText
+          : deniedText}
+      </p>
+    </div>
+  );
+}
+
+function SidebarGlyph({
+  type,
+}) {
+  const commonProps = {
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": true,
+  };
+
+  let content;
+
+  switch (type) {
+    case "dashboard":
+      content = (
+        <>
+          <rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1.4" />
+          <rect x="14" y="3.5" width="6.5" height="6.5" rx="1.4" />
+          <rect x="3.5" y="14" width="6.5" height="6.5" rx="1.4" />
+          <rect x="14" y="14" width="6.5" height="6.5" rx="1.4" />
+        </>
       );
+      break;
 
-      const arb = await appContract.arbitrator();
-
-      setAccount(accounts[0]);
-      setContract(appContract);
-      setArbitrator(arb);
-      setMessage("Wallet connected successfully.");
-    } catch (err) {
-      console.error(err);
-      alert(err.shortMessage || err.message || "Connection failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function validateSeller() {
-    if (!contract) return alert("Connect wallet first");
-    if (!ethers.isAddress(sellerAddress)) return alert("Invalid seller address");
-    return true;
-  }
-
-  async function getTokenMeta(address) {
-    if (address.toLowerCase() === ethers.ZeroAddress.toLowerCase()) {
-      return { symbol: "ETH", decimals: 18 };
-    }
-
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const token = new ethers.Contract(address, ERC20_ABI, provider);
-
-    const [symbol, decimals] = await Promise.all([
-      token.symbol(),
-      token.decimals(),
-    ]);
-
-    return { symbol, decimals };
-  }
-
-  async function getParsedERC20Amount() {
-    const meta = await getTokenMeta(tokenAddress);
-    return ethers.parseUnits(erc20Amount, meta.decimals);
-  }
-
-  async function approveERC20() {
-    if (!validateSeller()) return;
-    if (!ethers.isAddress(tokenAddress)) return alert("Invalid token address");
-    if (!erc20Amount || Number(erc20Amount) <= 0) return alert("Invalid ERC20 amount");
-
-    try {
-      setLoading(true);
-      setMessage("Waiting for ERC20 approval...");
-
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const token = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
-
-      const parsed = await getParsedERC20Amount();
-
-      const tx = await token.approve(contractAddress, parsed);
-      setMessage("Approval submitted. Waiting for confirmation...");
-      await tx.wait();
-
-      setMessage("ERC20 approval confirmed.");
-    } catch (err) {
-      console.error(err);
-      alert(err.shortMessage || err.message || "Approval failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function createEthDirect() {
-    if (!validateSeller()) return;
-    if (!ethAmount || Number(ethAmount) <= 0) return alert("Invalid ETH amount");
-
-    try {
-      setLoading(true);
-      setMessage("Creating ETH direct payment...");
-
-      const tx = await contract.createDirectPayment(sellerAddress, {
-        value: ethers.parseEther(ethAmount),
-      });
-
-      await tx.wait();
-      const nextId = await contract.nextOrderId();
-      const id = Number(nextId) - 1;
-
-      setOrderId(String(id));
-      setMessage(`ETH direct payment created. Order #${id}`);
-      await readOrder(String(id));
-    } catch (err) {
-      console.error(err);
-      alert(err.shortMessage || err.message || "ETH direct failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function createEthEscrow() {
-    if (!validateSeller()) return;
-    if (!ethAmount || Number(ethAmount) <= 0) return alert("Invalid ETH amount");
-
-    try {
-      setLoading(true);
-      setMessage("Creating ETH escrow...");
-
-      const tx = await contract.createEscrowPayment(sellerAddress, {
-        value: ethers.parseEther(ethAmount),
-      });
-
-      await tx.wait();
-      const nextId = await contract.nextOrderId();
-      const id = Number(nextId) - 1;
-
-      setOrderId(String(id));
-      setMessage(`ETH escrow created. Order #${id}`);
-      await readOrder(String(id));
-    } catch (err) {
-      console.error(err);
-      alert(err.shortMessage || err.message || "ETH escrow failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function createERC20Direct() {
-    if (!validateSeller()) return;
-    if (!ethers.isAddress(tokenAddress)) return alert("Invalid token address");
-    if (!erc20Amount || Number(erc20Amount) <= 0) return alert("Invalid ERC20 amount");
-
-    try {
-      setLoading(true);
-      setMessage("Creating ERC20 direct payment...");
-
-      const parsed = await getParsedERC20Amount();
-
-      const tx = await contract.createERC20DirectPayment(
-        sellerAddress,
-        tokenAddress,
-        parsed
+    case "agreement":
+      content = (
+        <>
+          <path d="M6 3.5h8.3L19 8.2V20.5H6z" />
+          <path d="M14 3.5V8h5" />
+          <path d="M9 12h7" />
+          <path d="M9 15.5h7" />
+        </>
       );
+      break;
 
-      await tx.wait();
-      const nextId = await contract.nextOrderId();
-      const id = Number(nextId) - 1;
-
-      setOrderId(String(id));
-      setMessage(`ERC20 direct payment created. Order #${id}`);
-      await readOrder(String(id));
-    } catch (err) {
-      console.error(err);
-      alert(err.shortMessage || err.message || "ERC20 direct failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function createERC20Escrow() {
-    if (!validateSeller()) return;
-    if (!ethers.isAddress(tokenAddress)) return alert("Invalid token address");
-    if (!erc20Amount || Number(erc20Amount) <= 0) return alert("Invalid ERC20 amount");
-
-    try {
-      setLoading(true);
-      setMessage("Creating ERC20 escrow...");
-
-      const parsed = await getParsedERC20Amount();
-
-      const tx = await contract.createERC20EscrowPayment(
-        sellerAddress,
-        tokenAddress,
-        parsed
+    case "buyer":
+      content = (
+        <>
+          <path d="M4 7.5h14.5a1.5 1.5 0 0 1 1.5 1.5v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12" />
+          <path d="M15.5 12h4.5v4h-4.5a2 2 0 0 1 0-4z" />
+        </>
       );
+      break;
 
-      await tx.wait();
-      const nextId = await contract.nextOrderId();
-      const id = Number(nextId) - 1;
+    case "seller":
+      content = (
+        <>
+          <rect x="3.5" y="7.5" width="17" height="12" rx="2" />
+          <path d="M8.5 7.5V5.8A1.8 1.8 0 0 1 10.3 4h3.4a1.8 1.8 0 0 1 1.8 1.8v1.7" />
+          <path d="M3.5 12h17" />
+          <path d="M10 12v2h4v-2" />
+        </>
+      );
+      break;
 
-      setOrderId(String(id));
-      setMessage(`ERC20 escrow created. Order #${id}`);
-      await readOrder(String(id));
-    } catch (err) {
-      console.error(err);
-      alert(err.shortMessage || err.message || "ERC20 escrow failed");
-    } finally {
-      setLoading(false);
-    }
-  }
+    case "disputes":
+      content = (
+        <>
+          <path d="M12 3.5 19 6v5.2c0 4.5-2.8 7.8-7 9.3-4.2-1.5-7-4.8-7-9.3V6z" />
+          <path d="M9 12h6" />
+          <path d="m12 9-3 3 3 3" />
+        </>
+      );
+      break;
 
-  async function readOrder(targetId = orderId) {
-    if (!contract) return alert("Connect wallet first");
-    if (!targetId || Number(targetId) <= 0) return alert("Invalid order ID");
+    case "admin":
+      content = (
+        <>
+          <path d="M4 7h10" />
+          <path d="M18 7h2" />
+          <circle cx="16" cy="7" r="2" />
+          <path d="M4 17h2" />
+          <path d="M10 17h10" />
+          <circle cx="8" cy="17" r="2" />
+        </>
+      );
+      break;
 
-    try {
-      const order = await contract.orderById(Number(targetId));
-      const meta = await getTokenMeta(order[3]);
-
-      const parsed = {
-        id: order[0].toString(),
-        buyer: order[1],
-        seller: order[2],
-        token: order[3],
-        amount: order[4].toString(),
-        formattedAmount: `${ethers.formatUnits(order[4], meta.decimals)} ${meta.symbol}`,
-        asset: meta.symbol,
-        paymentType: Number(order[5]),
-        status: Number(order[6]),
-        exists: order[7],
-      };
-
-      setOrderId(String(targetId));
-      setSelectedOrderId(parsed.id);
-      setOrderData(parsed);
-
-      setRecentOrders((prev) => {
-        const clean = prev.filter((o) => o.id !== parsed.id);
-        return [parsed, ...clean].slice(0, 8);
-      });
-
-      setMessage(`Viewing Order #${parsed.id}.`);
-    } catch (err) {
-      console.error(err);
-      alert(err.shortMessage || err.message || "Read failed");
-    }
-  }
-
-  async function contractAction(action, successMessage) {
-    if (!contract) return alert("Connect wallet first");
-    if (!orderId || Number(orderId) <= 0) return alert("Invalid order ID");
-
-    try {
-      setLoading(true);
-      setMessage("Transaction submitted...");
-
-      const tx = await action();
-      await tx.wait();
-
-      setMessage(successMessage);
-      await readOrder(orderId);
-    } catch (err) {
-      console.error(err);
-      alert(err.shortMessage || err.message || "Transaction failed");
-    } finally {
-      setLoading(false);
-    }
+    default:
+      content = <circle cx="12" cy="12" r="7" />;
   }
 
   return (
-    <div className="app">
-      {loading && <div className="overlay">⏳ Transaction pending...</div>}
+    <span className="sidebarIcon">
+      <svg {...commonProps}>
+        {content}
+      </svg>
+    </span>
+  );
+}
+function ProtocolSidebar() {
+  const {
+    account,
+    chainId,
+    expectedChainId,
+    isConnected,
+    isCorrectNetwork,
+    isOwner,
+    isPaused,
+  } = useWeb3();
 
-      <header className="hero">
+  return (
+    <aside className="protocolSidebar">
+      <div className="sidebarSection">
+        <span className="sidebarLabel">
+          Protocol
+        </span>
+
+        <nav className="sidebarNav">
+          <NavLink
+            to="/"
+            end
+          >
+            <SidebarGlyph type="dashboard" />
+
+            Dashboard
+          </NavLink>
+
+          <NavLink to="/agreements">
+            <SidebarGlyph type="agreement" />
+
+            Agreements
+          </NavLink>
+
+          <NavLink to="/buyer">
+            <SidebarGlyph type="buyer" />
+
+            Buyer
+          </NavLink>
+
+          <NavLink to="/seller">
+            <SidebarGlyph type="seller" />
+
+            Seller
+          </NavLink>
+
+          <NavLink to="/arbitration">
+            <SidebarGlyph type="disputes" />
+
+            Disputes
+          </NavLink>
+
+          {isOwner && (
+            <NavLink to="/admin">
+              <SidebarGlyph type="admin" />
+
+              Admin
+            </NavLink>
+          )}
+        </nav>
+      </div>
+
+      <div className="sidebarStatusCard">
+        <div className="sidebarStatusHeading">
+          <span
+            className={
+              isPaused
+                ? "healthDot warning"
+                : "healthDot"
+            }
+          />
+
+          <span>Protocol health</span>
+        </div>
+
+        <strong>
+          {isPaused
+            ? "Payments paused"
+            : "Operational"}
+        </strong>
+
+        <small>
+          {isPaused
+            ? "New payments disabled"
+            : "Payment engine active"}
+        </small>
+      </div>
+
+      <div className="sidebarInfoCard">
+        <span className="sidebarLabel">
+          Network
+        </span>
+
+        <div className="sidebarInfoRow">
+          <span
+            className={
+              isConnected &&
+                isCorrectNetwork
+                ? "healthDot"
+                : "healthDot warning"
+            }
+          />
+
+          <strong>
+            {networkName(chainId)}
+          </strong>
+        </div>
+
+        <small>
+          Expected chain:{" "}
+          {expectedChainId}
+        </small>
+      </div>
+
+      <div className="sidebarVersion">
+        ESCT Protocol
+        <span>RC2 / Testnet</span>
+      </div>
+    </aside>
+  );
+}
+
+function DashboardPage() {
+  const {
+    account,
+    chainId,
+    owner,
+    arbitrator,
+    contract,
+    isConnected,
+    isCorrectNetwork,
+    isOwner,
+    isArbitrator,
+    isPaused,
+    transaction,
+  } = useWeb3();
+
+  const [metrics, setMetrics] =
+    useState({
+      totalOrders: "-",
+      escrowedEth: "-",
+      solvent: null,
+    });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMetrics() {
+      if (
+        !contract ||
+        !isCorrectNetwork
+      ) {
+        setMetrics({
+          totalOrders: "-",
+          escrowedEth: "-",
+          solvent: null,
+        });
+
+        return;
+      }
+
+      try {
+        const [
+          nextOrderId,
+          escrowedEth,
+          solvent,
+        ] = await Promise.all([
+          contract.nextOrderId(),
+          contract.totalEscrowedETH(),
+          contract.isSolvent(
+            ethers.ZeroAddress
+          ),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        const totalOrders =
+          nextOrderId > 0n
+            ? nextOrderId - 1n
+            : 0n;
+
+        setMetrics({
+          totalOrders:
+            totalOrders.toString(),
+
+          escrowedEth:
+            formatEscrowEth(
+              escrowedEth
+            ),
+
+          solvent:
+            Boolean(solvent),
+        });
+      } catch (error) {
+        console.error(
+          "Dashboard metrics error:",
+          error
+        );
+      }
+    }
+
+    loadMetrics();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    contract,
+    isCorrectNetwork,
+    transaction.status,
+    transaction.hash,
+  ]);
+
+  let authority = "User";
+
+  if (isOwner) {
+    authority = "Administrator";
+  } else if (isArbitrator) {
+    authority = "Arbitrator";
+  }
+
+  return (
+    <div className="rolePage dashboardPage">
+      <div className="pageHeading dashboardHeading">
         <div>
-          <div className="brand">⚖️ ESCT Protocol</div>
-          <h1>Multi-Payment Escrow Engine</h1>
-          <p>
-            Secure ETH and ERC20 transactions with escrow protection, refund logic,
-            dispute handling, and arbitrator-based settlement.
-          </p>
+          <span className="eyebrow">
+            Protocol overview
+          </span>
 
-          <div className="chips">
-            <span>⚡ ETH</span>
-            <span>🪙 ERC20</span>
-            <span>🛡 Escrow</span>
-            <span>⚖️ Arbitration</span>
-            <span>✅ 49 Tests</span>
+          <h1>
+            ESCT Dashboard
+          </h1>
+
+          <p>
+            On-chain transaction,
+            escrow, dispute and
+            protocol authority
+            workspace.
+          </p>
+        </div>
+
+        <div className="liveIndicator">
+          <span className="healthDot" />
+
+          LIVE CONTRACT
+        </div>
+      </div>
+
+      <section className="roleStats protocolMetrics">
+        <article>
+          <div className="metricTop">
+            <span className="metricIcon">
+              #
+            </span>
+
+            <span>
+              Orders created
+            </span>
+          </div>
+
+          <strong>
+            {metrics.totalOrders}
+          </strong>
+
+          <small>
+            Recorded on-chain
+          </small>
+        </article>
+
+        <article>
+          <div className="metricTop">
+            <span className="metricIcon">
+              E
+            </span>
+
+            <span>
+              ETH in escrow
+            </span>
+          </div>
+
+          <strong>
+            {metrics.escrowedEth}{" "}
+            <em>ETH</em>
+          </strong>
+
+          <small>
+            Current protocol liability
+          </small>
+        </article>
+
+        <article>
+          <div className="metricTop">
+            <span className="metricIcon">
+              S
+            </span>
+
+            <span>
+              Solvency
+            </span>
+          </div>
+
+          <strong
+            className={
+              metrics.solvent === false
+                ? "dangerText"
+                : "healthyText"
+            }
+          >
+            {metrics.solvent === null
+              ? "-"
+              : metrics.solvent
+                ? "Healthy"
+                : "Check"}
+          </strong>
+
+          <small>
+            ETH liability coverage
+          </small>
+        </article>
+
+        <article>
+          <div className="metricTop">
+            <span className="metricIcon">
+              P
+            </span>
+
+            <span>
+              Protocol
+            </span>
+          </div>
+
+          <strong
+            className={
+              isPaused
+                ? "dangerText"
+                : "healthyText"
+            }
+          >
+            {isPaused
+              ? "Paused"
+              : "Active"}
+          </strong>
+
+          <small>
+            {networkName(chainId)}
+          </small>
+        </article>
+      </section>
+
+      <section className="dashboardMainGrid">
+        <div className="dashboardProtocolCard">
+          <div className="dashboardCardHeader">
+            <div>
+              <span className="eyebrow">
+                Connected identity
+              </span>
+
+              <h2>
+                Current session
+              </h2>
+            </div>
+
+            <span
+              className={
+                isConnected
+                  ? "statusPill active"
+                  : "statusPill"
+              }
+            >
+              {isConnected
+                ? "CONNECTED"
+                : "OFFLINE"}
+            </span>
+          </div>
+
+          <div className="sessionAddress">
+            <span>Wallet</span>
+
+            <strong className="mono">
+              {shortAddress(account)}
+            </strong>
+          </div>
+
+          <div className="sessionGrid">
+            <div>
+              <span>Authority</span>
+
+              <strong>
+                {authority}
+              </strong>
+            </div>
+
+            <div>
+              <span>Network</span>
+
+              <strong>
+                {networkName(chainId)}
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Network status
+              </span>
+
+              <strong
+                className={
+                  isCorrectNetwork
+                    ? "healthyText"
+                    : "dangerText"
+                }
+              >
+                {isCorrectNetwork
+                  ? "Verified"
+                  : "Mismatch"}
+              </strong>
+            </div>
           </div>
         </div>
 
-        <button className="primary big" onClick={connectWallet}>
-          {isConnected ? "Connected ✅" : "Connect Wallet"}
-        </button>
+        <div className="dashboardProtocolCard protocolAuthorityCard">
+          <div className="dashboardCardHeader">
+            <div>
+              <span className="eyebrow">
+                Contract authority
+              </span>
+
+              <h2>
+                Protocol roles
+              </h2>
+            </div>
+          </div>
+
+          <div className="authorityRow">
+            <div>
+              <span>Owner</span>
+
+              <strong className="mono">
+                {shortAddress(owner)}
+              </strong>
+            </div>
+
+            <span className="authorityTag">
+              ADMIN
+            </span>
+          </div>
+
+          <div className="authorityRow">
+            <div>
+              <span>Arbitrator</span>
+
+              <strong className="mono">
+                {shortAddress(
+                  arbitrator
+                )}
+              </strong>
+            </div>
+
+            <span className="authorityTag amber">
+              ARBITRATION
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section className="roleGrid">
+        <div className="roleCard">
+          <span className="roleIcon">
+            B
+          </span>
+
+          <div>
+            <span className="roleCardLabel">
+              PAYMENT
+            </span>
+
+            <h2>
+              Buyer workspace
+            </h2>
+
+            <p>
+              Create direct or protected
+              escrow payments and manage
+              existing orders.
+            </p>
+
+            <NavLink to="/agreements">
+            <SidebarGlyph type="agreement" />
+
+            Agreements
+          </NavLink>
+
+          <NavLink to="/buyer">
+              Open workspace
+              <span>→</span>
+            </NavLink>
+          </div>
+        </div>
+
+        <div className="roleCard">
+          <span className="roleIcon seller">
+            S
+          </span>
+
+          <div>
+            <span className="roleCardLabel">
+              DELIVERY
+            </span>
+
+            <h2>
+              Seller workspace
+            </h2>
+
+            <p>
+              Review orders, refund
+              eligible escrows and
+              initiate disputes.
+            </p>
+
+            <NavLink to="/seller">
+              Open workspace
+              <span>→</span>
+            </NavLink>
+          </div>
+        </div>
+
+        <div className="roleCard">
+          <span className="roleIcon arbitration">
+            A
+          </span>
+
+          <div>
+            <span className="roleCardLabel">
+              RESOLUTION
+            </span>
+
+            <h2>
+              Arbitration
+            </h2>
+
+            <p>
+              Review disputed orders and
+              execute final escrow
+              resolution.
+            </p>
+
+            <NavLink to="/arbitration">
+              Open workspace
+              <span>→</span>
+            </NavLink>
+          </div>
+        </div>
+
+        <div className="roleCard">
+          <span className="roleIcon admin">
+            O
+          </span>
+
+          <div>
+            <span className="roleCardLabel">
+              CONTROL
+            </span>
+
+            <h2>
+              Administration
+            </h2>
+
+            <p>
+              Protocol pause controls,
+              assets, liabilities and
+              authority management.
+            </p>
+
+            <NavLink to="/admin">
+              Open workspace
+              <span>→</span>
+            </NavLink>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function BuyerPage() {
+  return (
+    <div className="rolePage">
+      <div className="pageHeading">
+        <div>
+          <span className="eyebrow">
+            Buyer / Protected payments
+          </span>
+
+          <h1>
+            Buyer workspace
+          </h1>
+
+          <p>
+            Create a new transaction or
+            load an existing Order ID to
+            confirm delivery, release
+            escrow or open a dispute.
+          </p>
+        </div>
+      </div>
+
+      <div className="buyerWorkspaceGrid">
+        <BuyerPaymentPanel />
+
+        <BuyerOrderPanel />
+      </div>
+
+      <section className="workspacePreview buyerSteps">
+        <div>
+          <span>01</span>
+
+          <h3>
+            Create
+          </h3>
+
+          <p>
+            Choose an asset, seller and
+            protection method.
+          </p>
+        </div>
+
+        <div>
+          <span>02</span>
+
+          <h3>
+            Escrow
+          </h3>
+
+          <p>
+            Protected funds remain locked
+            while delivery is completed.
+          </p>
+        </div>
+
+        <div>
+          <span>03</span>
+
+          <h3>
+            Release or dispute
+          </h3>
+
+          <p>
+            Confirm the delivery or send
+            the order to arbitration.
+          </p>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function SellerPage() {
+  return (
+    <div className="rolePage">
+      <div className="pageHeading">
+        <div>
+          <span className="eyebrow">
+            Seller / Order execution
+          </span>
+
+          <h1>
+            Seller workspace
+          </h1>
+
+          <p>
+            Load an assigned order,
+            inspect the protected value
+            and execute available seller
+            actions.
+          </p>
+        </div>
+      </div>
+
+      <SellerOrderPanel />
+
+      <section className="workspacePreview">
+        <div>
+          <span>01</span>
+
+          <h3>
+            Load order
+          </h3>
+
+          <p>
+            Enter the exact on-chain
+            Order ID.
+          </p>
+        </div>
+
+        <div>
+          <span>02</span>
+
+          <h3>
+            Verify
+          </h3>
+
+          <p>
+            ESCT checks that the connected
+            wallet is the recorded seller.
+          </p>
+        </div>
+
+        <div>
+          <span>03</span>
+
+          <h3>
+            Act
+          </h3>
+
+          <p>
+            Refund an eligible escrow or
+            initiate arbitration.
+          </p>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ArbitrationPage() {
+  const {
+    isArbitrator,
+    arbitrator,
+  } = useWeb3();
+
+  return (
+    <div className="rolePage">
+      <div className="pageHeading">
+        <div>
+          <span className="eyebrow">
+            Arbitration / Final resolution
+          </span>
+
+          <h1>
+            Arbitration workspace
+          </h1>
+
+          <p>
+            Review disputed escrow orders
+            and execute the final
+            settlement decision.
+          </p>
+        </div>
+      </div>
+
+      <ArbitratorAcceptancePanel />
+
+      <AccessCard
+        allowed={isArbitrator}
+        title="Arbitrator authority"
+        allowedText="The connected wallet matches the protocol arbitrator and can execute dispute resolution."
+        deniedText={`Connect the current arbitrator wallet: ${shortAddress(
+          arbitrator
+        )}`}
+      />
+
+      <ArbitrationPanel />
+    </div>
+  );
+}
+
+function AdminPage() {
+  const {
+    isOwner,
+    owner,
+    isPaused,
+  } = useWeb3();
+
+  return (
+    <div className="rolePage">
+      <div className="pageHeading">
+        <div>
+          <span className="eyebrow">
+            Administration / Protocol control
+          </span>
+
+          <h1>
+            Protocol administration
+          </h1>
+
+          <p>
+            Manage payment availability,
+            assets, liabilities,
+            solvency and arbitrator
+            authority.
+          </p>
+        </div>
+      </div>
+
+      <AccessCard
+        allowed={isOwner}
+        title="Administrator authority"
+        allowedText={`Owner authority confirmed. Protocol is currently ${isPaused
+            ? "paused"
+            : "active"
+          }.`}
+        deniedText={`Connect the protocol owner wallet: ${shortAddress(
+          owner
+        )}`}
+      />
+
+      <AdminPanel />
+    </div>
+  );
+}
+
+function App() {
+  const {
+    isConnected,
+    isCorrectNetwork,
+    chainId,
+    expectedChainId,
+    isOwner,
+    transaction,
+  } = useWeb3();
+
+  return (
+    <div className="roleApp">
+      <header className="roleHeader">
+        <NavLink
+          className="roleBrand"
+          to="/"
+        >
+          <span className="brandGlyph">
+            E
+          </span>
+
+          <div>
+            <strong>ESCT</strong>
+
+            <small>
+              Protocol
+            </small>
+          </div>
+        </NavLink>
+
+        <nav className="roleNav">
+          <NavLink
+            to="/"
+            end
+          >
+            Overview
+          </NavLink>
+
+          <NavLink to="/agreements">
+            <SidebarGlyph type="agreement" />
+
+            Agreements
+          </NavLink>
+
+          <NavLink to="/buyer">
+            Buyer
+          </NavLink>
+
+          <NavLink to="/seller">
+            Seller
+          </NavLink>
+
+          <NavLink to="/arbitration">
+            Arbitration
+          </NavLink>
+
+          {isOwner && (
+            <NavLink to="/admin">
+              Admin
+            </NavLink>
+          )}
+        </nav>
+
+        <WalletControl />
       </header>
 
-      {message && <div className="toast">{message}</div>}
+      <div className="testnetWarning">
+        <span className="warningIcon">
+          !
+        </span>
 
-      <section className="stats">
-        <div className="stat">
-          <span>Total Loaded</span>
-          <strong>{metrics.total}</strong>
-        </div>
-        <div className="stat">
-          <span>Completed</span>
-          <strong>{metrics.completed}</strong>
-        </div>
-        <div className="stat">
-          <span>Disputed</span>
-          <strong>{metrics.disputed}</strong>
-        </div>
-        <div className="stat">
-          <span>In Escrow</span>
-          <strong>{metrics.escrow}</strong>
-        </div>
-      </section>
+        <strong>
+          TESTNET
+        </strong>
 
-      <section className="walletGrid">
-        <div className="walletCard">
-          <span>Connected Wallet</span>
-          <strong>{account ? short(account) : "Not connected"}</strong>
-          <small>Role: {isArbitrator ? "⚖️ Arbitrator" : "👤 User"}</small>
-        </div>
+        <span>
+          DO NOT USE REAL FUNDS
+        </span>
+      </div>
 
-        <div className="walletCard">
-          <span>Contract</span>
-          <strong>{contract ? "Online ✅" : "Offline ❌"}</strong>
-          <small>{short(contractAddress)}</small>
-        </div>
-
-        <div className="walletCard demo">
-          <span>Demo Accounts</span>
-          <small>Buyer: {short(DEMO.buyer)}</small>
-          <small>Seller: {short(DEMO.seller)}</small>
-          <small>Arbitrator: {short(DEMO.arbitrator)}</small>
-        </div>
-      </section>
-
-      <main className="layout">
-        <section className="panel">
-          <h2>Create Payment</h2>
-
-          <div className="tabs">
-            <button
-              className={activeAsset === "ETH" ? "active" : ""}
-              onClick={() => setActiveAsset("ETH")}
-            >
-              ETH
-            </button>
-            <button
-              className={activeAsset === "ERC20" ? "active" : ""}
-              onClick={() => setActiveAsset("ERC20")}
-            >
-              ERC20
-            </button>
+      {isConnected &&
+        !isCorrectNetwork && (
+          <div className="wrongNetworkWarning">
+            Wrong network. Connected chain:{" "}
+            {chainId}. Expected chain:{" "}
+            {expectedChainId}.
           </div>
+        )}
 
-          <label>Seller Address</label>
-          <input
-            placeholder="0x seller address"
-            value={sellerAddress}
-            onChange={(e) => setSellerAddress(e.target.value)}
-          />
+      {transaction.status !== "idle" &&
+        transaction.message && (
+          <div
+            className={`transactionBanner ${transaction.status}`}
+          >
+            <span>
+              {transaction.message}
+            </span>
 
-          {activeAsset === "ETH" ? (
-            <>
-              <label>ETH Amount</label>
-              <input
-                placeholder="0.1"
-                value={ethAmount}
-                onChange={(e) => setEthAmount(e.target.value)}
-              />
-
-              <div className="actions">
-                <button className="secondary" onClick={createEthDirect}>
-                  Direct ETH
-                </button>
-                <button className="primary" onClick={createEthEscrow}>
-                  Escrow ETH
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <label>Token Address</label>
-              <input
-                placeholder="ERC20 token contract"
-                value={tokenAddress}
-                onChange={(e) => setTokenAddress(e.target.value)}
-              />
-
-              <label>Token Amount</label>
-              <input
-                placeholder="100"
-                value={erc20Amount}
-                onChange={(e) => setErc20Amount(e.target.value)}
-              />
-
-              <div className="actions wrap">
-                <button className="secondary" onClick={approveERC20}>
-                  1. Approve
-                </button>
-                <button className="secondary" onClick={createERC20Direct}>
-                  Direct ERC20
-                </button>
-                <button className="primary" onClick={createERC20Escrow}>
-                  Escrow ERC20
-                </button>
-              </div>
-            </>
-          )}
-        </section>
-
-        <section className="panel">
-          <h2>Manage Order</h2>
-
-          <label>Order ID</label>
-          <input
-            placeholder="1"
-            value={orderId}
-            onChange={(e) => setOrderId(e.target.value)}
-          />
-
-          <div className="actions wrap">
-            <button
-              className="primary"
-              onClick={async () => {
-                setLoading(true);
-                await readOrder(orderId);
-                setLoading(false);
-              }}
-            >
-              Read
-            </button>
-
-            <button
-              className="secondary"
-              onClick={() =>
-                contractAction(
-                  () => contract.confirmReceipt(Number(orderId)),
-                  "Receipt confirmed. Funds released."
-                )
-              }
-            >
-              Confirm
-            </button>
-
-            <button
-              className="secondary"
-              onClick={() =>
-                contractAction(
-                  () => contract.refund(Number(orderId)),
-                  "Refund completed."
-                )
-              }
-            >
-              Refund
-            </button>
-
-            <button
-              className="danger"
-              onClick={() =>
-                contractAction(
-                  () => contract.openDispute(Number(orderId)),
-                  "Dispute opened."
-                )
-              }
-            >
-              Dispute
-            </button>
-
-            {isArbitrator && (
-              <>
-                <button
-                  className="secondary"
-                  onClick={() =>
-                    contractAction(
-                      () => contract.resolveDispute(Number(orderId), true),
-                      "Resolved to seller."
-                    )
-                  }
-                >
-                  Resolve Seller
-                </button>
-                <button
-                  className="secondary"
-                  onClick={() =>
-                    contractAction(
-                      () => contract.resolveDispute(Number(orderId), false),
-                      "Resolved to buyer."
-                    )
-                  }
-                >
-                  Resolve Buyer
-                </button>
-              </>
+            {transaction.hash && (
+              <small className="mono">
+                {shortAddress(
+                  transaction.hash
+                )}
+              </small>
             )}
           </div>
-
-          {!orderData && (
-            <div className="emptyState">
-              No order selected. Enter an order ID and click Read.
-            </div>
-          )}
-
-          {orderData && (
-            <div className="orderCard">
-              <div className="orderTop">
-                <h3>Order #{orderData.id}</h3>
-                <span className={`badge ${statusClass(orderData.status)}`}>
-                  {statusName(orderData.status)}
-                </span>
-              </div>
-
-              <div className="orderGrid">
-                <div>
-                  <span>Buyer</span>
-                  <strong>{short(orderData.buyer)}</strong>
-                </div>
-                <div>
-                  <span>Seller</span>
-                  <strong>{short(orderData.seller)}</strong>
-                </div>
-                <div>
-                  <span>Asset</span>
-                  <strong>{orderData.asset}</strong>
-                </div>
-                <div>
-                  <span>Amount</span>
-                  <strong>{orderData.formattedAmount}</strong>
-                </div>
-                <div>
-                  <span>Type</span>
-                  <strong>{paymentTypeName(orderData.paymentType)}</strong>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-      </main>
-
-      <section className="panel full">
-        <h2>Recent Orders</h2>
-
-        {recentOrders.length === 0 ? (
-          <div className="emptyState">Orders you read will appear here.</div>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Buyer</th>
-                <th>Seller</th>
-                <th>Asset</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {recentOrders.map((order) => (
-                <tr
-                  key={order.id}
-                  className={selectedOrderId === order.id ? "selectedRow" : ""}
-                >
-                  <td>#{order.id}</td>
-                  <td>{short(order.buyer)}</td>
-                  <td>{short(order.seller)}</td>
-                  <td>{order.asset}</td>
-                  <td>{paymentTypeName(order.paymentType)}</td>
-                  <td>
-                    <span className={`badge ${statusClass(order.status)}`}>
-                      {statusName(order.status)}
-                    </span>
-                  </td>
-                  <td>
-                    <button
-                      className={
-                        selectedOrderId === order.id ? "mini activeMini" : "mini"
-                      }
-                      onClick={async () => {
-                        setLoading(true);
-                        setOrderId(order.id);
-                        setSelectedOrderId(order.id);
-                        setMessage(`Opening Order #${order.id}...`);
-                        await readOrder(order.id);
-                        setLoading(false);
-                        window.scrollTo({ top: 430, behavior: "smooth" });
-                      }}
-                    >
-                      View
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         )}
-      </section>
 
-      <footer>
-        ESCT Protocol — Solidity • Hardhat • Ethers.js • React • ERC20
-      </footer>
+      <div className="protocolShell">
+        <ProtocolSidebar />
+
+        <main className="roleContent">
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <DashboardPage />
+              }
+            />
+
+            <Route
+              path="/agreements"
+              element={
+                <AgreementWorkspace />
+              }
+            />
+            <Route
+              path="/buyer"
+              element={
+                <BuyerPage />
+              }
+            />
+
+            <Route
+              path="/seller"
+              element={
+                <SellerPage />
+              }
+            />
+
+            <Route
+              path="/arbitration"
+              element={
+                <ArbitrationPage />
+              }
+            />
+
+            <Route
+              path="/admin"
+              element={
+                <AdminPage />
+              }
+            />
+
+            <Route
+              path="*"
+              element={
+                <Navigate
+                  to="/"
+                  replace
+                />
+              }
+            />
+          </Routes>
+        </main>
+      </div>
     </div>
   );
 }
 
 export default App;
+
+

@@ -1,199 +1,236 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const {
-    loadFixture,
-} = require("@nomicfoundation/hardhat-toolbox/network-helpers");
+const { deployFixture } = require("./helpers/deployFixture");
 
-describe("MultiPayment ERC20", function () {
-    const TOKEN_AMOUNT = 1_000_000n; // 1 token with 6 decimals
-    const ORDER_ID = 1;
+describe("MultiPayment - ERC20", function () {
+    let c;
 
-    async function deployFixture() {
-        const [owner, arbitrator, buyer, seller, other] = await ethers.getSigners();
+    beforeEach(async function () {
+        c = await deployFixture();
+    });
 
-        const MultiPayment = await ethers.getContractFactory("MultiPayment");
-        const multiPayment = await MultiPayment.deploy(arbitrator.address);
-        await multiPayment.waitForDeployment();
+    async function approveBuyer(amount = c.TOKEN_AMOUNT) {
+        await (
+            await c.mockToken
+                .connect(c.buyer)
+                .approve(c.multiPaymentAddress, amount)
+        ).wait();
+    }
 
+    it("creates ERC20 direct payment and pays seller", async function () {
+        await approveBuyer();
+        const before = await c.mockToken.balanceOf(c.seller.address);
+
+        await expect(
+            c.multiPayment.connect(c.buyer).createERC20DirectPayment(
+                c.seller.address,
+                c.tokenAddress,
+                c.TOKEN_AMOUNT
+            )
+        )
+            .to.emit(c.multiPayment, "DirectPaymentCreated")
+            .withArgs(
+                1n,
+                c.buyer.address,
+                c.seller.address,
+                c.tokenAddress,
+                c.TOKEN_AMOUNT
+            );
+
+        const after = await c.mockToken.balanceOf(c.seller.address);
+        const order = await c.multiPayment.orderById(1);
+
+        expect(after - before).to.equal(c.TOKEN_AMOUNT);
+        expect(order.paymentType).to.equal(0n);
+        expect(order.status).to.equal(2n);
+        expect(order.token).to.equal(c.tokenAddress);
+    });
+
+    it("creates ERC20 escrow and records liability", async function () {
+        await approveBuyer();
+
+        await expect(
+            c.multiPayment.connect(c.buyer).createERC20EscrowPayment(
+                c.seller.address,
+                c.tokenAddress,
+                c.TOKEN_AMOUNT
+            )
+        )
+            .to.emit(c.multiPayment, "EscrowPaymentCreated")
+            .withArgs(
+                1n,
+                c.buyer.address,
+                c.seller.address,
+                c.tokenAddress,
+                c.TOKEN_AMOUNT
+            );
+
+        expect(
+            await c.mockToken.balanceOf(c.multiPaymentAddress)
+        ).to.equal(c.TOKEN_AMOUNT);
+
+        expect(
+            await c.multiPayment.totalEscrowedToken(c.tokenAddress)
+        ).to.equal(c.TOKEN_AMOUNT);
+
+        expect(
+            await c.multiPayment.isSolvent(c.tokenAddress)
+        ).to.equal(true);
+    });
+
+    it("releases ERC20 escrow to seller", async function () {
+        await approveBuyer();
+
+        await (
+            await c.multiPayment.connect(c.buyer).createERC20EscrowPayment(
+                c.seller.address,
+                c.tokenAddress,
+                c.TOKEN_AMOUNT
+            )
+        ).wait();
+
+        const before = await c.mockToken.balanceOf(c.seller.address);
+        await (await c.multiPayment.connect(c.buyer).confirmReceipt(1)).wait();
+        const after = await c.mockToken.balanceOf(c.seller.address);
+
+        expect(after - before).to.equal(c.TOKEN_AMOUNT);
+        expect(
+            await c.multiPayment.totalEscrowedToken(c.tokenAddress)
+        ).to.equal(0n);
+    });
+
+    it("refunds ERC20 escrow to buyer", async function () {
+        await approveBuyer();
+
+        await (
+            await c.multiPayment.connect(c.buyer).createERC20EscrowPayment(
+                c.seller.address,
+                c.tokenAddress,
+                c.TOKEN_AMOUNT
+            )
+        ).wait();
+
+        const before = await c.mockToken.balanceOf(c.buyer.address);
+        await (await c.multiPayment.connect(c.seller).refund(1)).wait();
+        const after = await c.mockToken.balanceOf(c.buyer.address);
+
+        expect(after - before).to.equal(c.TOKEN_AMOUNT);
+    });
+
+    it("rejects unapproved token", async function () {
         const MockERC20 = await ethers.getContractFactory("MockERC20");
-        const token = await MockERC20.deploy();
-        await token.waitForDeployment();
+        const otherToken = await MockERC20.deploy();
+        await otherToken.waitForDeployment();
 
-        await token.mint(buyer.address, TOKEN_AMOUNT * 100n);
-
-        return {
-            multiPayment,
-            token,
-            owner,
-            arbitrator,
-            buyer,
-            seller,
-            other,
-        };
-    }
-
-    async function createERC20EscrowFixture() {
-        const fixture = await deployFixture();
-
-        await fixture.token
-            .connect(fixture.buyer)
-            .approve(await fixture.multiPayment.getAddress(), TOKEN_AMOUNT);
-
-        await fixture.multiPayment
-            .connect(fixture.buyer)
-            .createERC20EscrowPayment(
-                fixture.seller.address,
-                await fixture.token.getAddress(),
-                TOKEN_AMOUNT
-            );
-
-        return fixture;
-    }
-
-    it("creates ERC20 direct payment", async function () {
-        const { multiPayment, token, buyer, seller } =
-            await loadFixture(deployFixture);
-
-        await token
-            .connect(buyer)
-            .approve(await multiPayment.getAddress(), TOKEN_AMOUNT);
-
-        await multiPayment
-            .connect(buyer)
-            .createERC20DirectPayment(
-                seller.address,
-                await token.getAddress(),
-                TOKEN_AMOUNT
-            );
-
-        expect(await token.balanceOf(seller.address)).to.equal(TOKEN_AMOUNT);
-
-        const order = await multiPayment.orderById(ORDER_ID);
-
-        expect(order.buyer).to.equal(buyer.address);
-        expect(order.seller).to.equal(seller.address);
-        expect(order.token).to.equal(await token.getAddress());
-        expect(order.amount).to.equal(TOKEN_AMOUNT);
-        expect(order.paymentType).to.equal(0); // Direct
-        expect(order.status).to.equal(2); // Completed
-        expect(order.exists).to.equal(true);
-    });
-
-    it("creates ERC20 escrow payment and holds tokens in contract", async function () {
-        const { multiPayment, token } =
-            await loadFixture(createERC20EscrowFixture);
-
-        expect(await token.balanceOf(await multiPayment.getAddress())).to.equal(
-            TOKEN_AMOUNT
-        );
-
-        const order = await multiPayment.orderById(ORDER_ID);
-
-        expect(order.token).to.equal(await token.getAddress());
-        expect(order.status).to.equal(0); // InEscrow
-    });
-
-    it("reverts ERC20 direct payment if allowance is too low", async function () {
-        const { multiPayment, token, buyer, seller } =
-            await loadFixture(deployFixture);
+        const otherAddress = await otherToken.getAddress();
+        await (await otherToken.mint(c.buyer.address, c.TOKEN_AMOUNT)).wait();
+        await (
+            await otherToken
+                .connect(c.buyer)
+                .approve(c.multiPaymentAddress, c.TOKEN_AMOUNT)
+        ).wait();
 
         await expect(
-            multiPayment
-                .connect(buyer)
-                .createERC20DirectPayment(
-                    seller.address,
-                    await token.getAddress(),
-                    TOKEN_AMOUNT
-                )
-        ).to.be.revertedWith("allowance too low");
+            c.multiPayment.connect(c.buyer).createERC20EscrowPayment(
+                c.seller.address,
+                otherAddress,
+                c.TOKEN_AMOUNT
+            )
+        )
+            .to.be.revertedWithCustomError(
+                c.multiPayment,
+                "TokenNotApproved"
+            )
+            .withArgs(otherAddress);
     });
 
-    it("reverts ERC20 escrow payment if balance is too low", async function () {
-        const { multiPayment, token, seller, other } =
-            await loadFixture(deployFixture);
+    it("allows only owner to approve or disable token", async function () {
+        await expect(
+            c.multiPayment
+                .connect(c.outsider)
+                .setTokenApproval(c.tokenAddress, false)
+        )
+            .to.be.revertedWithCustomError(
+                c.multiPayment,
+                "OwnableUnauthorizedAccount"
+            )
+            .withArgs(c.outsider.address);
+    });
 
-        await token
-            .connect(other)
-            .approve(await multiPayment.getAddress(), TOKEN_AMOUNT);
+    it("disabled token cannot create new payments", async function () {
+        await (
+            await c.multiPayment
+                .connect(c.owner)
+                .setTokenApproval(c.tokenAddress, false)
+        ).wait();
+
+        await approveBuyer();
 
         await expect(
-            multiPayment
-                .connect(other)
-                .createERC20EscrowPayment(
-                    seller.address,
-                    await token.getAddress(),
-                    TOKEN_AMOUNT
-                )
-        ).to.be.revertedWith("balance too low");
+            c.multiPayment.connect(c.buyer).createERC20EscrowPayment(
+                c.seller.address,
+                c.tokenAddress,
+                c.TOKEN_AMOUNT
+            )
+        )
+            .to.be.revertedWithCustomError(
+                c.multiPayment,
+                "TokenNotApproved"
+            )
+            .withArgs(c.tokenAddress);
     });
 
-    it("confirms ERC20 escrow and releases tokens to seller", async function () {
-        const { multiPayment, token, buyer, seller } =
-            await loadFixture(createERC20EscrowFixture);
+    it("existing escrow can exit after token is disabled", async function () {
+        await approveBuyer();
 
-        await multiPayment.connect(buyer).confirmReceipt(ORDER_ID);
+        await (
+            await c.multiPayment.connect(c.buyer).createERC20EscrowPayment(
+                c.seller.address,
+                c.tokenAddress,
+                c.TOKEN_AMOUNT
+            )
+        ).wait();
 
-        expect(await token.balanceOf(seller.address)).to.equal(TOKEN_AMOUNT);
+        await (
+            await c.multiPayment
+                .connect(c.owner)
+                .setTokenApproval(c.tokenAddress, false)
+        ).wait();
 
-        const order = await multiPayment.orderById(ORDER_ID);
-        expect(order.status).to.equal(2); // Completed
+        await expect(
+            c.multiPayment.connect(c.buyer).confirmReceipt(1)
+        ).not.to.be.reverted;
     });
 
-    it("seller refunds ERC20 escrow to buyer", async function () {
-        const { multiPayment, token, buyer, seller } =
-            await loadFixture(createERC20EscrowFixture);
-
-        const buyerBefore = await token.balanceOf(buyer.address);
-
-        await multiPayment.connect(seller).refund(ORDER_ID);
-
-        const buyerAfter = await token.balanceOf(buyer.address);
-
-        expect(buyerAfter - buyerBefore).to.equal(TOKEN_AMOUNT);
-
-        const order = await multiPayment.orderById(ORDER_ID);
-        expect(order.status).to.equal(3); // Refunded
+    it("rejects zero token amount", async function () {
+        await expect(
+            c.multiPayment.connect(c.buyer).createERC20EscrowPayment(
+                c.seller.address,
+                c.tokenAddress,
+                0
+            )
+        ).to.be.revertedWithCustomError(c.multiPayment, "InvalidAmount");
     });
 
-    it("opens dispute for ERC20 escrow", async function () {
-        const { multiPayment, buyer } =
-            await loadFixture(createERC20EscrowFixture);
-
-        await multiPayment.connect(buyer).openDispute(ORDER_ID);
-
-        const order = await multiPayment.orderById(ORDER_ID);
-        expect(order.status).to.equal(1); // Disputed
+    it("rejects EOA as token address", async function () {
+        await expect(
+            c.multiPayment.connect(c.buyer).createERC20EscrowPayment(
+                c.seller.address,
+                c.outsider.address,
+                c.TOKEN_AMOUNT
+            )
+        )
+            .to.be.revertedWithCustomError(c.multiPayment, "InvalidToken")
+            .withArgs(c.outsider.address);
     });
 
-    it("arbitrator resolves ERC20 dispute to seller", async function () {
-        const { multiPayment, token, buyer, seller, arbitrator } =
-            await loadFixture(createERC20EscrowFixture);
-
-        await multiPayment.connect(buyer).openDispute(ORDER_ID);
-
-        await multiPayment.connect(arbitrator).resolveDispute(ORDER_ID, true);
-
-        expect(await token.balanceOf(seller.address)).to.equal(TOKEN_AMOUNT);
-
-        const order = await multiPayment.orderById(ORDER_ID);
-        expect(order.status).to.equal(2); // Completed
-    });
-
-    it("arbitrator resolves ERC20 dispute to buyer", async function () {
-        const { multiPayment, token, buyer, arbitrator } =
-            await loadFixture(createERC20EscrowFixture);
-
-        const buyerBefore = await token.balanceOf(buyer.address);
-
-        await multiPayment.connect(buyer).openDispute(ORDER_ID);
-
-        await multiPayment.connect(arbitrator).resolveDispute(ORDER_ID, false);
-
-        const buyerAfter = await token.balanceOf(buyer.address);
-
-        expect(buyerAfter - buyerBefore).to.equal(TOKEN_AMOUNT);
-
-        const order = await multiPayment.orderById(ORDER_ID);
-        expect(order.status).to.equal(3); // Refunded
+    it("reverts when allowance is insufficient", async function () {
+        await expect(
+            c.multiPayment.connect(c.buyer).createERC20EscrowPayment(
+                c.seller.address,
+                c.tokenAddress,
+                c.TOKEN_AMOUNT
+            )
+        ).to.be.reverted;
     });
 });
