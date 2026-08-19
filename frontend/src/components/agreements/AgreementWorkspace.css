@@ -477,3 +477,98 @@
         width: 100%;
     }
 }
+/* =========================================================
+   ESCT AGREEMENT FINAL POLISH
+   ========================================================= */
+
+.agreementWorkspaceGrid {
+    align-items: start;
+}
+
+.agreementLifecycle {
+    position: relative;
+    margin: -2px 0 18px;
+    padding: 13px 15px;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0;
+    overflow: hidden;
+    background: rgba(8, 18, 26, 0.78);
+    border: 1px solid var(--esct-line);
+    border-radius: 12px;
+}
+
+.agreementLifecycle::before {
+    position: absolute;
+    top: 23px;
+    right: 9%;
+    left: 9%;
+    height: 1px;
+    content: "";
+    background: #1a2b35;
+}
+
+.agreementLifecycleStep {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    display: grid;
+    justify-items: center;
+    gap: 7px;
+    color: #5f7180;
+    font-size: 9px;
+    font-weight: 850;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.agreementLifecycleDot {
+    width: 10px;
+    height: 10px;
+    display: block;
+    background: #0a141d;
+    border: 2px solid #263944;
+    border-radius: 50%;
+}
+
+.agreementLifecycleStep.complete {
+    color: #9ac7c2;
+}
+
+.agreementLifecycleStep.complete .agreementLifecycleDot {
+    background: var(--esct-teal);
+    border-color: var(--esct-teal);
+    box-shadow: 0 0 12px rgba(22, 224, 207, 0.32);
+}
+
+.agreementLifecycleStep.current {
+    color: var(--esct-teal);
+}
+
+.agreementLifecycleStep.current .agreementLifecycleDot {
+    box-shadow:
+        0 0 0 4px rgba(22, 224, 207, 0.08),
+        0 0 16px rgba(22, 224, 207, 0.48);
+}
+
+.agreementLifecycleLabel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.agreementPanel .agreementEmptyState {
+    margin-top: 13px;
+    padding: 17px;
+}
+
+@media (max-width: 650px) {
+    .agreementLifecycle {
+        padding: 12px 8px;
+    }
+
+    .agreementLifecycleStep {
+        font-size: 7px;
+        letter-spacing: 0;
+    }
+}

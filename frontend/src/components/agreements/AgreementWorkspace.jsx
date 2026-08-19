@@ -56,6 +56,22 @@ function statusClass(status) {
     }
 }
 
+
+function getAgreementLifecycleStage(agreement, milestones) {
+    if (!agreement) return -1;
+    if (agreement.status === 3) return 4;
+
+    if (agreement.status === 2) {
+        const hasDelivery = milestones.some(
+            (milestone) => milestone.status !== 0
+        );
+        return hasDelivery ? 3 : 2;
+    }
+
+    if (agreement.status === 1) return 1;
+    if (agreement.status === 0) return 0;
+    return -1;
+}
 export default function AgreementWorkspace() {
     const {
         provider,
@@ -108,6 +124,12 @@ export default function AgreementWorkspace() {
 
     const [localError, setLocalError] =
         useState("");
+
+    const lifecycleStage =
+        getAgreementLifecycleStage(
+            agreement,
+            milestones
+        );
 
     const normalizedAccount =
         account?.toLowerCase() || "";
@@ -817,6 +839,45 @@ export default function AgreementWorkspace() {
                 </span>
             </div>
 
+            <section
+                className="agreementLifecycle"
+                aria-label="Agreement lifecycle"
+            >
+                {[
+                    "Proposed",
+                    "Accepted",
+                    "Funded",
+                    "Delivered",
+                    "Completed",
+                ].map((label, index) => {
+                    const isComplete =
+                        lifecycleStage >= index;
+                    const isCurrent =
+                        lifecycleStage === index;
+
+                    return (
+                        <div
+                            className={[
+                                "agreementLifecycleStep",
+                                isComplete ? "complete" : "",
+                                isCurrent ? "current" : "",
+                            ]
+                                .filter(Boolean)
+                                .join(" ")}
+                            key={label}
+                        >
+                            <span
+                                className="agreementLifecycleDot"
+                                aria-hidden="true"
+                            />
+                            <span className="agreementLifecycleLabel">
+                                {label}
+                            </span>
+                        </div>
+                    );
+                })}
+            </section>
+
             {localError && (
                 <div className="agreementError">
                     {localError}
@@ -925,7 +986,7 @@ export default function AgreementWorkspace() {
                             )}
 
                         <label>
-                            Agreement metadata URI
+                            Agreement terms / metadata
 
                             <input
                                 type="text"

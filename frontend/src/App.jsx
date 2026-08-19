@@ -1,4 +1,4 @@
-﻿import {
+import {
   useEffect,
   useState,
 } from "react";
@@ -110,6 +110,99 @@ function AccessCard({
   );
 }
 
+function SidebarGlyph({
+  type,
+}) {
+  const commonProps = {
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": true,
+  };
+
+  let content;
+
+  switch (type) {
+    case "dashboard":
+      content = (
+        <>
+          <rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1.4" />
+          <rect x="14" y="3.5" width="6.5" height="6.5" rx="1.4" />
+          <rect x="3.5" y="14" width="6.5" height="6.5" rx="1.4" />
+          <rect x="14" y="14" width="6.5" height="6.5" rx="1.4" />
+        </>
+      );
+      break;
+
+    case "agreement":
+      content = (
+        <>
+          <path d="M6 3.5h8.3L19 8.2V20.5H6z" />
+          <path d="M14 3.5V8h5" />
+          <path d="M9 12h7" />
+          <path d="M9 15.5h7" />
+        </>
+      );
+      break;
+
+    case "buyer":
+      content = (
+        <>
+          <path d="M4 7.5h14.5a1.5 1.5 0 0 1 1.5 1.5v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12" />
+          <path d="M15.5 12h4.5v4h-4.5a2 2 0 0 1 0-4z" />
+        </>
+      );
+      break;
+
+    case "seller":
+      content = (
+        <>
+          <rect x="3.5" y="7.5" width="17" height="12" rx="2" />
+          <path d="M8.5 7.5V5.8A1.8 1.8 0 0 1 10.3 4h3.4a1.8 1.8 0 0 1 1.8 1.8v1.7" />
+          <path d="M3.5 12h17" />
+          <path d="M10 12v2h4v-2" />
+        </>
+      );
+      break;
+
+    case "disputes":
+      content = (
+        <>
+          <path d="M12 3.5 19 6v5.2c0 4.5-2.8 7.8-7 9.3-4.2-1.5-7-4.8-7-9.3V6z" />
+          <path d="M9 12h6" />
+          <path d="m12 9-3 3 3 3" />
+        </>
+      );
+      break;
+
+    case "admin":
+      content = (
+        <>
+          <path d="M4 7h10" />
+          <path d="M18 7h2" />
+          <circle cx="16" cy="7" r="2" />
+          <path d="M4 17h2" />
+          <path d="M10 17h10" />
+          <circle cx="8" cy="17" r="2" />
+        </>
+      );
+      break;
+
+    default:
+      content = <circle cx="12" cy="12" r="7" />;
+  }
+
+  return (
+    <span className="sidebarIcon">
+      <svg {...commonProps}>
+        {content}
+      </svg>
+    </span>
+  );
+}
 function ProtocolSidebar() {
   const {
     account,
@@ -133,50 +226,38 @@ function ProtocolSidebar() {
             to="/"
             end
           >
-            <span className="sidebarIcon">
-              D
-            </span>
+            <SidebarGlyph type="dashboard" />
 
             Dashboard
           </NavLink>
 
           <NavLink to="/agreements">
-            <span className="sidebarIcon">
-              G
-            </span>
+            <SidebarGlyph type="agreement" />
 
             Agreements
           </NavLink>
 
           <NavLink to="/buyer">
-            <span className="sidebarIcon">
-              B
-            </span>
+            <SidebarGlyph type="buyer" />
 
             Buyer
           </NavLink>
 
           <NavLink to="/seller">
-            <span className="sidebarIcon">
-              S
-            </span>
+            <SidebarGlyph type="seller" />
 
             Seller
           </NavLink>
 
           <NavLink to="/arbitration">
-            <span className="sidebarIcon">
-              A
-            </span>
+            <SidebarGlyph type="disputes" />
 
             Disputes
           </NavLink>
 
           {isOwner && (
             <NavLink to="/admin">
-              <span className="sidebarIcon">
-                O
-              </span>
+              <SidebarGlyph type="admin" />
 
               Admin
             </NavLink>
@@ -233,22 +314,6 @@ function ProtocolSidebar() {
         <small>
           Expected chain:{" "}
           {expectedChainId}
-        </small>
-      </div>
-
-      <div className="sidebarInfoCard">
-        <span className="sidebarLabel">
-          Connected wallet
-        </span>
-
-        <strong className="mono">
-          {shortAddress(account)}
-        </strong>
-
-        <small>
-          {isConnected
-            ? "Wallet session active"
-            : "Connect to use ESCT"}
         </small>
       </div>
 
@@ -627,9 +692,7 @@ function DashboardPage() {
             </p>
 
             <NavLink to="/agreements">
-            <span className="sidebarIcon">
-              G
-            </span>
+            <SidebarGlyph type="agreement" />
 
             Agreements
           </NavLink>
@@ -992,9 +1055,7 @@ function App() {
           </NavLink>
 
           <NavLink to="/agreements">
-            <span className="sidebarIcon">
-              G
-            </span>
+            <SidebarGlyph type="agreement" />
 
             Agreements
           </NavLink>
@@ -1027,7 +1088,7 @@ function App() {
         </span>
 
         <strong>
-          TESTNET ENVIRONMENT
+          TESTNET
         </strong>
 
         <span>

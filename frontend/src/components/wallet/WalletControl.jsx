@@ -52,6 +52,11 @@ export default function WalletControl() {
                     onClick={connectWallet}
                     disabled={isConnecting}
                 >
+                    <span
+                        className="walletButtonDot"
+                        aria-hidden="true"
+                    />
+
                     {isConnecting
                         ? "Connecting..."
                         : "Connect wallet"}
@@ -91,15 +96,21 @@ export default function WalletControl() {
     return (
         <div className="walletControl">
             <div
-                className={
-                    isCorrectNetwork
-                        ? "connectedWallet"
-                        : "connectedWallet wrongNetwork"
-                }
+                className={[
+                    "walletIdentityCard",
+                    !isCorrectNetwork
+                        ? "wrongNetwork"
+                        : "",
+                    isAuthenticatedWalletConnected
+                        ? "authenticated"
+                        : "",
+                ]
+                    .filter(Boolean)
+                    .join(" ")}
                 title={
                     isCorrectNetwork
-                        ? `${account} — ${getNetworkName(chainId)}`
-                        : `${account} — Wrong network`
+                        ? `${account} â€” ${getNetworkName(chainId)}`
+                        : `${account} â€” Wrong network`
                 }
             >
                 <span
@@ -107,32 +118,41 @@ export default function WalletControl() {
                     aria-hidden="true"
                 />
 
-                <div className="connectedWalletIdentity">
+                <div className="walletIdentity">
                     <strong>
                         {shortAddress(account)}
                     </strong>
 
                     <small>
-                        {isCorrectNetwork
-                            ? getNetworkName(chainId)
-                            : `Chain ${chainId} · Expected ${expectedChainId}`}
+                        <span>
+                            {isCorrectNetwork
+                                ? getNetworkName(chainId)
+                                : `Chain ${chainId} / Expected ${expectedChainId}`}
+                        </span>
+
+                        {isAuthenticatedWalletConnected && (
+                            <>
+                                <span
+                                    className="walletMetaDivider"
+                                    aria-hidden="true"
+                                >
+                                    /
+                                </span>
+
+                                <span className="walletAuthenticatedLabel">
+                                    Authenticated
+                                </span>
+                            </>
+                        )}
                     </small>
                 </div>
             </div>
 
             {isCheckingSession && (
-                <div className="walletAuthStatus">
-                    Checking ESCT session...
-                </div>
+                <span className="walletInlineStatus">
+                    Checking session...
+                </span>
             )}
-
-            {!isCorrectNetwork &&
-                !isCheckingSession && (
-                    <div className="walletAuthStatus walletAuthWarning">
-                        Switch to chain{" "}
-                        {expectedChainId} to sign in.
-                    </div>
-                )}
 
             {isCorrectNetwork &&
                 !isCheckingSession &&
@@ -149,59 +169,34 @@ export default function WalletControl() {
                     </button>
                 )}
 
+            {!isCorrectNetwork &&
+                !isCheckingSession && (
+                    <span className="walletInlineStatus warning">
+                        Wrong network
+                    </span>
+                )}
+
             {isAuthenticatedWalletConnected && (
-                <div className="walletAuthenticatedRow">
-                    <div
-                        className="walletAuthStatus walletAuthSuccess"
-                        title={authenticatedWallet}
-                    >
-                        <span
-                            className="walletAuthDot"
-                            aria-hidden="true"
-                        />
-
-                        <div>
-                            <strong>
-                                Authenticated
-                            </strong>
-
-                            <small>
-                                {shortAddress(
-                                    authenticatedWallet
-                                )}
-                            </small>
-                        </div>
-                    </div>
-
-                    <button
-                        type="button"
-                        className="walletLogoutButton"
-                        onClick={handleLogout}
-                        disabled={isAuthenticating}
-                    >
-                        {isAuthenticating
-                            ? "Logging out..."
-                            : "Logout"}
-                    </button>
-                </div>
+                <button
+                    type="button"
+                    className="walletLogoutButton"
+                    onClick={handleLogout}
+                    disabled={isAuthenticating}
+                >
+                    {isAuthenticating
+                        ? "Logging out..."
+                        : "Logout"}
+                </button>
             )}
 
             {authenticatedElsewhere && (
-                <div className="walletAuthenticatedRow">
-                    <div className="walletAuthStatus walletAuthWarning">
-                        <div>
-                            <strong>
-                                Different session wallet
-                            </strong>
-
-                            <small>
-                                ESCT session:{" "}
-                                {shortAddress(
-                                    authenticatedWallet
-                                )}
-                            </small>
-                        </div>
-                    </div>
+                <>
+                    <span className="walletInlineStatus warning">
+                        Session{" "}
+                        {shortAddress(
+                            authenticatedWallet
+                        )}
+                    </span>
 
                     <button
                         type="button"
@@ -211,17 +206,18 @@ export default function WalletControl() {
                     >
                         Logout session
                     </button>
-                </div>
+                </>
             )}
 
             {authStatus === "error" &&
                 authError && (
-                    <div
-                        className="walletAuthStatus walletAuthError"
+                    <span
+                        className="walletInlineStatus error"
                         role="alert"
+                        title={authError}
                     >
                         {authError}
-                    </div>
+                    </span>
                 )}
         </div>
     );

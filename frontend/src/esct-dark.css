@@ -2652,3 +2652,280 @@ tr:hover td {
         padding: 16px !important;
     }
 }
+
+/* =========================================================
+   ESCT UI POLISH PASS
+   ========================================================= */
+
+.roleHeader {
+    min-height: 64px;
+    grid-template-columns:
+        220px minmax(0, 1fr) auto;
+}
+
+.roleBrand {
+    grid-column: 1;
+}
+
+.roleHeader > .walletControl {
+    grid-column: 3;
+    justify-self: end;
+}
+
+.roleNav {
+    display: none;
+}
+
+.testnetWarning {
+    min-height: 30px;
+    padding: 0 16px;
+    gap: 8px;
+    color: #d87976;
+    background:
+        rgba(58, 13, 18, 0.5);
+    border-bottom:
+        1px solid
+        rgba(255, 92, 87, 0.22);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
+
+.testnetWarning strong {
+    color: #ff8d89;
+    font-size: 9px;
+}
+
+.warningIcon {
+    width: 15px;
+    height: 15px;
+    font-size: 9px;
+    opacity: 0.82;
+}
+
+.transactionBanner {
+    position: fixed;
+    top: 104px;
+    right: 16px;
+    left: auto;
+    z-index: 160;
+
+    width:
+        min(
+            390px,
+            calc(100vw - 32px)
+        );
+
+    min-height: 42px;
+    padding: 10px 13px;
+
+    justify-content: flex-start;
+
+    background:
+        rgba(8, 25, 34, 0.97);
+
+    border:
+        1px solid
+        rgba(37, 199, 255, 0.26);
+
+    border-radius: 11px;
+
+    box-shadow:
+        0 18px 50px
+        rgba(0, 0, 0, 0.32);
+
+    backdrop-filter: blur(18px);
+
+    font-size: 10px;
+
+    animation:
+        esctToastIn
+        0.2s ease;
+}
+
+.transactionBanner.success {
+    background:
+        rgba(8, 35, 27, 0.97);
+
+    animation:
+        esctToastIn
+        0.2s ease,
+        esctToastOut
+        0.35s ease 3.3s forwards;
+}
+
+.transactionBanner.error {
+    background:
+        rgba(48, 14, 18, 0.97);
+}
+
+@keyframes esctToastIn {
+    from {
+        opacity: 0;
+        transform:
+            translateY(-7px)
+            scale(0.985);
+    }
+
+    to {
+        opacity: 1;
+        transform:
+            translateY(0)
+            scale(1);
+    }
+}
+
+@keyframes esctToastOut {
+    to {
+        opacity: 0;
+        visibility: hidden;
+        transform:
+            translateY(-5px);
+    }
+}
+
+.protocolShell {
+    grid-template-columns:
+        210px minmax(0, 1fr);
+}
+
+.protocolSidebar {
+    top: 80px;
+}
+
+.sidebarNav a {
+    min-height: 45px;
+    gap: 10px;
+}
+
+.sidebarIcon {
+    width: 29px;
+    height: 29px;
+    flex: 0 0 29px;
+
+    border:
+        1px solid
+        rgba(108, 142, 160, 0.2);
+
+    border-radius: 8px;
+
+    background:
+        rgba(255, 255, 255, 0.018);
+
+    font-size: 0;
+}
+
+.sidebarIcon svg {
+    width: 15px;
+    height: 15px;
+}
+
+.sidebarNav a:hover
+.sidebarIcon {
+    border-color:
+        rgba(108, 142, 160, 0.34);
+}
+
+.sidebarNav a.active
+.sidebarIcon {
+    color: var(--esct-teal);
+
+    border-color:
+        rgba(22, 224, 207, 0.32);
+
+    background:
+        rgba(22, 224, 207, 0.075);
+
+    box-shadow:
+        0 0 18px
+        rgba(22, 224, 207, 0.08);
+}
+
+.agreementPrimaryButton {
+    background:
+        linear-gradient(
+            135deg,
+            var(--esct-teal),
+            var(--esct-cyan)
+        );
+
+    color: #031514;
+
+    box-shadow:
+        0 10px 26px
+        rgba(22, 224, 207, 0.1);
+}
+
+.agreementPrimaryButton:hover:not(:disabled) {
+    box-shadow:
+        0 12px 30px
+        rgba(22, 224, 207, 0.18);
+}
+
+.agreementStep {
+    border-color:
+        rgba(22, 224, 207, 0.28);
+
+    background:
+        rgba(22, 224, 207, 0.065);
+
+    color:
+        var(--esct-teal);
+}
+
+.agreementMilestoneIndex {
+    color:
+        var(--esct-teal);
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(22, 224, 207, 0.055),
+            #0b1721
+        );
+}
+
+.agreementPanel {
+    padding: 20px;
+}
+
+.agreementForm,
+.agreementMilestoneForm {
+    gap: 12px;
+}
+
+.agreementEmptyState {
+    padding: 18px;
+}
+
+@media (max-width: 760px) {
+    .roleHeader {
+        min-height: 60px;
+
+        padding:
+            0 11px;
+
+        grid-template-columns:
+            minmax(0, 1fr) auto;
+    }
+
+    .roleBrand {
+        grid-column: 1;
+    }
+
+    .roleHeader > .walletControl {
+        grid-column: 2;
+    }
+
+    .roleBrand > div small {
+        display: none;
+    }
+
+    .transactionBanner {
+        top: 98px;
+        right: 10px;
+
+        width:
+            calc(100vw - 20px);
+    }
+}
