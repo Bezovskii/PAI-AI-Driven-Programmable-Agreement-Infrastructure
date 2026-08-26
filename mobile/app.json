@@ -22,6 +22,7 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.esctprotocol.mobile",
       "predictiveBackGestureEnabled": false,
       "adaptiveIcon": {
         "backgroundColor": "#050A10",
