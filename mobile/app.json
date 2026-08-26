@@ -40,7 +40,11 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {}
-    }
+      "router": {},
+      "eas": {
+        "projectId": "e5d3be4f-b5e2-4f9f-9df4-4d405239c003"
+      }
+    },
+    "owner": "esct-protocol"
   }
 }
