@@ -55,12 +55,12 @@ export const appKit = createAppKit({
     storage: appKitStorage,
 
     metadata: {
-        name: 'ESCT Mobile',
-        description: 'Programmable agreement infrastructure for digital work.',
+        name: 'PAI Mobile',
+        description: 'Programmable Agreement Infrastructure for digital work.',
         url: 'https://multi-payment-dapp.vercel.app',
         icons: [],
         redirect: {
-            native: 'esct://',
+            native: 'pai://',
         },
     },
 
@@ -75,3 +75,4 @@ export const appKit = createAppKit({
 });
 
 export { ethersAdapter };
+

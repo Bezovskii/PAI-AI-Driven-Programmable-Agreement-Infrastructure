@@ -30,7 +30,7 @@ export default function AgreementsScreen() {
 
         <View style={styles.header}>
           <Text style={styles.eyebrow}>
-            ESCT MOBILE
+            PAI MOBILE
           </Text>
 
           <Text style={styles.title}>
@@ -39,7 +39,7 @@ export default function AgreementsScreen() {
 
           <Text style={styles.subtitle}>
             Your agreement workspace will be driven by
-            the connected wallet and ESCT Protocol state.
+            the connected wallet and PAI agreement state.
           </Text>
         </View>
 
@@ -74,7 +74,7 @@ export default function AgreementsScreen() {
 
           <FoundationRow label="Expo SDK 57" done />
           <FoundationRow label="Expo Router" done />
-          <FoundationRow label="ESCT visual system" done />
+          <FoundationRow label="PAI visual system" done />
           <FoundationRow label="Wallet connection" />
           <FoundationRow label="SIWE authentication" />
           <FoundationRow label="Agreement contract reads" />

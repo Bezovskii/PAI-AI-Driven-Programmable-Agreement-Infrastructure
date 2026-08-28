@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "ESCT Mobile",
-    "slug": "esct-mobile",
+    "name": "PAI Mobile",
+    "slug": "pai-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "esct",
+    "scheme": "pai",
     "userInterfaceStyle": "dark",
     "plugins": [
       "expo-router",
@@ -22,7 +22,7 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
-      "package": "com.esctprotocol.mobile",
+      "package": "com.paiinfra.mobile",
       "predictiveBackGestureEnabled": false,
       "adaptiveIcon": {
         "backgroundColor": "#050A10",
@@ -40,11 +40,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "e5d3be4f-b5e2-4f9f-9df4-4d405239c003"
-      }
-    },
-    "owner": "esct-protocol"
+      "router": {}
+    }
   }
 }

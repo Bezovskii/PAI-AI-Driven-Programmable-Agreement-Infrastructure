@@ -80,7 +80,7 @@ export default function AgreementsScreen() {
         </Text>
 
         <Text style={styles.description}>
-          Connect an external wallet to continue into the ESCT agreement
+          Connect an external wallet to continue into the PAI agreement
           lifecycle.
         </Text>
 
@@ -101,7 +101,7 @@ export default function AgreementsScreen() {
             </View>
 
             <Text style={styles.cardText}>
-              ESCT never stores your private key or seed phrase.
+              PAI never stores your private key or seed phrase.
               Transactions remain controlled by your wallet.
             </Text>
 
@@ -165,7 +165,7 @@ export default function AgreementsScreen() {
 
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>
-                  ESCT network
+                  PAI network
                 </Text>
 
                 <Text
@@ -190,7 +190,7 @@ export default function AgreementsScreen() {
                 </Text>
 
                 <Text style={styles.warningCopy}>
-                  ESCT Mobile is currently configured for the Sepolia
+                  PAI Mobile is currently configured for the Sepolia
                   test network.
                 </Text>
 
@@ -220,7 +220,7 @@ export default function AgreementsScreen() {
 
                 <Text style={styles.readyCopy}>
                   The next step is SIWE authentication with the existing
-                  ESCT backend.
+                  PAI backend.
                 </Text>
               </View>
             )}
