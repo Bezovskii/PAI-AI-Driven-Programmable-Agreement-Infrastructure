@@ -40,7 +40,11 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {}
-    }
+      "router": {},
+      "eas": {
+        "projectId": "28b78523-9664-465b-a65a-70b0295b1d3b"
+      }
+    },
+    "owner": "bezovskii"
   }
 }
