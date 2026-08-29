@@ -1,12 +1,6 @@
 import { ethers } from "ethers";
 
 import {
-    contractAddress,
-} from "../contract/contractAddress.js";
-
-import contractABI from "../contract/MultiPaymentABI.json";
-
-import {
     agreementContractAddress,
 } from "../contract/agreementContractAddress.js";
 
@@ -27,13 +21,7 @@ function resolveAbi(source, label) {
     return abi;
 }
 
-const paymentABI =
-    resolveAbi(
-        contractABI,
-        "payment settlement"
-    );
-
-const agreementSettlementABI =
+const agreementTransportABI =
     resolveAbi(
         agreementABI,
         "agreement settlement"
@@ -47,91 +35,65 @@ function hasDeployedCode(code) {
 }
 
 /**
- * PAI -> ESCT settlement boundary.
+ * Temporary compatibility transport for the legacy mixed
+ * AgreementEscrow deployment.
  *
- * PAI owns agreements, milestones, evidence,
- * lifecycle, identity and application state.
+ * PAI agreement operations and ESCT settlement operations
+ * use separate higher-level clients even though they currently
+ * share this deployed transport.
  *
- * ESCT owns escrow, dispute, arbitration
- * and financial settlement contracts.
+ * The transport can later be replaced without changing the
+ * PAI agreement workspace.
  */
-export async function createEsctSettlementClients({
+export async function createEsctAgreementTransport({
     provider,
     signer,
     chainId,
 }) {
     if (!provider) {
         throw new Error(
-            "A provider is required to connect to ESCT."
+            "A provider is required to connect to the agreement transport."
         );
     }
 
     if (!signer) {
         throw new Error(
-            "A wallet signer is required to connect to ESCT."
+            "A wallet signer is required to connect to the agreement transport."
         );
     }
 
-    const [
-        paymentCode,
-        agreementSettlementCode,
-    ] = await Promise.all([
-        provider.getCode(
-            contractAddress
-        ),
-        provider.getCode(
+    const deployedCode =
+        await provider.getCode(
             agreementContractAddress
-        ),
-    ]);
-
-    if (!hasDeployedCode(paymentCode)) {
-        throw new Error(
-            `ESCT settlement service is unavailable at ${contractAddress} on chain ${chainId}.`
-        );
-    }
-
-    const paymentContract =
-        new ethers.Contract(
-            contractAddress,
-            paymentABI,
-            signer
         );
 
-    const agreementContract =
-        hasDeployedCode(
-            agreementSettlementCode
-        )
-            ? new ethers.Contract(
+    if (!hasDeployedCode(deployedCode)) {
+        return {
+            agreementContract: null,
+            address:
                 agreementContractAddress,
-                agreementSettlementABI,
-                signer
-            )
-            : null;
+            chainId,
+        };
+    }
 
     return {
-        paymentContract,
-        agreementContract,
-
-        capabilities: {
-            payments: true,
-            agreementSettlement:
-                Boolean(
-                    agreementContract
-                ),
-        },
-
-        addresses: {
-            payment:
-                contractAddress,
-
-            agreementSettlement:
+        agreementContract:
+            new ethers.Contract(
                 agreementContractAddress,
-        },
+                agreementTransportABI,
+                signer
+            ),
+
+        address:
+            agreementContractAddress,
+
+        chainId,
     };
 }
 
+
 /**
- * Settlement operations used by a PAI agreement.
+ * ESCT settlement surface used by PAI agreements.
  *
  * ESCT owns:
  * - escrow funding
@@ -139,9 +101,8 @@ export async function createEsctSettlementClients({
  * - disputes
  * - arbitration / settlement
  *
- * The current AgreementEscrow deployment is a legacy mixed
- * implementation. This client keeps its settlement surface
- * behind the ESCT boundary.
+ * The legacy AgreementEscrow transport is intentionally hidden
+ * behind this boundary.
  */
 export function createEsctAgreementSettlementClient(
     contract

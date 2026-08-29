@@ -8,7 +8,7 @@ import {
 } from "react";
 
 import {
-    createEsctSettlementClients,
+    createEsctAgreementTransport,
 } from "../settlement/esctSettlementAdapter.js";
 
 import {
@@ -111,21 +111,6 @@ export function Web3Provider({
         setIsAuthenticating,
     ] = useState(false);
 
-    /* =====================================================
-                      MULTIPAYMENT STATE
-       ===================================================== */
-
-    const [contract, setContract] =
-        useState(null);
-
-    const [owner, setOwner] =
-        useState("");
-
-    const [arbitrator, setArbitrator] =
-        useState("");
-
-    const [isPaused, setIsPaused] =
-        useState(false);
 
     /* =====================================================
                        AGREEMENT STATE
@@ -168,17 +153,6 @@ export function Web3Provider({
     const expectedChainId =
         getExpectedChainId();
 
-    /* =====================================================
-                    CLEAR MULTIPAYMENT
-       ===================================================== */
-
-    const clearProtocolState =
-        useCallback(() => {
-            setContract(null);
-            setOwner("");
-            setArbitrator("");
-            setIsPaused(false);
-        }, []);
 
     /* =====================================================
                      CLEAR AGREEMENT
@@ -222,46 +196,11 @@ export function Web3Provider({
             setAccount("");
             setChainId(null);
 
-            clearProtocolState();
             clearAgreementState();
         }, [
-            clearProtocolState,
             clearAgreementState,
         ]);
 
-    /* =====================================================
-                  LOAD MULTIPAYMENT STATE
-       ===================================================== */
-
-    const loadProtocolState =
-        useCallback(
-            async (
-                appContract
-            ) => {
-                const [
-                    protocolOwner,
-                    protocolArbitrator,
-                    paused,
-                ] = await Promise.all([
-                    appContract.owner(),
-                    appContract.arbitrator(),
-                    appContract.paused(),
-                ]);
-
-                setOwner(
-                    protocolOwner
-                );
-
-                setArbitrator(
-                    protocolArbitrator
-                );
-
-                setIsPaused(
-                    Boolean(paused)
-                );
-            },
-            []
-        );
 
     /* =====================================================
                    LOAD AGREEMENT STATE
@@ -421,23 +360,21 @@ export function Web3Provider({
                     detectedChainId !==
                     expectedChainId
                 ) {
-                    clearProtocolState();
-                    clearAgreementState();
+                            clearAgreementState();
 
                     return true;
                 }
                 /* =========================================
-                       ESCT SETTLEMENT ADAPTER
+                   LEGACY AGREEMENT TRANSPORT
                    ========================================= */
 
                 const {
-                    paymentContract,
                     agreementContract:
                         settlementAgreementContract,
-                    capabilities,
-                    addresses,
+                    address:
+                        agreementTransportAddress,
                 } =
-                    await createEsctSettlementClients({
+                    await createEsctAgreementTransport({
                         provider:
                             browserProvider,
 
@@ -448,23 +385,11 @@ export function Web3Provider({
                             detectedChainId,
                     });
 
-                await loadProtocolState(
-                    paymentContract
-                );
-
-                setContract(
-                    paymentContract
-                );
-
-                if (
-                    !capabilities
-                        .agreementSettlement ||
-                    !settlementAgreementContract
-                ) {
+                if (!settlementAgreementContract) {
                     clearAgreementState();
 
                     console.warn(
-                        `ESCT agreement settlement is unavailable at ${addresses.agreementSettlement} on chain ${detectedChainId}.`
+                        `Agreement transport is unavailable at ${agreementTransportAddress} on chain ${detectedChainId}.`
                     );
 
                     return true;
@@ -481,10 +406,8 @@ export function Web3Provider({
                 return true;
             },
             [
-                clearProtocolState,
                 clearAgreementState,
                 expectedChainId,
-                loadProtocolState,
                 loadAgreementState,
                 resetConnection,
             ]
@@ -918,76 +841,6 @@ export function Web3Provider({
             ]
         );
 
-    /* =====================================================
-                  REFRESH ALL PROTOCOL STATE
-       ===================================================== */
-
-    const refreshProtocolState =
-        useCallback(
-            async () => {
-                if (
-                    !contract &&
-                    !agreementContract
-                ) {
-                    return;
-                }
-
-                try {
-                    const refreshTasks =
-                        [];
-
-                    if (contract) {
-                        refreshTasks.push(
-                            loadProtocolState(
-                                contract
-                            )
-                        );
-                    }
-
-                    if (
-                        agreementContract
-                    ) {
-                        refreshTasks.push(
-                            loadAgreementState(
-                                agreementContract
-                            )
-                        );
-                    }
-
-                    await Promise.all(
-                        refreshTasks
-                    );
-                } catch (error) {
-                    console.error(
-                        "Unable to refresh protocol state:",
-                        error
-                    );
-
-                    const message =
-                        getErrorMessage(
-                            error
-                        );
-
-                    setTransaction({
-                        status:
-                            "error",
-
-                        message,
-
-                        hash: "",
-
-                        error:
-                            message,
-                    });
-                }
-            },
-            [
-                contract,
-                agreementContract,
-                loadProtocolState,
-                loadAgreementState,
-            ]
-        );
 
     /* =====================================================
                     EXECUTE TRANSACTION
@@ -1062,7 +915,7 @@ export function Web3Provider({
                         error: "",
                     });
 
-                    await refreshProtocolState();
+                    await refreshAgreementState();
 
                     return receipt;
                 } catch (error) {
@@ -1092,7 +945,7 @@ export function Web3Provider({
                 }
             },
             [
-                refreshProtocolState,
+                refreshAgreementState,
             ]
         );
 
@@ -1362,34 +1215,6 @@ export function Web3Provider({
         chainId ===
         expectedChainId;
 
-    /* =====================================================
-                      MULTIPAYMENT ROLES
-       ===================================================== */
-
-    const isProtocolReady =
-        Boolean(
-            isConnected &&
-            isCorrectNetwork &&
-            contract
-        );
-
-    const isOwner =
-        Boolean(
-            isProtocolReady &&
-            normalizedAccount &&
-            owner &&
-            normalizedAccount ===
-            owner.toLowerCase()
-        );
-
-    const isArbitrator =
-        Boolean(
-            isProtocolReady &&
-            normalizedAccount &&
-            arbitrator &&
-            normalizedAccount ===
-            arbitrator.toLowerCase()
-        );
 
     /* =====================================================
                        AGREEMENT ROLES
@@ -1456,17 +1281,6 @@ export function Web3Provider({
                 restoreSession,
                 logout,
 
-                /* MultiPayment */
-
-                contract,
-
-                owner,
-                arbitrator,
-                isPaused,
-
-                isProtocolReady,
-                isOwner,
-                isArbitrator,
 
                 /* Agreement */
 
@@ -1486,7 +1300,6 @@ export function Web3Provider({
 
                 executeTransaction,
 
-                refreshProtocolState,
                 refreshAgreementState,
 
                 clearTransaction,
@@ -1517,15 +1330,8 @@ export function Web3Provider({
                 restoreSession,
                 logout,
 
-                contract,
 
-                owner,
-                arbitrator,
-                isPaused,
 
-                isProtocolReady,
-                isOwner,
-                isArbitrator,
 
                 agreementContract,
 
@@ -1541,7 +1347,6 @@ export function Web3Provider({
 
                 executeTransaction,
 
-                refreshProtocolState,
                 refreshAgreementState,
 
                 clearTransaction,
