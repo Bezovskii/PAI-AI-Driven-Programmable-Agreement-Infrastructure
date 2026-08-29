@@ -19,6 +19,11 @@ import {
   type AgreementRouteOptions,
 } from "./agreements/routes.js";
 
+import {
+  registerSettlementBindingRoutes,
+  type SettlementBindingRouteOptions,
+} from "./settlement-bindings/routes.js";
+
 export type ReadinessProbe =
   () => Promise<boolean>;
 
@@ -34,6 +39,9 @@ export interface BuildAppOptions {
 
   readonly agreements?:
     AgreementRouteOptions;
+
+  readonly settlementBindings?:
+    SettlementBindingRouteOptions;
 }
 
 const HealthResponseSchema =
@@ -190,6 +198,13 @@ export function buildApp(
     registerAgreementRoutes(
       app,
       options.agreements,
+    );
+  }
+
+  if (options.settlementBindings) {
+    registerSettlementBindingRoutes(
+      app,
+      options.settlementBindings,
     );
   }
 

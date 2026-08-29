@@ -28,6 +28,9 @@ import {
 import {
   createPrismaAgreementOperations,
 } from "./agreements/service.js";
+import {
+  createPrismaSettlementBindingOperations,
+} from "./settlement-bindings/service.js";
 
 const config =
   loadEnv();
@@ -306,6 +309,10 @@ const agreementOperations =
   createPrismaAgreementOperations(
     prisma,
   );
+const settlementBindingOperations =
+  createPrismaSettlementBindingOperations(
+    prisma,
+  );
 
 const app =
   buildApp({
@@ -363,6 +370,15 @@ const app =
 
       operations:
         agreementOperations,
+    },
+    settlementBindings: {
+      sessionCookieName:
+        config.sessionCookieName,
+
+      resolveSession,
+
+      operations:
+        settlementBindingOperations,
     },
   });
 
