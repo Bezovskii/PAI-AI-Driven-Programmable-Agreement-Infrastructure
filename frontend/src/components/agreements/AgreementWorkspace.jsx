@@ -1,7 +1,15 @@
 import { ethers } from "ethers";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useWeb3 } from "../../hooks/useWeb3.js";
+
+import {
+    createPaiAgreementClient,
+} from "../../agreements/paiAgreementClient.js";
+
+import {
+    createEsctAgreementSettlementClient,
+} from "../../settlement/esctSettlementAdapter.js";
 
 import "./AgreementWorkspace.css";
 
@@ -140,6 +148,24 @@ export default function AgreementWorkspace() {
     const [localError, setLocalError] =
         useState("");
 
+    const paiAgreementClient =
+        useMemo(
+            () =>
+                createPaiAgreementClient(
+                    agreementContract
+                ),
+            [agreementContract]
+        );
+
+    const esctSettlementClient =
+        useMemo(
+            () =>
+                createEsctAgreementSettlementClient(
+                    agreementContract
+                ),
+            [agreementContract]
+        );
+
     const lifecycleStage =
         getAgreementLifecycleStage(
             agreement,
@@ -227,11 +253,11 @@ export default function AgreementWorkspace() {
         explicitId = null
     ) {
         if (
-            !agreementContract ||
+            !paiAgreementClient ||
             !isAgreementReady
         ) {
             setLocalError(
-                "Agreement V1 contract is not ready."
+                "PAI agreement client is not ready."
             );
 
             return;
@@ -263,8 +289,8 @@ export default function AgreementWorkspace() {
                 );
 
             const raw =
-                await agreementContract
-                    .agreementById(
+                await paiAgreementClient
+                    .getAgreement(
                         agreementId
                     );
 
@@ -292,8 +318,8 @@ export default function AgreementWorkspace() {
                                 milestoneCount,
                         },
                         (_, index) =>
-                            agreementContract
-                                .milestoneById(
+                            paiAgreementClient
+                                .getMilestone(
                                     agreementId,
                                     index + 1
                                 )
@@ -389,9 +415,9 @@ export default function AgreementWorkspace() {
 
         setLocalError("");
 
-        if (!isAgreementReady) {
+        if (!isAgreementReady || !paiAgreementClient) {
             setLocalError(
-                "Connect your wallet to the Agreement V1 contract."
+                "Connect your wallet to the PAI agreement workspace."
             );
 
             return;
@@ -437,7 +463,7 @@ export default function AgreementWorkspace() {
             const receipt =
                 await executeTransaction({
                     action: () =>
-                        agreementContract
+                        paiAgreementClient
                             .createAgreement(
                                 ethers.getAddress(
                                     contractor
@@ -463,8 +489,7 @@ export default function AgreementWorkspace() {
             ) {
                 try {
                     const parsed =
-                        agreementContract
-                            .interface
+                        paiAgreementClient
                             .parseLog(log);
 
                     if (
@@ -485,8 +510,8 @@ export default function AgreementWorkspace() {
 
             if (createdId === null) {
                 const nextId =
-                    await agreementContract
-                        .nextAgreementId();
+                    await paiAgreementClient
+                        .getNextAgreementId();
 
                 createdId =
                     nextId - 1n;
@@ -553,7 +578,7 @@ export default function AgreementWorkspace() {
 
             await executeTransaction({
                 action: () =>
-                    agreementContract
+                    paiAgreementClient
                         .addMilestone(
                             agreement.id,
                             parsedAmount,
@@ -597,7 +622,7 @@ export default function AgreementWorkspace() {
         try {
             await executeTransaction({
                 action: () =>
-                    agreementContract
+                    paiAgreementClient
                         .acceptAgreement(
                             agreement.id
                         ),
@@ -663,7 +688,7 @@ export default function AgreementWorkspace() {
         try {
             await executeTransaction({
                 action: () =>
-                    agreementContract
+                    esctSettlementClient
                         .fundAgreementETH(
                             agreement.id,
                             {
@@ -785,7 +810,7 @@ export default function AgreementWorkspace() {
 
             await executeTransaction({
                 action: () =>
-                    agreementContract
+                    paiAgreementClient
                         .submitMilestone(
                             agreement.id,
                             milestone.id,
@@ -860,8 +885,8 @@ export default function AgreementWorkspace() {
         try {
             await executeTransaction({
                 action: () =>
-                    agreementContract
-                        .approveMilestone(
+                    esctSettlementClient
+                        .releaseMilestone(
                             agreement.id,
                             milestone.id
                         ),
@@ -922,7 +947,7 @@ export default function AgreementWorkspace() {
         try {
             await executeTransaction({
                 action: () =>
-                    agreementContract
+                    esctSettlementClient
                         .openMilestoneDispute(
                             agreement.id,
                             milestone.id

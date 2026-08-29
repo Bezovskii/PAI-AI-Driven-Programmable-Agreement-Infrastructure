@@ -129,3 +129,56 @@ export async function createEsctSettlementClients({
         },
     };
 }
+
+/**
+ * Settlement operations used by a PAI agreement.
+ *
+ * ESCT owns:
+ * - escrow funding
+ * - financial release
+ * - disputes
+ * - arbitration / settlement
+ *
+ * The current AgreementEscrow deployment is a legacy mixed
+ * implementation. This client keeps its settlement surface
+ * behind the ESCT boundary.
+ */
+export function createEsctAgreementSettlementClient(
+    contract
+) {
+    if (!contract) {
+        return null;
+    }
+
+    return {
+        fundAgreementETH(
+            agreementId,
+            overrides
+        ) {
+            return contract.fundAgreementETH(
+                agreementId,
+                overrides
+            );
+        },
+
+        releaseMilestone(
+            agreementId,
+            milestoneId
+        ) {
+            return contract.approveMilestone(
+                agreementId,
+                milestoneId
+            );
+        },
+
+        openMilestoneDispute(
+            agreementId,
+            milestoneId
+        ) {
+            return contract.openMilestoneDispute(
+                agreementId,
+                milestoneId
+            );
+        },
+    };
+}
