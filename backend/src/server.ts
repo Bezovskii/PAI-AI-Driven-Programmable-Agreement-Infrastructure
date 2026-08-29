@@ -25,6 +25,10 @@ import {
   isDatabaseReady,
 } from "./db/prisma.js";
 
+import {
+  createPrismaAgreementOperations,
+} from "./agreements/service.js";
+
 const config =
   loadEnv();
 
@@ -298,6 +302,11 @@ const revokeSession =
    APPLICATION
    ========================================================= */
 
+const agreementOperations =
+  createPrismaAgreementOperations(
+    prisma,
+  );
+
 const app =
   buildApp({
     logger: true,
@@ -344,6 +353,16 @@ const app =
         chainId:
           config.chainId,
       },
+    },
+
+    agreements: {
+      sessionCookieName:
+        config.sessionCookieName,
+
+      resolveSession,
+
+      operations:
+        agreementOperations,
     },
   });
 
