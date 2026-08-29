@@ -102,9 +102,10 @@ model Agreement {
 
   createdBy User @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
 
-  parties     AgreementParty[]
-  milestones  Milestone[]
-  acceptances AgreementAcceptance[]
+  parties            AgreementParty[]
+  milestones         Milestone[]
+  acceptances        AgreementAcceptance[]
+  settlementBindings AgreementSettlementBinding[]
 
   @@index([createdByUserId])
   @@index([status])
@@ -159,7 +160,8 @@ model Milestone {
 
   agreement Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
 
-  evidence Evidence[]
+  evidence           Evidence[]
+  settlementBindings MilestoneSettlementBinding[]
 
   @@unique([agreementId, position])
   @@index([agreementId])
@@ -180,4 +182,38 @@ model Evidence {
 
   @@index([milestoneId, createdAt])
   @@index([submittedByPartyId])
+}
+
+model AgreementSettlementBinding {
+  id                  String   @id @default(cuid())
+  agreementId         String
+  provider            String
+  chainId             Int
+  contractAddress     String
+  externalAgreementId String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  agreement         Agreement                    @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  milestoneBindings MilestoneSettlementBinding[]
+
+  @@unique([agreementId, provider])
+  @@unique([provider, chainId, contractAddress, externalAgreementId])
+  @@index([agreementId])
+  @@index([provider, chainId])
+}
+
+model MilestoneSettlementBinding {
+  id                           String   @id @default(cuid())
+  agreementSettlementBindingId String
+  milestoneId                  String
+  externalMilestoneId          String
+  createdAt                    DateTime @default(now())
+
+  agreementSettlementBinding AgreementSettlementBinding @relation(fields: [agreementSettlementBindingId], references: [id], onDelete: Cascade)
+  milestone                  Milestone                  @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  @@unique([agreementSettlementBindingId, milestoneId])
+  @@unique([agreementSettlementBindingId, externalMilestoneId])
+  @@index([milestoneId])
 }
