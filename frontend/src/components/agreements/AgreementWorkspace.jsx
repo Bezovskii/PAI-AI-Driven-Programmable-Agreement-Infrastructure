@@ -34,6 +34,18 @@ function shortAddress(address) {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+function makeEvidenceHash(value) {
+    const trimmed = value.trim();
+
+    if (/^0x[a-fA-F0-9]{64}$/.test(trimmed)) {
+        return trimmed;
+    }
+
+    return ethers.keccak256(
+        ethers.toUtf8Bytes(trimmed)
+    );
+}
+
 function statusClass(status) {
     switch (Number(status)) {
         case 0:
@@ -118,6 +130,9 @@ export default function AgreementWorkspace() {
             symbol: "ETH",
             decimals: 18,
         });
+
+    const [evidenceByMilestone, setEvidenceByMilestone] =
+        useState({});
 
     const [loading, setLoading] =
         useState(false);
@@ -682,6 +697,137 @@ export default function AgreementWorkspace() {
         }
     }
 
+
+    function updateEvidenceField(
+        milestoneId,
+        field,
+        value
+    ) {
+        const key =
+            milestoneId.toString();
+
+        setEvidenceByMilestone(
+            (current) => ({
+                ...current,
+
+                [key]: {
+                    ...(current[key] || {}),
+                    [field]: value,
+                },
+            })
+        );
+    }
+
+    async function handleSubmitMilestone(
+        milestone
+    ) {
+        if (!agreement) {
+            return;
+        }
+
+        setLocalError("");
+
+        if (!isContractor) {
+            setLocalError(
+                "Only the Agreement contractor can deliver this milestone."
+            );
+
+            return;
+        }
+
+        if (
+            agreement.status !== 2 ||
+            milestone.status !== 0
+        ) {
+            setLocalError(
+                "Only a Pending milestone in an Active Agreement can be delivered."
+            );
+
+            return;
+        }
+
+        const key =
+            milestone.id.toString();
+
+        const evidence =
+            evidenceByMilestone[key] ||
+            {};
+
+        const evidenceURI =
+            evidence.uri?.trim() || "";
+
+        const evidenceProof =
+            evidence.proof?.trim() || "";
+
+        if (!evidenceURI) {
+            setLocalError(
+                "Enter an evidence URI before delivering the milestone."
+            );
+
+            return;
+        }
+
+        if (!evidenceProof) {
+            setLocalError(
+                "Enter an evidence hash or proof before delivering the milestone."
+            );
+
+            return;
+        }
+
+        const evidenceHash =
+            makeEvidenceHash(
+                evidenceProof
+            );
+
+        try {
+            setLoading(true);
+
+            await executeTransaction({
+                action: () =>
+                    agreementContract
+                        .submitMilestone(
+                            agreement.id,
+                            milestone.id,
+                            evidenceURI,
+                            evidenceHash
+                        ),
+
+                pendingMessage:
+                    `Confirm delivery of Milestone #${milestone.id.toString()}.`,
+
+                submittedMessage:
+                    `Submitting Milestone #${milestone.id.toString()} evidence...`,
+
+                successMessage:
+                    `Milestone #${milestone.id.toString()} delivered successfully.`,
+            });
+
+            setEvidenceByMilestone(
+                (current) => ({
+                    ...current,
+
+                    [key]: {
+                        uri: "",
+                        proof: "",
+                    },
+                })
+            );
+
+            await loadAgreement(
+                agreement.id
+            );
+        } catch (error) {
+            setLocalError(
+                error?.shortMessage ||
+                error?.reason ||
+                error?.message ||
+                "Unable to deliver milestone."
+            );
+        } finally {
+            setLoading(false);
+        }
+    }
 
     async function handleApproveMilestone(
         milestone
@@ -1423,6 +1569,93 @@ export default function AgreementWorkspace() {
                                                     </div>
                                                 )}
 
+                                            {isContractor &&
+                                                agreement.status ===
+                                                2 &&
+                                                milestone.status ===
+                                                0 && (
+                                                    <div className="agreementAcceptanceBox">
+                                                        <div>
+                                                            <span className="eyebrow">
+                                                                Contractor delivery
+                                                            </span>
+
+                                                            <h3>
+                                                                Deliver milestone
+                                                            </h3>
+
+                                                            <p>
+                                                                Attach the delivery or evidence URI and a proof value. PAI records the delivery against this milestone for client review.
+                                                            </p>
+                                                        </div>
+
+                                                        <div className="agreementMilestoneForm">
+                                                            <label>
+                                                                Evidence URI
+
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="ipfs://... or https://..."
+                                                                    value={
+                                                                        evidenceByMilestone[
+                                                                            milestone.id.toString()
+                                                                        ]?.uri ||
+                                                                        ""
+                                                                    }
+                                                                    onChange={(
+                                                                        event
+                                                                    ) =>
+                                                                        updateEvidenceField(
+                                                                            milestone.id,
+                                                                            "uri",
+                                                                            event.target.value
+                                                                        )
+                                                                    }
+                                                                />
+                                                            </label>
+
+                                                            <label>
+                                                                Evidence hash or proof
+
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="0x bytes32, checksum, commit hash or proof text"
+                                                                    value={
+                                                                        evidenceByMilestone[
+                                                                            milestone.id.toString()
+                                                                        ]?.proof ||
+                                                                        ""
+                                                                    }
+                                                                    onChange={(
+                                                                        event
+                                                                    ) =>
+                                                                        updateEvidenceField(
+                                                                            milestone.id,
+                                                                            "proof",
+                                                                            event.target.value
+                                                                        )
+                                                                    }
+                                                                />
+                                                            </label>
+
+                                                            <button
+                                                                type="button"
+                                                                className="agreementPrimaryButton"
+                                                                disabled={
+                                                                    loading
+                                                                }
+                                                                onClick={() =>
+                                                                    handleSubmitMilestone(
+                                                                        milestone
+                                                                    )
+                                                                }
+                                                            >
+                                                                Deliver Milestone
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                             {isClient &&
                                                 agreement.status ===
                                                 2 &&
@@ -1669,7 +1902,7 @@ export default function AgreementWorkspace() {
                             <div className="agreementAcceptedNotice">
                                 Agreement funded and active.
                                 Deliver milestone work from the
-                                Seller workspace.
+                                milestone cards above.
                             </div>
                         )}
 
