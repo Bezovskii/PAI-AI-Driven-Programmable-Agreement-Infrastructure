@@ -400,7 +400,7 @@ async function shutdown(
   }
 
   app.log.info(
-    "ESCT backend stopped cleanly",
+    "PAI backend stopped cleanly",
   );
 }
 
@@ -446,12 +446,12 @@ try {
       port:
         config.port,
     },
-    "ESCT backend started",
+    "PAI backend started",
   );
 } catch (error) {
   app.log.error(
     error,
-    "Failed to start ESCT backend",
+    "Failed to start PAI backend",
   );
 
   try {

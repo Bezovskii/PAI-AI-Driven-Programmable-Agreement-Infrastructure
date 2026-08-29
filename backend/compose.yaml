@@ -1,7 +1,7 @@
-﻿services:
+services:
   postgres:
     image: postgres:17-alpine
-    container_name: esct-postgres
+    container_name: pai-postgres
     restart: unless-stopped
 
     environment:
@@ -13,7 +13,7 @@
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
 
     volumes:
-      - esct_postgres_data:/var/lib/postgresql/data
+      - pai_postgres_data:/var/lib/postgresql/data
 
     healthcheck:
       test:
@@ -27,4 +27,4 @@
       start_period: 5s
 
 volumes:
-  esct_postgres_data:
+  pai_postgres_data:

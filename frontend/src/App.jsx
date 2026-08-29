@@ -26,10 +26,10 @@ import WalletControl from "./components/wallet/WalletControl.jsx";
 import { useWeb3 } from "./hooks/useWeb3.js";
 
 /*
- * Load this AFTER component CSS so the ESCT dark
+ * Load this AFTER component CSS so the PAI dark
  * protocol theme wins the cascade.
  */
-import "./esct-dark.css";
+import "./pai-dark.css";
 
 function shortAddress(address) {
   if (!address) {

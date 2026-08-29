@@ -1,4 +1,4 @@
-﻿import { ethers } from "ethers";
+import { ethers } from "ethers";
 import {
     createContext,
     useCallback,
@@ -25,7 +25,7 @@ import {
     logoutSession,
     requestAuthNonce,
     verifySiweAuthentication,
-} from "../auth/esctAuth.js";
+} from "../auth/paiAuth.js";
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const Web3Context =
@@ -672,10 +672,10 @@ export function Web3Provider({
                 } catch (error) {
                     const message =
                         error?.message ||
-                        "Unable to restore ESCT session.";
+                        "Unable to restore PAI session.";
 
                     console.error(
-                        "ESCT session restore failed:",
+                        "PAI session restore failed:",
                         error
                     );
 
@@ -712,7 +712,7 @@ export function Web3Provider({
                         !signer
                     ) {
                         throw new Error(
-                            "Connect your wallet before signing in to ESCT."
+                            "Connect your wallet before signing in to PAI."
                         );
                     }
 
@@ -721,7 +721,7 @@ export function Web3Provider({
                         expectedChainId
                     ) {
                         throw new Error(
-                            `Switch to chain ${expectedChainId} before signing in to ESCT.`
+                            `Switch to chain ${expectedChainId} before signing in to PAI.`
                         );
                     }
 
@@ -844,11 +844,11 @@ export function Web3Provider({
                             ? "Sign-in request rejected in wallet."
                             : (
                                 error?.message ||
-                                "ESCT authentication failed."
+                                "PAI authentication failed."
                             );
 
                     console.error(
-                        "ESCT authentication failed:",
+                        "PAI authentication failed:",
                         error
                     );
 
@@ -901,10 +901,10 @@ export function Web3Provider({
                 } catch (error) {
                     const message =
                         error?.message ||
-                        "Unable to log out of ESCT.";
+                        "Unable to log out of PAI.";
 
                     console.error(
-                        "ESCT logout failed:",
+                        "PAI logout failed:",
                         error
                     );
 
@@ -1228,10 +1228,10 @@ export function Web3Provider({
 
                     const message =
                         error?.message ||
-                        "Unable to restore ESCT session.";
+                        "Unable to restore PAI session.";
 
                     console.error(
-                        "Initial ESCT session restore failed:",
+                        "Initial PAI session restore failed:",
                         error
                     );
 
