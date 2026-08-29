@@ -8,16 +8,8 @@ import {
 } from "react";
 
 import {
-    contractAddress,
-} from "../contract/contractAddress.js";
-
-import contractABI from "../contract/MultiPaymentABI.json";
-
-import {
-    agreementContractAddress,
-} from "../contract/agreementContractAddress.js";
-
-import agreementABI from "../contract/AgreementEscrowABI.json";
+    createEsctSettlementClients,
+} from "../settlement/esctSettlementAdapter.js";
 
 import {
     buildSiweMessage,
@@ -32,32 +24,6 @@ export const Web3Context =
     createContext(null);
 
 const DEFAULT_CHAIN_ID = 31337;
-
-/* =========================================================
-                           ABI SETUP
-   ========================================================= */
-
-const resolvedContractABI =
-    Array.isArray(contractABI)
-        ? contractABI
-        : contractABI?.abi;
-
-const resolvedAgreementABI =
-    Array.isArray(agreementABI)
-        ? agreementABI
-        : agreementABI?.abi;
-
-if (!Array.isArray(resolvedContractABI)) {
-    throw new Error(
-        "The ESCT MultiPayment ABI is invalid. Expected an ABI array."
-    );
-}
-
-if (!Array.isArray(resolvedAgreementABI)) {
-    throw new Error(
-        "The ESCT AgreementEscrow ABI is invalid. Expected an ABI array."
-    );
-}
 
 /* =========================================================
                            HELPERS
@@ -460,79 +426,56 @@ export function Web3Provider({
 
                     return true;
                 }
-
                 /* =========================================
-                         MULTIPAYMENT CONTRACT
+                       ESCT SETTLEMENT ADAPTER
                    ========================================= */
 
-                const deployedCode =
-                    await browserProvider.getCode(
-                        contractAddress
-                    );
+                const {
+                    paymentContract,
+                    agreementContract:
+                        settlementAgreementContract,
+                    capabilities,
+                    addresses,
+                } =
+                    await createEsctSettlementClients({
+                        provider:
+                            browserProvider,
 
-                if (
-                    !deployedCode ||
-                    deployedCode === "0x"
-                ) {
-                    clearProtocolState();
-                    clearAgreementState();
+                        signer:
+                            walletSigner,
 
-                    throw new Error(
-                        `No ESCT MultiPayment contract was found at ${contractAddress} on chain ${detectedChainId}. Make sure the local Hardhat node is running and deploy MultiPayment again.`
-                    );
-                }
-
-                const appContract =
-                    new ethers.Contract(
-                        contractAddress,
-                        resolvedContractABI,
-                        walletSigner
-                    );
+                        chainId:
+                            detectedChainId,
+                    });
 
                 await loadProtocolState(
-                    appContract
+                    paymentContract
                 );
 
                 setContract(
-                    appContract
+                    paymentContract
                 );
 
-                /* =========================================
-                       AGREEMENT ESCROW CONTRACT
-                   ========================================= */
-
-                const agreementDeployedCode =
-                    await browserProvider.getCode(
-                        agreementContractAddress
-                    );
-
                 if (
-                    !agreementDeployedCode ||
-                    agreementDeployedCode ===
-                    "0x"
+                    !capabilities
+                        .agreementSettlement ||
+                    !settlementAgreementContract
                 ) {
                     clearAgreementState();
 
                     console.warn(
-                        `No AgreementEscrow contract was found at ${agreementContractAddress} on chain ${detectedChainId}. MultiPayment remains available.`
+                        `ESCT agreement settlement is unavailable at ${addresses.agreementSettlement} on chain ${detectedChainId}.`
                     );
 
                     return true;
                 }
 
-                const agreementAppContract =
-                    new ethers.Contract(
-                        agreementContractAddress,
-                        resolvedAgreementABI,
-                        walletSigner
-                    );
-
                 await loadAgreementState(
-                    agreementAppContract
+                    settlementAgreementContract
                 );
 
                 setAgreementContract(
-                    agreementAppContract
+                    settlementAgreementContract
                 );
 
                 return true;
