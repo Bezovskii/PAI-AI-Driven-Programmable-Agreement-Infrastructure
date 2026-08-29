@@ -1,3 +1,7 @@
+﻿import {
+  useAccount,
+  useAppKit,
+} from '@reown/appkit-react-native';
 import { router } from 'expo-router';
 import {
   Pressable,
@@ -7,284 +11,270 @@ import {
   View,
 } from 'react-native';
 
-import {
-  colors,
-  radius,
-  spacing,
-} from '@/constants/theme';
+import { colors } from '@/constants/theme';
+
+function shortenAddress(address: string) {
+  if (address.length <= 12) {
+    return address;
+  }
+
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
 
 export default function AgreementsScreen() {
+  const {
+    open,
+    disconnect,
+  } = useAppKit();
+
+  const {
+    address,
+    chainId,
+    isConnected,
+    chain,
+  } = useAccount();
+
+  const handleConnect = async () => {
+    console.log('PAI_CONNECT_WALLET_PRESSED');
+
+    try {
+      await open();
+    } catch (error) {
+      console.error('PAI_CONNECT_ERROR', error);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    console.log('PAI_DISCONNECT_WALLET_PRESSED');
+
+    try {
+      await disconnect();
+    } catch (error) {
+      console.error('PAI_DISCONNECT_ERROR', error);
+    }
+  };
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace('/');
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.screen}>
       <View style={styles.container}>
         <Pressable
-          accessibilityRole="button"
-          onPress={() => router.back()}
-          style={({ pressed }) => [
-            styles.backButton,
-            pressed && styles.pressed,
-          ]}
+          onPress={handleBack}
+          style={styles.backButton}
         >
-          <Text style={styles.backText}>←</Text>
+          <Text style={styles.backText}>
+            ← Back
+          </Text>
         </Pressable>
 
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>
-            PAI MOBILE
+        <Text style={styles.eyebrow}>
+          AGREEMENT WORKSPACE
+        </Text>
+
+        <Text style={styles.title}>
+          Wallet connection
+        </Text>
+
+        <Text style={styles.description}>
+          Connect your wallet to continue into PAI.
+        </Text>
+
+        <View style={styles.card}>
+          <Text style={styles.statusLabel}>
+            WALLET STATUS
           </Text>
 
-          <Text style={styles.title}>
-            Agreements
+          <Text style={styles.statusValue}>
+            {isConnected ? 'Connected' : 'Not connected'}
           </Text>
 
-          <Text style={styles.subtitle}>
-            Your agreement workspace will be driven by
-            the connected wallet and PAI agreement state.
-          </Text>
-        </View>
-
-        <View style={styles.emptyCard}>
-          <View style={styles.icon}>
-            <View style={styles.iconInner} />
-          </View>
-
-          <Text style={styles.emptyTitle}>
-            No wallet connected
-          </Text>
-
-          <Text style={styles.emptyDescription}>
-            No fake agreement data is shown here.
-            Wallet connection and real agreement loading
-            are the next implementation milestone.
-          </Text>
-
-          <View style={styles.statusRow}>
-            <View style={styles.statusDot} />
-
-            <Text style={styles.statusText}>
-              Mobile shell ready
+          {address ? (
+            <Text style={styles.address}>
+              {shortenAddress(address)}
             </Text>
-          </View>
+          ) : null}
+
+          {chain?.name ? (
+            <Text style={styles.network}>
+              Network: {chain.name}
+            </Text>
+          ) : null}
+
+          {chainId ? (
+            <Text style={styles.network}>
+              Chain ID: {String(chainId)}
+            </Text>
+          ) : null}
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Connect wallet"
+            onPress={handleConnect}
+            style={({ pressed }) => [
+              styles.connectButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.connectButtonText}>
+              Connect wallet
+            </Text>
+          </Pressable>
+
+          {isConnected ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleDisconnect}
+              style={({ pressed }) => [
+                styles.disconnectButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.disconnectButtonText}>
+                Disconnect wallet
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
 
-        <View style={styles.foundation}>
-          <Text style={styles.foundationLabel}>
-            FOUNDATION STATUS
-          </Text>
-
-          <FoundationRow label="Expo SDK 57" done />
-          <FoundationRow label="Expo Router" done />
-          <FoundationRow label="PAI visual system" done />
-          <FoundationRow label="Wallet connection" />
-          <FoundationRow label="SIWE authentication" />
-          <FoundationRow label="Agreement contract reads" />
-        </View>
+        <Text style={styles.securityText}>
+          PAI never stores your private key or seed phrase.
+        </Text>
       </View>
     </SafeAreaView>
   );
 }
 
-function FoundationRow({
-  label,
-  done = false,
-}: {
-  label: string;
-  done?: boolean;
-}) {
-  return (
-    <View style={styles.foundationRow}>
-      <Text style={styles.foundationRowLabel}>
-        {label}
-      </Text>
-
-      <View
-        style={[
-          styles.foundationStatus,
-          done && styles.foundationStatusDone,
-        ]}
-      >
-        <Text
-          style={[
-            styles.foundationStatusText,
-            done && styles.foundationStatusTextDone,
-          ]}
-        >
-          {done ? 'READY' : 'NEXT'}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  safeArea: {
+  screen: {
     flex: 1,
     backgroundColor: colors.background,
   },
 
   container: {
     flex: 1,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingHorizontal: 24,
+    paddingTop: 24,
   },
 
   backButton: {
-    width: 42,
-    height: 42,
+    alignSelf: 'flex-start',
+    paddingVertical: 10,
+    paddingRight: 20,
+    marginBottom: 38,
+  },
+
+  backText: {
+    color: colors.muted,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  eyebrow: {
+    color: colors.teal,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.8,
+  },
+
+  title: {
+    marginTop: 12,
+    color: colors.text,
+    fontSize: 34,
+    lineHeight: 40,
+    fontWeight: '800',
+  },
+
+  description: {
+    marginTop: 12,
+    color: colors.muted,
+    fontSize: 16,
+    lineHeight: 24,
+  },
+
+  card: {
+    marginTop: 32,
+    backgroundColor: colors.panel,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    padding: 20,
+  },
+
+  statusLabel: {
+    color: colors.teal,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+  },
+
+  statusValue: {
+    marginTop: 8,
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: '800',
+  },
+
+  address: {
+    marginTop: 10,
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  network: {
+    marginTop: 6,
+    color: colors.muted,
+    fontSize: 14,
+  },
+
+  connectButton: {
+    marginTop: 28,
+    minHeight: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.teal,
+    borderRadius: 14,
+  },
+
+  connectButtonText: {
+    color: colors.background,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+
+  disconnectButton: {
+    marginTop: 12,
+    minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.sm,
-    backgroundColor: colors.panel,
+    borderRadius: 14,
   },
 
-  backText: {
+  disconnectButtonText: {
     color: colors.text,
-    fontSize: 22,
+    fontSize: 15,
+    fontWeight: '700',
   },
 
   pressed: {
     opacity: 0.7,
   },
 
-  header: {
-    marginTop: spacing.xl,
-  },
-
-  eyebrow: {
-    color: colors.teal,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 2,
-  },
-
-  title: {
-    marginTop: 8,
-    color: colors.text,
-    fontSize: 34,
-    fontWeight: '800',
-    letterSpacing: -1,
-  },
-
-  subtitle: {
-    marginTop: spacing.sm,
+  securityText: {
+    marginTop: 20,
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 22,
-  },
-
-  emptyCard: {
-    marginTop: spacing.xl,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.panel,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
-  },
-
-  icon: {
-    width: 54,
-    height: 54,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.teal,
-    borderRadius: 27,
-    backgroundColor: 'rgba(22, 224, 207, 0.07)',
-  },
-
-  iconInner: {
-    width: 16,
-    height: 16,
-    borderWidth: 2,
-    borderColor: colors.teal,
-    borderRadius: 5,
-  },
-
-  emptyTitle: {
-    marginTop: spacing.md,
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-
-  emptyDescription: {
-    marginTop: spacing.sm,
-    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
     textAlign: 'center',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-
-  statusRow: {
-    marginTop: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: colors.green,
-  },
-
-  statusText: {
-    color: colors.green,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-
-  foundation: {
-    marginTop: spacing.lg,
-  },
-
-  foundationLabel: {
-    marginBottom: spacing.sm,
-    color: colors.mutedSecondary,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.6,
-  },
-
-  foundationRow: {
-    minHeight: 46,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSoft,
-  },
-
-  foundationRowLabel: {
-    color: colors.muted,
-    fontSize: 13,
-  },
-
-  foundationStatus: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-
-  foundationStatusDone: {
-    borderColor: 'rgba(118, 239, 101, 0.25)',
-    backgroundColor: 'rgba(118, 239, 101, 0.06)',
-  },
-
-  foundationStatusText: {
-    color: colors.mutedSecondary,
-    fontSize: 9,
-    fontWeight: '800',
-  },
-
-  foundationStatusTextDone: {
-    color: colors.green,
   },
 });
