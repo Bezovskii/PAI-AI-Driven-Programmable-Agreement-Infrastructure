@@ -12,8 +12,9 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  wallets  Wallet[]
-  sessions Session[]
+  wallets           Wallet[]
+  sessions          Session[]
+  createdAgreements Agreement[]
 }
 
 model Wallet {
@@ -56,4 +57,127 @@ model Session {
   @@index([userId])
   @@index([walletId])
   @@index([expiresAt])
+}
+
+/**
+ * =========================================================
+ * PAI AGREEMENT DOMAIN
+ * =========================================================
+ */
+
+enum AgreementStatus {
+  DRAFT
+  PROPOSED
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AgreementPartyRole {
+  CLIENT
+  CONTRACTOR
+}
+
+enum MilestoneStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  REVISION_REQUESTED
+  COMPLETED
+  CANCELLED
+}
+
+model Agreement {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdByUserId String
+
+  title        String?
+  metadataUri  String?
+  termsHash    String?
+  termsVersion Int             @default(1)
+  status       AgreementStatus @default(DRAFT)
+
+  createdBy User @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  parties     AgreementParty[]
+  milestones  Milestone[]
+  acceptances AgreementAcceptance[]
+
+  @@index([createdByUserId])
+  @@index([status])
+}
+
+model AgreementParty {
+  id            String             @id @default(cuid())
+  agreementId   String
+  walletAddress String
+  role          AgreementPartyRole
+  displayName   String?
+  createdAt     DateTime           @default(now())
+
+  agreement Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+
+  acceptances AgreementAcceptance[]
+  evidence    Evidence[]
+
+  @@unique([agreementId, walletAddress])
+  @@index([agreementId, role])
+  @@index([walletAddress])
+}
+
+model AgreementAcceptance {
+  id           String   @id @default(cuid())
+  agreementId  String
+  partyId      String
+  termsVersion Int
+  termsHash    String?
+  signature    String?
+  acceptedAt   DateTime @default(now())
+
+  agreement Agreement      @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  party     AgreementParty @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@unique([agreementId, partyId, termsVersion])
+  @@index([agreementId])
+  @@index([partyId])
+}
+
+model Milestone {
+  id               String          @id @default(cuid())
+  agreementId      String
+  position         Int
+  title            String?
+  specificationUri String?
+  amount           String?
+  asset            String?
+  status           MilestoneStatus @default(PENDING)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  agreement Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+
+  evidence Evidence[]
+
+  @@unique([agreementId, position])
+  @@index([agreementId])
+  @@index([status])
+}
+
+model Evidence {
+  id                 String   @id @default(cuid())
+  milestoneId        String
+  submittedByPartyId String
+  uri                String
+  hash               String?
+  description        String?
+  createdAt          DateTime @default(now())
+
+  milestone        Milestone      @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  submittedByParty AgreementParty @relation(fields: [submittedByPartyId], references: [id], onDelete: Cascade)
+
+  @@index([milestoneId, createdAt])
+  @@index([submittedByPartyId])
 }
