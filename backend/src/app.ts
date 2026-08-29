@@ -14,6 +14,11 @@ import {
   type AuthRouteOptions,
 } from "./auth/routes.js";
 
+import {
+  registerAgreementRoutes,
+  type AgreementRouteOptions,
+} from "./agreements/routes.js";
+
 export type ReadinessProbe =
   () => Promise<boolean>;
 
@@ -26,6 +31,9 @@ export interface BuildAppOptions {
 
   readonly auth?:
     AuthRouteOptions;
+
+  readonly agreements?:
+    AgreementRouteOptions;
 }
 
 const HealthResponseSchema =
@@ -175,6 +183,13 @@ export function buildApp(
     registerAuthRoutes(
       app,
       options.auth,
+    );
+  }
+
+  if (options.agreements) {
+    registerAgreementRoutes(
+      app,
+      options.agreements,
     );
   }
 
