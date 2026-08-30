@@ -218,7 +218,7 @@ function ProtocolSidebar() {
     <aside className="protocolSidebar">
       <div className="sidebarSection">
         <span className="sidebarLabel">
-          Protocol
+          Workspace
         </span>
 
         <nav className="sidebarNav">
@@ -228,7 +228,7 @@ function ProtocolSidebar() {
           >
             <SidebarGlyph type="dashboard" />
 
-            Dashboard
+            Overview
           </NavLink>
 
           <NavLink to="/agreements">
@@ -426,31 +426,143 @@ function DashboardPage() {
     authority = "Arbitrator";
   }
 
+  const isLiveContract =
+    Boolean(
+      isConnected &&
+      isCorrectNetwork &&
+      contract
+    );
+
+  const contractStatusLabel =
+    !isConnected
+      ? "CONNECT TO VERIFY"
+      : !isCorrectNetwork
+        ? "WRONG NETWORK"
+        : contract
+          ? "LIVE CONTRACT"
+          : "CONTRACT UNAVAILABLE";
+
   return (
     <div className="rolePage dashboardPage">
-      <div className="pageHeading dashboardHeading">
-        <div>
+      <div className="pageHeading dashboardHeading paiDashboardHero">
+        <div className="paiHeroCopy">
           <span className="eyebrow">
-            Protocol overview
+            Programmable Agreement Infrastructure
           </span>
 
           <h1>
-            PAI Dashboard
+            Turn uncertain promises into programmable agreements.
           </h1>
 
           <p>
-            On-chain transaction,
-            escrow, dispute and
-            protocol authority
-            workspace.
+            PAI gives both sides of a digital deal a shared agreement
+            lifecycle - from defined terms and funding to delivery,
+            settlement, and structured resolution when something goes wrong.
+          </p>
+
+          <div className="paiHeroActions">
+            <NavLink
+              className="paiPrimaryAction"
+              to="/agreements"
+            >
+              Open agreement workspace
+              <span aria-hidden="true">&rarr;</span>
+            </NavLink>
+          </div>
+        </div>
+
+        <div className="paiHeroStatus">
+          <div
+            className={
+              isLiveContract
+                ? "liveIndicator"
+                : "liveIndicator pending"
+            }
+          >
+            <span
+              className={
+                isLiveContract
+                  ? "healthDot"
+                  : "healthDot warning"
+              }
+            />
+
+            {contractStatusLabel}
+          </div>
+
+          <small>
+            Define. Accept. Fund. Deliver. Settle.
+          </small>
+        </div>
+      </div>
+
+      <section
+        className="paiLifecyclePanel"
+        aria-labelledby="pai-lifecycle-title"
+      >
+        <div className="paiLifecycleIntro">
+          <div>
+            <span className="eyebrow">
+              Agreement lifecycle
+            </span>
+
+            <h2 id="pai-lifecycle-title">
+              One agreement. Clear states.
+            </h2>
+          </div>
+
+          <p>
+            Each side can see what has been agreed,
+            what happens next, and when value can move.
           </p>
         </div>
 
-        <div className="liveIndicator">
-          <span className="healthDot" />
-
-          LIVE CONTRACT
+        <div
+          className="paiLifecycleTrack"
+          aria-label="Define, accept, fund, deliver, settle"
+        >
+          <span className="paiLifecycleStep">DEFINE</span>
+          <span className="paiLifecycleArrow" aria-hidden="true">&rarr;</span>
+          <span className="paiLifecycleStep">ACCEPT</span>
+          <span className="paiLifecycleArrow" aria-hidden="true">&rarr;</span>
+          <span className="paiLifecycleStep">FUND</span>
+          <span className="paiLifecycleArrow" aria-hidden="true">&rarr;</span>
+          <span className="paiLifecycleStep">DELIVER</span>
+          <span className="paiLifecycleArrow" aria-hidden="true">&rarr;</span>
+          <span className="paiLifecycleStep">SETTLE</span>
         </div>
+
+        <div className="paiExceptionPath">
+          <span className="paiExceptionLabel">
+            Exception path
+          </span>
+
+          <div className="paiExceptionTrack">
+            <span>DISPUTE</span>
+            <b aria-hidden="true">&rarr;</b>
+            <span>EVIDENCE</span>
+            <b aria-hidden="true">&rarr;</b>
+            <span>ARBITRATION</span>
+            <b aria-hidden="true">&rarr;</b>
+            <span>RESOLUTION</span>
+          </div>
+        </div>
+      </section>
+
+      <div className="paiSectionHeading">
+        <div>
+          <span className="eyebrow">
+            Protocol telemetry
+          </span>
+
+          <h2>
+            Live infrastructure status
+          </h2>
+        </div>
+
+        <span>
+          Contract and escrow state
+        </span>
       </div>
 
       <section className="roleStats protocolMetrics">
@@ -691,15 +803,9 @@ function DashboardPage() {
               existing orders.
             </p>
 
-            <NavLink to="/agreements">
-            <SidebarGlyph type="agreement" />
-
-            Agreements
-          </NavLink>
-
-          <NavLink to="/buyer">
+            <NavLink to="/buyer">
               Open workspace
-              <span>â†’</span>
+              <span>&rarr;</span>
             </NavLink>
           </div>
         </div>
@@ -726,7 +832,7 @@ function DashboardPage() {
 
             <NavLink to="/seller">
               Open workspace
-              <span>â†’</span>
+              <span>&rarr;</span>
             </NavLink>
           </div>
         </div>
@@ -753,7 +859,7 @@ function DashboardPage() {
 
             <NavLink to="/arbitration">
               Open workspace
-              <span>â†’</span>
+              <span>&rarr;</span>
             </NavLink>
           </div>
         </div>
@@ -780,7 +886,7 @@ function DashboardPage() {
 
             <NavLink to="/admin">
               Open workspace
-              <span>â†’</span>
+              <span>&rarr;</span>
             </NavLink>
           </div>
         </div>
@@ -1039,7 +1145,7 @@ function App() {
 
           <img
             className="brandWordmark"
-            src="/pai-wordmark.png"
+            src="/pai-wordmark-light.png"
             alt="PAI"
           />
         </NavLink>
