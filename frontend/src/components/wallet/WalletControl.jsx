@@ -1,4 +1,4 @@
-﻿import { useWeb3 } from "../../hooks/useWeb3.js";
+import { useWeb3 } from "../../hooks/useWeb3.js";
 import "./WalletControl.css";
 
 function shortAddress(address) {
@@ -109,8 +109,8 @@ export default function WalletControl() {
                     .join(" ")}
                 title={
                     isCorrectNetwork
-                        ? `${account} Ã¢â‚¬â€ ${getNetworkName(chainId)}`
-                        : `${account} Ã¢â‚¬â€ Wrong network`
+                        ? `${account} - ${getNetworkName(chainId)}`
+                        : `${account} - Wrong network`
                 }
             >
                 <span
@@ -140,7 +140,7 @@ export default function WalletControl() {
                                 </span>
 
                                 <span className="walletAuthenticatedLabel">
-                                    Authenticated
+                                    PAI signed in
                                 </span>
                             </>
                         )}
@@ -172,7 +172,7 @@ export default function WalletControl() {
             {!isCorrectNetwork &&
                 !isCheckingSession && (
                     <span className="walletInlineStatus warning">
-                        Wrong network
+                        Switch to chain {expectedChainId}
                     </span>
                 )}
 
@@ -185,7 +185,7 @@ export default function WalletControl() {
                 >
                     {isAuthenticating
                         ? "Logging out..."
-                        : "Logout"}
+                        : "Sign out"}
                 </button>
             )}
 

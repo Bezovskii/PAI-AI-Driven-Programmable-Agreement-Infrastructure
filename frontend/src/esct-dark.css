@@ -3291,3 +3291,81 @@ tr:hover td {
     border-color:
         rgba(255, 178, 28, 0.20);
 }
+
+/* =========================================================
+   PAI TRANSACTION UX
+   ========================================================= */
+
+.transactionBanner {
+    justify-content: space-between;
+}
+
+.transactionBannerMessage {
+    min-width: 0;
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+}
+
+.transactionBannerMessage > span {
+    min-width: 0;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+}
+
+.transactionBanner.cancelled {
+    color: #ffcf73;
+
+    background:
+        rgba(45, 34, 11, 0.97);
+
+    border-color:
+        rgba(255, 178, 28, 0.25);
+}
+
+.transactionDismiss {
+    width: 27px;
+    height: 27px;
+
+    flex: 0 0 27px;
+
+    display: grid;
+    place-items: center;
+
+    padding: 0;
+
+    color: currentColor;
+
+    background:
+        rgba(255, 255, 255, 0.025);
+
+    border:
+        1px solid rgba(255, 255, 255, 0.08);
+
+    border-radius: 7px;
+
+    font: inherit;
+    font-size: 17px;
+    line-height: 1;
+
+    opacity: 0.72;
+
+    cursor: pointer;
+}
+
+.transactionDismiss:hover {
+    opacity: 1;
+
+    background:
+        rgba(255, 255, 255, 0.06);
+}
+
+.transactionBanner.awaiting-signature,
+.transactionBanner.pending {
+    border-color:
+        rgba(37, 199, 255, 0.26);
+}

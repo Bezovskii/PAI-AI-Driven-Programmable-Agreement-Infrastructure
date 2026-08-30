@@ -1130,7 +1130,33 @@ function App() {
     expectedChainId,
     isOwner,
     transaction,
+  clearTransaction,
   } = useWeb3();
+
+  useEffect(() => {
+    if (
+      transaction.status !== "success" &&
+      transaction.status !== "cancelled"
+    ) {
+      return undefined;
+    }
+
+    const timeoutId =
+      window.setTimeout(
+        clearTransaction,
+        transaction.status === "success"
+          ? 4200
+          : 3000
+      );
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    transaction.status,
+    transaction.message,
+    clearTransaction,
+  ]);
 
   return (
     <div className="roleApp">
@@ -1203,9 +1229,9 @@ function App() {
       {isConnected &&
         !isCorrectNetwork && (
           <div className="wrongNetworkWarning">
-            Wrong network. Connected chain:{" "}
-            {chainId}. Expected chain:{" "}
-            {expectedChainId}.
+            Wrong network. Switch your wallet from chain{" "}
+            {chainId} to chain{" "}
+            {expectedChainId} to continue.
           </div>
         )}
 
@@ -1213,18 +1239,42 @@ function App() {
         transaction.message && (
           <div
             className={`transactionBanner ${transaction.status}`}
+            role={
+              transaction.status === "error"
+                ? "alert"
+                : "status"
+            }
+            aria-live={
+              transaction.status === "error"
+                ? "assertive"
+                : "polite"
+            }
           >
-            <span>
-              {transaction.message}
-            </span>
+            <div className="transactionBannerMessage">
+              <span>
+                {transaction.message}
+              </span>
 
-            {transaction.hash && (
-              <small className="mono">
-                {shortAddress(
-                  transaction.hash
-                )}
-              </small>
-            )}
+              {transaction.hash && (
+                <small className="mono">
+                  {shortAddress(
+                    transaction.hash
+                  )}
+                </small>
+              )}
+            </div>
+
+            <button
+              type="button"
+              className="transactionDismiss"
+              onClick={clearTransaction}
+              aria-label="Dismiss transaction message"
+              title="Dismiss"
+            >
+              <span aria-hidden="true">
+                &times;
+              </span>
+            </button>
           </div>
         )}
 

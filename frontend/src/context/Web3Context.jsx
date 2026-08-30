@@ -1,4 +1,4 @@
-﻿import { ethers } from "ethers";
+import { ethers } from "ethers";
 import {
     createContext,
     useCallback,
@@ -76,12 +76,18 @@ function getExpectedChainId() {
         : DEFAULT_CHAIN_ID;
 }
 
-function getErrorMessage(error) {
-    if (
+function isWalletRejection(error) {
+    return (
         error?.code === 4001 ||
-        error?.code === "ACTION_REJECTED"
-    ) {
-        return "Transaction rejected in wallet.";
+        error?.code === "ACTION_REJECTED" ||
+        error?.error?.code === 4001 ||
+        error?.info?.error?.code === 4001
+    );
+}
+
+function getErrorMessage(error) {
+    if (isWalletRejection(error)) {
+        return "Request cancelled in wallet.";
     }
 
     if (
@@ -1123,26 +1129,39 @@ export function Web3Provider({
 
                     return receipt;
                 } catch (error) {
-                    const message =
-                        getErrorMessage(
+                    const wasRejected =
+                        isWalletRejection(
                             error
                         );
 
-                    console.error(
-                        "Transaction failed:",
-                        error
-                    );
+                    const message =
+                        wasRejected
+                            ? "Transaction cancelled. No changes were made."
+                            : getErrorMessage(
+                                error
+                            );
+
+                    if (!wasRejected) {
+                        console.error(
+                            "Transaction failed:",
+                            error
+                        );
+                    }
 
                     setTransaction({
                         status:
-                            "error",
+                            wasRejected
+                                ? "cancelled"
+                                : "error",
 
                         message,
 
                         hash: "",
 
                         error:
-                            message,
+                            wasRejected
+                                ? ""
+                                : message,
                     });
 
                     throw error;
