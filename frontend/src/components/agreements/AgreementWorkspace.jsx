@@ -1,161 +1,213 @@
-import { ethers } from "ethers";
-import { useMemo, useState } from "react";
+import {
+    useCallback,
+    useMemo,
+    useState,
+} from "react";
 
-import { useWeb3 } from "../../hooks/useWeb3.js";
+import { ethers } from "ethers";
 
 import {
-    createPaiAgreementClient,
-} from "../../agreements/paiAgreementClient.js";
+    paiAgreementApi,
+} from "../../agreements/paiAgreementApi.js";
 
 import {
     createEsctAgreementSettlementClient,
 } from "../../settlement/esctSettlementAdapter.js";
 
+import {
+    findPaiSettlementBinding,
+    getExternalAgreementId,
+    getExternalMilestoneId,
+    paiSettlementBindingApi,
+} from "../../settlement/paiSettlementBindingApi.js";
+
+import {
+    useWeb3,
+} from "../../hooks/useWeb3.js";
+
 import "./AgreementWorkspace.css";
 
-const ERC20_META_ABI = [
-    "function decimals() view returns (uint8)",
-    "function symbol() view returns (string)",
-];
 
-const AGREEMENT_STATUS = [
-    "Proposed",
-    "Accepted",
-    "Active",
-    "Completed",
-    "Cancelled",
-];
-
-const MILESTONE_STATUS = [
-    "Pending",
-    "Submitted",
-    "Disputed",
-    "Released",
-    "Refunded",
-];
-
-function shortAddress(address) {
-    if (!address) {
-        return "-";
-    }
-
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
-
-function makeEvidenceHash(value) {
-    const trimmed = value.trim();
-
-    if (/^0x[a-fA-F0-9]{64}$/.test(trimmed)) {
-        return trimmed;
-    }
-
-    return ethers.keccak256(
-        ethers.toUtf8Bytes(trimmed)
+function errorMessage(
+    error,
+    fallback
+) {
+    return (
+        error?.shortMessage ||
+        error?.reason ||
+        error?.message ||
+        fallback
     );
 }
 
-function statusClass(status) {
-    switch (Number(status)) {
-        case 0:
-            return "proposed";
 
-        case 1:
-            return "accepted";
-
-        case 2:
-            return "active";
-
-        case 3:
-            return "completed";
-
-        case 4:
-            return "cancelled";
-
-        default:
-            return "";
-    }
+function partyForRole(
+    agreement,
+    role
+) {
+    return (
+        agreement?.parties?.find(
+            (party) =>
+                party.role === role
+        ) || null
+    );
 }
 
 
-function getAgreementLifecycleStage(agreement, milestones) {
-    if (!agreement) return -1;
-    if (agreement.status === 3) return 4;
+function normalizeAddress(
+    value
+) {
+    return (
+        typeof value === "string"
+            ? value.toLowerCase()
+            : ""
+    );
+}
 
-    if (agreement.status === 2) {
-        const hasDelivery = milestones.some(
-            (milestone) => milestone.status !== 0
+
+function calculateEthFundingValue(
+    agreement
+) {
+    const milestones =
+        agreement?.milestones || [];
+
+    if (
+        milestones.length === 0
+    ) {
+        throw new Error(
+            "Agreement has no milestones to fund."
         );
-        return hasDelivery ? 3 : 2;
     }
 
-    if (agreement.status === 1) return 1;
-    if (agreement.status === 0) return 0;
-    return -1;
+    let total =
+        0n;
+
+    for (
+        const milestone
+        of milestones
+    ) {
+        const asset =
+            milestone.asset
+                ?.trim()
+                .toUpperCase();
+
+        if (
+            asset !== "ETH"
+        ) {
+            throw new Error(
+                "Current ESCT funding adapter supports ETH milestones only."
+            );
+        }
+
+        if (
+            !milestone.amount
+        ) {
+            throw new Error(
+                `Milestone ${milestone.position} has no funding amount.`
+            );
+        }
+
+        total +=
+            ethers.parseEther(
+                milestone.amount
+            );
+    }
+
+    if (
+        total <= 0n
+    ) {
+        throw new Error(
+            "Agreement funding amount must be greater than zero."
+        );
+    }
+
+    return total;
 }
+
+
 export default function AgreementWorkspace() {
     const {
-        provider,
         account,
-
+        chainId,
         agreementContract,
-        isAgreementReady,
-        isAgreementPaused,
-
         executeTransaction,
     } = useWeb3();
 
-    const [assetType, setAssetType] =
-        useState("ETH");
-
-    const [contractor, setContractor] =
-        useState("");
-
-    const [tokenAddress, setTokenAddress] =
-        useState("");
-
-    const [agreementMetadata, setAgreementMetadata] =
-        useState("");
-
-    const [agreementIdInput, setAgreementIdInput] =
-        useState("");
-
-    const [agreement, setAgreement] =
-        useState(null);
-
-    const [milestones, setMilestones] =
-        useState([]);
-
-    const [milestoneAmount, setMilestoneAmount] =
-        useState("");
-
     const [
-        milestoneMetadata,
-        setMilestoneMetadata,
+        agreementIdInput,
+        setAgreementIdInput,
     ] = useState("");
 
-    const [tokenMeta, setTokenMeta] =
-        useState({
-            symbol: "ETH",
-            decimals: 18,
-        });
+    const [
+        agreement,
+        setAgreement,
+    ] = useState(null);
 
-    const [evidenceByMilestone, setEvidenceByMilestone] =
-        useState({});
+    const [
+        settlementBindings,
+        setSettlementBindings,
+    ] = useState([]);
 
-    const [loading, setLoading] =
-        useState(false);
+    const [
+        loading,
+        setLoading,
+    ] = useState(false);
 
-    const [localError, setLocalError] =
-        useState("");
+    const [
+        localError,
+        setLocalError,
+    ] = useState("");
 
-    const paiAgreementClient =
-        useMemo(
-            () =>
-                createPaiAgreementClient(
-                    agreementContract
-                ),
-            [agreementContract]
-        );
+    const [
+        notice,
+        setNotice,
+    ] = useState("");
+
+    const [
+        contractorWalletAddress,
+        setContractorWalletAddress,
+    ] = useState("");
+
+    const [
+        agreementTitle,
+        setAgreementTitle,
+    ] = useState("");
+
+    const [
+        agreementMetadataUri,
+        setAgreementMetadataUri,
+    ] = useState("");
+
+    const [
+        agreementTermsHash,
+        setAgreementTermsHash,
+    ] = useState("");
+
+    const [
+        milestoneTitle,
+        setMilestoneTitle,
+    ] = useState("");
+
+    const [
+        milestoneSpecificationUri,
+        setMilestoneSpecificationUri,
+    ] = useState("");
+
+    const [
+        milestoneAmount,
+        setMilestoneAmount,
+    ] = useState("");
+
+    const [
+        milestoneAsset,
+        setMilestoneAsset,
+    ] = useState("ETH");
+
+    const [
+        evidenceByMilestone,
+        setEvidenceByMilestone,
+    ] = useState({});
+
 
     const esctSettlementClient =
         useMemo(
@@ -163,117 +215,432 @@ export default function AgreementWorkspace() {
                 createEsctAgreementSettlementClient(
                     agreementContract
                 ),
-            [agreementContract]
+            [
+                agreementContract,
+            ]
         );
 
-    const lifecycleStage =
-        getAgreementLifecycleStage(
-            agreement,
-            milestones
+
+    const settlementContractAddress =
+        useMemo(
+            () => {
+                const value =
+                    agreementContract?.target ||
+                    agreementContract?.address;
+
+                return (
+                    typeof value === "string"
+                        ? value
+                        : ""
+                );
+            },
+            [
+                agreementContract,
+            ]
         );
+
+
+    const settlementBinding =
+        useMemo(
+            () =>
+                findPaiSettlementBinding(
+                    settlementBindings,
+                    {
+                        provider:
+                            "esct",
+
+                        chainId,
+
+                        contractAddress:
+                            settlementContractAddress ||
+                            undefined,
+                    }
+                ),
+            [
+                settlementBindings,
+                chainId,
+                settlementContractAddress,
+            ]
+        );
+
+
+    const externalAgreementId =
+        getExternalAgreementId(
+            settlementBinding
+        );
+
+
+    const clientParty =
+        partyForRole(
+            agreement,
+            "CLIENT"
+        );
+
+    const contractorParty =
+        partyForRole(
+            agreement,
+            "CONTRACTOR"
+        );
+
 
     const normalizedAccount =
-        account?.toLowerCase() || "";
+        normalizeAddress(
+            account
+        );
 
     const isClient =
         Boolean(
-            agreement &&
             normalizedAccount &&
-            agreement.client.toLowerCase() ===
-            normalizedAccount
+            normalizeAddress(
+                clientParty?.walletAddress
+            ) ===
+                normalizedAccount
         );
 
     const isContractor =
         Boolean(
-            agreement &&
             normalizedAccount &&
-            agreement.contractor.toLowerCase() ===
-            normalizedAccount
+            normalizeAddress(
+                contractorParty?.walletAddress
+            ) ===
+                normalizedAccount
         );
 
-    async function resolveTokenMeta(token) {
-        if (
-            !token ||
-            token === ethers.ZeroAddress
-        ) {
-            return {
-                symbol: "ETH",
-                decimals: 18,
-            };
-        }
+
+    const settlementReady =
+        Boolean(
+            esctSettlementClient &&
+            settlementBinding &&
+            externalAgreementId
+        );
+
+
+    const loadAgreement =
+        useCallback(
+            async (
+                requestedAgreementId
+            ) => {
+                const agreementId =
+                    String(
+                        requestedAgreementId || ""
+                    ).trim();
+
+                if (
+                    !agreementId
+                ) {
+                    throw new Error(
+                        "Enter a PAI agreement ID."
+                    );
+                }
+
+                setLoading(true);
+                setLocalError("");
+                setNotice("");
+
+                try {
+                    const [
+                        loadedAgreement,
+                        loadedBindings,
+                    ] =
+                        await Promise.all([
+                            paiAgreementApi
+                                .getAgreement(
+                                    agreementId
+                                ),
+
+                            paiSettlementBindingApi
+                                .getAgreementBindings(
+                                    agreementId
+                                ),
+                        ]);
+
+                    setAgreement(
+                        loadedAgreement
+                    );
+
+                    setSettlementBindings(
+                        loadedBindings
+                    );
+
+                    setAgreementIdInput(
+                        agreementId
+                    );
+                } finally {
+                    setLoading(false);
+                }
+            },
+            []
+        );
+
+
+    async function handleLoadAgreement(
+        event
+    ) {
+        event.preventDefault();
 
         try {
-            const tokenContract =
-                new ethers.Contract(
-                    token,
-                    ERC20_META_ABI,
-                    provider
-                );
-
-            const [
-                symbol,
-                decimals,
-            ] = await Promise.all([
-                tokenContract.symbol(),
-                tokenContract.decimals(),
-            ]);
-
-            return {
-                symbol,
-                decimals: Number(decimals),
-            };
+            await loadAgreement(
+                agreementIdInput
+            );
         } catch (error) {
-            console.warn(
-                "Unable to load token metadata:",
-                error
+            setLocalError(
+                errorMessage(
+                    error,
+                    "Unable to load PAI agreement."
+                )
             );
-
-            return {
-                symbol: "TOKEN",
-                decimals: 18,
-            };
         }
     }
 
-    function formatAmount(
-        value,
-        meta = tokenMeta
-    ) {
-        try {
-            return ethers.formatUnits(
-                value,
-                meta.decimals
-            );
-        } catch {
-            return value?.toString?.() || "-";
-        }
-    }
 
-    async function loadAgreement(
-        explicitId = null
+    async function handleCreateAgreement(
+        event
     ) {
+        event.preventDefault();
+
+        setLocalError("");
+        setNotice("");
+
+        const contractor =
+            contractorWalletAddress.trim();
+
         if (
-            !paiAgreementClient ||
-            !isAgreementReady
+            !ethers.isAddress(
+                contractor
+            )
         ) {
             setLocalError(
-                "PAI agreement client is not ready."
+                "Enter a valid contractor wallet address."
             );
 
             return;
         }
 
-        const rawId =
-            explicitId ??
-            agreementIdInput;
+        try {
+            setLoading(true);
+
+            const result =
+                await paiAgreementApi
+                    .createAgreement({
+                        contractorWalletAddress:
+                            contractor,
+
+                        title:
+                            agreementTitle.trim() ||
+                            undefined,
+
+                        metadataUri:
+                            agreementMetadataUri.trim() ||
+                            undefined,
+
+                        termsHash:
+                            agreementTermsHash.trim() ||
+                            undefined,
+                    });
+
+            setContractorWalletAddress("");
+            setAgreementTitle("");
+            setAgreementMetadataUri("");
+            setAgreementTermsHash("");
+
+            setNotice(
+                "PAI agreement created."
+            );
+
+            await loadAgreement(
+                result.id
+            );
+        } catch (error) {
+            setLocalError(
+                errorMessage(
+                    error,
+                    "Unable to create PAI agreement."
+                )
+            );
+        } finally {
+            setLoading(false);
+        }
+    }
+
+
+    async function handleAddMilestone(
+        event
+    ) {
+        event.preventDefault();
 
         if (
-            rawId === null ||
-            rawId === undefined ||
-            String(rawId).trim() === ""
+            !agreement
+        ) {
+            return;
+        }
+
+        setLocalError("");
+        setNotice("");
+
+        try {
+            setLoading(true);
+
+            await paiAgreementApi
+                .addMilestone(
+                    agreement.id,
+                    {
+                        title:
+                            milestoneTitle.trim() ||
+                            undefined,
+
+                        specificationUri:
+                            milestoneSpecificationUri.trim() ||
+                            undefined,
+
+                        amount:
+                            milestoneAmount.trim() ||
+                            undefined,
+
+                        asset:
+                            milestoneAsset.trim() ||
+                            undefined,
+                    }
+                );
+
+            setMilestoneTitle("");
+            setMilestoneSpecificationUri("");
+            setMilestoneAmount("");
+
+            await loadAgreement(
+                agreement.id
+            );
+
+            setNotice(
+                "PAI milestone added."
+            );
+        } catch (error) {
+            setLocalError(
+                errorMessage(
+                    error,
+                    "Unable to add PAI milestone."
+                )
+            );
+        } finally {
+            setLoading(false);
+        }
+    }
+
+
+    async function handleProposeAgreement() {
+        if (
+            !agreement
+        ) {
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setLocalError("");
+
+            await paiAgreementApi
+                .proposeAgreement(
+                    agreement.id
+                );
+
+            await loadAgreement(
+                agreement.id
+            );
+
+            setNotice(
+                "Agreement proposed."
+            );
+        } catch (error) {
+            setLocalError(
+                errorMessage(
+                    error,
+                    "Unable to propose agreement."
+                )
+            );
+        } finally {
+            setLoading(false);
+        }
+    }
+
+
+    async function handleAcceptAgreement() {
+        if (
+            !agreement
+        ) {
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setLocalError("");
+
+            await paiAgreementApi
+                .acceptAgreement(
+                    agreement.id
+                );
+
+            await loadAgreement(
+                agreement.id
+            );
+
+            setNotice(
+                "Agreement accepted in PAI."
+            );
+        } catch (error) {
+            setLocalError(
+                errorMessage(
+                    error,
+                    "Unable to accept agreement."
+                )
+            );
+        } finally {
+            setLoading(false);
+        }
+    }
+
+
+    function updateEvidence(
+        milestoneId,
+        field,
+        value
+    ) {
+        setEvidenceByMilestone(
+            (current) => ({
+                ...current,
+
+                [milestoneId]: {
+                    ...(current[
+                        milestoneId
+                    ] || {}),
+
+                    [field]:
+                        value,
+                },
+            })
+        );
+    }
+
+
+    async function handleSubmitEvidence(
+        milestone
+    ) {
+        const evidence =
+            evidenceByMilestone[
+                milestone.id
+            ] || {};
+
+        const uri =
+            evidence.uri?.trim() ||
+            "";
+
+        const hash =
+            evidence.hash?.trim() ||
+            "";
+
+        if (
+            !uri
         ) {
             setLocalError(
-                "Enter an Agreement ID."
+                "Evidence URI is required."
             );
 
             return;
@@ -283,558 +650,29 @@ export default function AgreementWorkspace() {
             setLoading(true);
             setLocalError("");
 
-            const agreementId =
-                BigInt(
-                    String(rawId).trim()
-                );
+            await paiAgreementApi
+                .submitEvidence(
+                    agreement.id,
+                    milestone.id,
+                    {
+                        uri,
 
-            const raw =
-                await paiAgreementClient
-                    .getAgreement(
-                        agreementId
-                    );
-
-            if (!raw.exists) {
-                throw new Error(
-                    `Agreement #${agreementId} does not exist.`
-                );
-            }
-
-            const meta =
-                await resolveTokenMeta(
-                    raw.token
-                );
-
-            const milestoneCount =
-                Number(
-                    raw.milestoneCount
-                );
-
-            const loadedMilestones =
-                await Promise.all(
-                    Array.from(
-                        {
-                            length:
-                                milestoneCount,
-                        },
-                        (_, index) =>
-                            paiAgreementClient
-                                .getMilestone(
-                                    agreementId,
-                                    index + 1
-                                )
-                    )
-                );
-
-            setTokenMeta(meta);
-
-            setAgreement({
-                id: raw.id,
-
-                client: raw.client,
-
-                contractor:
-                    raw.contractor,
-
-                token: raw.token,
-
-                totalAmount:
-                    raw.totalAmount,
-
-                remainingEscrow:
-                    raw.remainingEscrow,
-
-                status:
-                    Number(raw.status),
-
-                metadataURI:
-                    raw.metadataURI,
-
-                milestoneCount:
-                    milestoneCount,
-
-                exists:
-                    raw.exists,
-            });
-
-            setMilestones(
-                loadedMilestones.map(
-                    (item) => ({
-                        id: item.id,
-
-                        amount:
-                            item.amount,
-
-                        status:
-                            Number(
-                                item.status
-                            ),
-
-                        metadataURI:
-                            item.metadataURI,
-
-                        evidenceURI:
-                            item.evidenceURI,
-
-                        evidenceHash:
-                            item.evidenceHash,
-
-                        exists:
-                            item.exists,
-                    })
-                )
-            );
-
-            setAgreementIdInput(
-                agreementId.toString()
-            );
-        } catch (error) {
-            console.error(
-                "Load Agreement error:",
-                error
-            );
-
-            setAgreement(null);
-
-            setMilestones([]);
-
-            setLocalError(
-                error?.shortMessage ||
-                error?.message ||
-                "Unable to load agreement."
-            );
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function handleCreateAgreement(
-        event
-    ) {
-        event.preventDefault();
-
-        setLocalError("");
-
-        if (!isAgreementReady || !paiAgreementClient) {
-            setLocalError(
-                "Connect your wallet to the PAI agreement workspace."
-            );
-
-            return;
-        }
-
-        if (
-            !ethers.isAddress(
-                contractor
-            )
-        ) {
-            setLocalError(
-                "Enter a valid contractor address."
-            );
-
-            return;
-        }
-
-        let paymentToken =
-            ethers.ZeroAddress;
-
-        if (assetType === "ERC20") {
-            if (
-                !ethers.isAddress(
-                    tokenAddress
-                ) ||
-                tokenAddress ===
-                ethers.ZeroAddress
-            ) {
-                setLocalError(
-                    "Enter a valid ERC20 token address."
-                );
-
-                return;
-            }
-
-            paymentToken =
-                ethers.getAddress(
-                    tokenAddress
-                );
-        }
-
-        try {
-            const receipt =
-                await executeTransaction({
-                    action: () =>
-                        paiAgreementClient
-                            .createAgreement(
-                                ethers.getAddress(
-                                    contractor
-                                ),
-                                paymentToken,
-                                agreementMetadata.trim()
-                            ),
-
-                    pendingMessage:
-                        "Confirm Agreement creation in your wallet.",
-
-                    submittedMessage:
-                        "Creating Agreement on-chain...",
-
-                    successMessage:
-                        "Agreement created.",
-                });
-
-            let createdId = null;
-
-            for (
-                const log of receipt.logs
-            ) {
-                try {
-                    const parsed =
-                        paiAgreementClient
-                            .parseLog(log);
-
-                    if (
-                        parsed?.name ===
-                        "AgreementCreated"
-                    ) {
-                        createdId =
-                            parsed.args
-                                .agreementId ??
-                            parsed.args[0];
-
-                        break;
+                        hash:
+                            hash ||
+                            undefined,
                     }
-                } catch {
-                    // Ignore unrelated logs.
-                }
-            }
-
-            if (createdId === null) {
-                const nextId =
-                    await paiAgreementClient
-                        .getNextAgreementId();
-
-                createdId =
-                    nextId - 1n;
-            }
-
-            setAgreementIdInput(
-                createdId.toString()
-            );
-
-            setContractor("");
-
-            setAgreementMetadata("");
-
-            setTokenAddress("");
-
-            await loadAgreement(
-                createdId
-            );
-        } catch (error) {
-            setLocalError(
-                error?.shortMessage ||
-                error?.reason ||
-                error?.message ||
-                "Agreement creation failed."
-            );
-        }
-    }
-
-    async function handleAddMilestone(
-        event
-    ) {
-        event.preventDefault();
-
-        if (!agreement) {
-            return;
-        }
-
-        setLocalError("");
-
-        try {
-            let parsedAmount;
-
-            if (
-                agreement.token ===
-                ethers.ZeroAddress
-            ) {
-                parsedAmount =
-                    ethers.parseEther(
-                        milestoneAmount
-                    );
-            } else {
-                parsedAmount =
-                    ethers.parseUnits(
-                        milestoneAmount,
-                        tokenMeta.decimals
-                    );
-            }
-
-            if (parsedAmount <= 0n) {
-                throw new Error(
-                    "Milestone amount must be greater than zero."
                 );
-            }
-
-            await executeTransaction({
-                action: () =>
-                    paiAgreementClient
-                        .addMilestone(
-                            agreement.id,
-                            parsedAmount,
-                            milestoneMetadata.trim()
-                        ),
-
-                pendingMessage:
-                    "Confirm milestone creation.",
-
-                submittedMessage:
-                    "Adding milestone on-chain...",
-
-                successMessage:
-                    "Milestone added.",
-            });
-
-            setMilestoneAmount("");
-
-            setMilestoneMetadata("");
-
-            await loadAgreement(
-                agreement.id
-            );
-        } catch (error) {
-            setLocalError(
-                error?.shortMessage ||
-                error?.reason ||
-                error?.message ||
-                "Unable to add milestone."
-            );
-        }
-    }
-
-    async function handleAcceptAgreement() {
-        if (!agreement) {
-            return;
-        }
-
-        setLocalError("");
-
-        try {
-            await executeTransaction({
-                action: () =>
-                    paiAgreementClient
-                        .acceptAgreement(
-                            agreement.id
-                        ),
-
-                pendingMessage:
-                    "Confirm Agreement acceptance.",
-
-                submittedMessage:
-                    "Accepting Agreement on-chain...",
-
-                successMessage:
-                    "Agreement accepted.",
-            });
-
-            await loadAgreement(
-                agreement.id
-            );
-        } catch (error) {
-            setLocalError(
-                error?.shortMessage ||
-                error?.reason ||
-                error?.message ||
-                "Unable to accept agreement."
-            );
-        }
-    }
-
-
-    async function handleFundAgreement() {
-        if (!agreement) {
-            return;
-        }
-
-        setLocalError("");
-
-        if (!isClient) {
-            setLocalError(
-                "Only the Agreement client can fund this Agreement."
-            );
-
-            return;
-        }
-
-        if (agreement.status !== 1) {
-            setLocalError(
-                "Agreement must be Accepted before funding."
-            );
-
-            return;
-        }
-
-        if (
-            agreement.token !==
-            ethers.ZeroAddress
-        ) {
-            setLocalError(
-                "This Agreement uses ERC20 funding."
-            );
-
-            return;
-        }
-
-        try {
-            await executeTransaction({
-                action: () =>
-                    esctSettlementClient
-                        .fundAgreementETH(
-                            agreement.id,
-                            {
-                                value:
-                                    agreement.totalAmount,
-                            }
-                        ),
-
-                pendingMessage:
-                    `Confirm ${formatAmount(
-                        agreement.totalAmount
-                    )} ETH funding in your wallet.`,
-
-                submittedMessage:
-                    "Funding Agreement escrow...",
-
-                successMessage:
-                    "Agreement funded successfully.",
-            });
-
-            await loadAgreement(
-                agreement.id
-            );
-        } catch (error) {
-            setLocalError(
-                error?.shortMessage ||
-                error?.reason ||
-                error?.message ||
-                "Unable to fund Agreement."
-            );
-        }
-    }
-
-
-    function updateEvidenceField(
-        milestoneId,
-        field,
-        value
-    ) {
-        const key =
-            milestoneId.toString();
-
-        setEvidenceByMilestone(
-            (current) => ({
-                ...current,
-
-                [key]: {
-                    ...(current[key] || {}),
-                    [field]: value,
-                },
-            })
-        );
-    }
-
-    async function handleSubmitMilestone(
-        milestone
-    ) {
-        if (!agreement) {
-            return;
-        }
-
-        setLocalError("");
-
-        if (!isContractor) {
-            setLocalError(
-                "Only the Agreement contractor can deliver this milestone."
-            );
-
-            return;
-        }
-
-        if (
-            agreement.status !== 2 ||
-            milestone.status !== 0
-        ) {
-            setLocalError(
-                "Only a Pending milestone in an Active Agreement can be delivered."
-            );
-
-            return;
-        }
-
-        const key =
-            milestone.id.toString();
-
-        const evidence =
-            evidenceByMilestone[key] ||
-            {};
-
-        const evidenceURI =
-            evidence.uri?.trim() || "";
-
-        const evidenceProof =
-            evidence.proof?.trim() || "";
-
-        if (!evidenceURI) {
-            setLocalError(
-                "Enter an evidence URI before delivering the milestone."
-            );
-
-            return;
-        }
-
-        if (!evidenceProof) {
-            setLocalError(
-                "Enter an evidence hash or proof before delivering the milestone."
-            );
-
-            return;
-        }
-
-        const evidenceHash =
-            makeEvidenceHash(
-                evidenceProof
-            );
-
-        try {
-            setLoading(true);
-
-            await executeTransaction({
-                action: () =>
-                    paiAgreementClient
-                        .submitMilestone(
-                            agreement.id,
-                            milestone.id,
-                            evidenceURI,
-                            evidenceHash
-                        ),
-
-                pendingMessage:
-                    `Confirm delivery of Milestone #${milestone.id.toString()}.`,
-
-                submittedMessage:
-                    `Submitting Milestone #${milestone.id.toString()} evidence...`,
-
-                successMessage:
-                    `Milestone #${milestone.id.toString()} delivered successfully.`,
-            });
 
             setEvidenceByMilestone(
                 (current) => ({
                     ...current,
 
-                    [key]: {
-                        uri: "",
-                        proof: "",
+                    [milestone.id]: {
+                        uri:
+                            "",
+
+                        hash:
+                            "",
                     },
                 })
             );
@@ -842,146 +680,240 @@ export default function AgreementWorkspace() {
             await loadAgreement(
                 agreement.id
             );
+
+            setNotice(
+                "Evidence submitted to PAI."
+            );
         } catch (error) {
             setLocalError(
-                error?.shortMessage ||
-                error?.reason ||
-                error?.message ||
-                "Unable to deliver milestone."
+                errorMessage(
+                    error,
+                    "Unable to submit milestone evidence."
+                )
             );
         } finally {
             setLoading(false);
         }
     }
 
-    async function handleApproveMilestone(
+
+    function requireSettlementContext(
         milestone
     ) {
-        if (!agreement) {
-            return;
-        }
-
-        setLocalError("");
-
-        if (!isClient) {
-            setLocalError(
-                "Only the Agreement client can approve a submitted milestone."
+        if (
+            !esctSettlementClient
+        ) {
+            throw new Error(
+                "ESCT settlement transport is not connected."
             );
-
-            return;
         }
 
         if (
-            agreement.status !== 2 ||
-            milestone.status !== 1
+            !settlementBinding
         ) {
-            setLocalError(
-                "Only a Submitted milestone in an Active Agreement can be approved."
+            throw new Error(
+                "This PAI agreement has no ESCT settlement binding for the connected chain and contract."
+            );
+        }
+
+        if (
+            !externalAgreementId
+        ) {
+            throw new Error(
+                "Settlement binding has no external agreement ID."
+            );
+        }
+
+        if (
+            !milestone
+        ) {
+            return {
+                externalAgreementId,
+            };
+        }
+
+        const externalMilestoneId =
+            getExternalMilestoneId(
+                settlementBinding,
+                milestone.id
             );
 
+        if (
+            !externalMilestoneId
+        ) {
+            throw new Error(
+                `Milestone ${milestone.position} has no external settlement mapping.`
+            );
+        }
+
+        return {
+            externalAgreementId,
+            externalMilestoneId,
+        };
+    }
+
+
+    async function handleFundAgreement() {
+        if (
+            !agreement
+        ) {
             return;
         }
 
         try {
+            const {
+                externalAgreementId:
+                    boundAgreementId,
+            } =
+                requireSettlementContext();
+
+            const value =
+                calculateEthFundingValue(
+                    agreement
+                );
+
+            setLocalError("");
+
+            await executeTransaction({
+                action: () =>
+                    esctSettlementClient
+                        .fundAgreementETH(
+                            boundAgreementId,
+                            {
+                                value,
+                            }
+                        ),
+
+                pendingMessage:
+                    `Confirm ${ethers.formatEther(
+                        value
+                    )} ETH settlement funding.`,
+
+                submittedMessage:
+                    "Funding ESCT settlement...",
+
+                successMessage:
+                    "Settlement funded.",
+            });
+
+            setNotice(
+                "ESCT settlement funded."
+            );
+        } catch (error) {
+            setLocalError(
+                errorMessage(
+                    error,
+                    "Unable to fund settlement."
+                )
+            );
+        }
+    }
+
+
+    async function handleReleaseMilestone(
+        milestone
+    ) {
+        try {
+            const {
+                externalAgreementId:
+                    boundAgreementId,
+
+                externalMilestoneId:
+                    boundMilestoneId,
+            } =
+                requireSettlementContext(
+                    milestone
+                );
+
+            setLocalError("");
+
             await executeTransaction({
                 action: () =>
                     esctSettlementClient
                         .releaseMilestone(
-                            agreement.id,
-                            milestone.id
+                            boundAgreementId,
+                            boundMilestoneId
                         ),
 
                 pendingMessage:
-                    `Confirm release of ${formatAmount(
-                        milestone.amount
-                    )} ${tokenMeta.symbol} for Milestone #${milestone.id.toString()}.`,
+                    `Confirm release for Milestone ${milestone.position}.`,
 
                 submittedMessage:
-                    `Releasing Milestone #${milestone.id.toString()}...`,
+                    "Releasing ESCT milestone...",
 
                 successMessage:
-                    `Milestone #${milestone.id.toString()} approved and released.`,
+                    "Settlement milestone released.",
             });
 
-            await loadAgreement(
-                agreement.id
+            setNotice(
+                "ESCT milestone released."
             );
         } catch (error) {
             setLocalError(
-                error?.shortMessage ||
-                error?.reason ||
-                error?.message ||
-                "Unable to approve milestone."
+                errorMessage(
+                    error,
+                    "Unable to release settlement milestone."
+                )
             );
         }
     }
 
-    async function handleOpenMilestoneDispute(
+
+    async function handleOpenDispute(
         milestone
     ) {
-        if (!agreement) {
-            return;
-        }
-
-        setLocalError("");
-
-        if (!isClient) {
-            setLocalError(
-                "Only the Agreement client can use this review control."
-            );
-
-            return;
-        }
-
-        if (
-            agreement.status !== 2 ||
-            milestone.status !== 1
-        ) {
-            setLocalError(
-                "Only a Submitted milestone in an Active Agreement can be disputed."
-            );
-
-            return;
-        }
-
         try {
+            const {
+                externalAgreementId:
+                    boundAgreementId,
+
+                externalMilestoneId:
+                    boundMilestoneId,
+            } =
+                requireSettlementContext(
+                    milestone
+                );
+
+            setLocalError("");
+
             await executeTransaction({
                 action: () =>
                     esctSettlementClient
                         .openMilestoneDispute(
-                            agreement.id,
-                            milestone.id
+                            boundAgreementId,
+                            boundMilestoneId
                         ),
 
                 pendingMessage:
-                    `Confirm dispute for Milestone #${milestone.id.toString()}.`,
+                    `Confirm settlement dispute for Milestone ${milestone.position}.`,
 
                 submittedMessage:
-                    `Opening dispute for Milestone #${milestone.id.toString()}...`,
+                    "Opening ESCT dispute...",
 
                 successMessage:
-                    `Milestone #${milestone.id.toString()} is now disputed.`,
+                    "Settlement dispute opened.",
             });
 
-            await loadAgreement(
-                agreement.id
+            setNotice(
+                "ESCT dispute opened."
             );
         } catch (error) {
             setLocalError(
-                error?.shortMessage ||
-                error?.reason ||
-                error?.message ||
-                "Unable to open milestone dispute."
+                errorMessage(
+                    error,
+                    "Unable to open settlement dispute."
+                )
             );
         }
     }
+
 
     return (
         <div className="rolePage agreementPage">
             <div className="pageHeading">
                 <div>
                     <span className="eyebrow">
-                        Agreements / Programmable work
+                        PAI / Programmable Agreements
                     </span>
 
                     <h1>
@@ -989,65 +921,14 @@ export default function AgreementWorkspace() {
                     </h1>
 
                     <p>
-                        Create verifiable agreements,
-                        define milestone value and let
-                        the counterparty explicitly
-                        accept the terms on-chain.
+                        PAI owns agreement terms,
+                        milestones, acceptance,
+                        evidence and lifecycle.
+                        ESCT is used only through an
+                        explicit settlement binding.
                     </p>
                 </div>
-
-                <span
-                    className={`agreementProtocolStatus ${isAgreementPaused
-                        ? "paused"
-                        : ""
-                        }`}
-                >
-                    <span className="healthDot" />
-
-                    {isAgreementPaused
-                        ? "AGREEMENTS PAUSED"
-                        : "AGREEMENT V1 LIVE"}
-                </span>
             </div>
-
-            <section
-                className="agreementLifecycle"
-                aria-label="Agreement lifecycle"
-            >
-                {[
-                    "Proposed",
-                    "Accepted",
-                    "Funded",
-                    "Delivered",
-                    "Completed",
-                ].map((label, index) => {
-                    const isComplete =
-                        lifecycleStage >= index;
-                    const isCurrent =
-                        lifecycleStage === index;
-
-                    return (
-                        <div
-                            className={[
-                                "agreementLifecycleStep",
-                                isComplete ? "complete" : "",
-                                isCurrent ? "current" : "",
-                            ]
-                                .filter(Boolean)
-                                .join(" ")}
-                            key={label}
-                        >
-                            <span
-                                className="agreementLifecycleDot"
-                                aria-hidden="true"
-                            />
-                            <span className="agreementLifecycleLabel">
-                                {label}
-                            </span>
-                        </div>
-                    );
-                })}
-            </section>
 
             {localError && (
                 <div className="agreementError">
@@ -1055,756 +936,173 @@ export default function AgreementWorkspace() {
                 </div>
             )}
 
-            <div className="agreementWorkspaceGrid">
-                <section className="agreementPanel">
-                    <div className="agreementPanelHeader">
-                        <div>
-                            <span className="eyebrow">
-                                Client
-                            </span>
+            {notice && (
+                <div className="agreementAcceptedNotice">
+                    {notice}
+                </div>
+            )}
 
-                            <h2>
-                                Create Agreement
-                            </h2>
-                        </div>
+            <section className="agreementCard">
+                <h2>
+                    Open PAI agreement
+                </h2>
 
-                        <span className="agreementStep">
-                            01
-                        </span>
-                    </div>
-
-                    <form
-                        onSubmit={
-                            handleCreateAgreement
+                <form
+                    onSubmit={
+                        handleLoadAgreement
+                    }
+                >
+                    <input
+                        type="text"
+                        value={
+                            agreementIdInput
                         }
-                        className="agreementForm"
-                    >
-                        <label>
-                            Contractor wallet
-
-                            <input
-                                type="text"
-                                placeholder="0x..."
-                                value={
-                                    contractor
-                                }
-                                onChange={(
-                                    event
-                                ) =>
-                                    setContractor(
-                                        event.target
-                                            .value
-                                    )
-                                }
-                            />
-                        </label>
-
-                        <label>
-                            Payment asset
-
-                            <select
-                                value={
-                                    assetType
-                                }
-                                onChange={(
-                                    event
-                                ) =>
-                                    setAssetType(
-                                        event.target
-                                            .value
-                                    )
-                                }
-                            >
-                                <option value="ETH">
-                                    ETH
-                                </option>
-
-                                <option value="ERC20">
-                                    ERC20
-                                </option>
-                            </select>
-                        </label>
-
-                        {assetType ===
-                            "ERC20" && (
-                                <label>
-                                    Approved token address
-
-                                    <input
-                                        type="text"
-                                        placeholder="0x..."
-                                        value={
-                                            tokenAddress
-                                        }
-                                        onChange={(
-                                            event
-                                        ) =>
-                                            setTokenAddress(
-                                                event
-                                                    .target
-                                                    .value
-                                            )
-                                        }
-                                    />
-
-                                    <small>
-                                        Token must already
-                                        be approved by the
-                                        Agreement protocol
-                                        owner.
-                                    </small>
-                                </label>
-                            )}
-
-                        <label>
-                            Agreement terms / metadata
-
-                            <input
-                                type="text"
-                                placeholder="ipfs://..."
-                                value={
-                                    agreementMetadata
-                                }
-                                onChange={(
-                                    event
-                                ) =>
-                                    setAgreementMetadata(
-                                        event.target
-                                            .value
-                                    )
-                                }
-                            />
-                        </label>
-
-                        <button
-                            type="submit"
-                            className="agreementPrimaryButton"
-                            disabled={
-                                !isAgreementReady ||
-                                isAgreementPaused
-                            }
-                        >
-                            Create Agreement
-                        </button>
-                    </form>
-                </section>
-
-                <section className="agreementPanel">
-                    <div className="agreementPanelHeader">
-                        <div>
-                            <span className="eyebrow">
-                                On-chain record
-                            </span>
-
-                            <h2>
-                                Load Agreement
-                            </h2>
-                        </div>
-
-                        <span className="agreementStep">
-                            02
-                        </span>
-                    </div>
-
-                    <div className="agreementLoadRow">
-                        <input
-                            type="number"
-                            min="1"
-                            placeholder="Agreement ID"
-                            value={
-                                agreementIdInput
-                            }
-                            onChange={(
-                                event
-                            ) =>
+                        onChange={
+                            (event) =>
                                 setAgreementIdInput(
-                                    event.target
-                                        .value
+                                    event.target.value
                                 )
-                            }
-                            onKeyDown={(
-                                event
-                            ) => {
-                                if (
-                                    event.key ===
-                                    "Enter"
-                                ) {
-                                    loadAgreement();
-                                }
-                            }}
-                        />
+                        }
+                        placeholder="PAI agreement ID"
+                    />
 
-                        <button
-                            type="button"
-                            onClick={() =>
-                                loadAgreement()
-                            }
-                            disabled={
-                                loading ||
-                                !isAgreementReady
-                            }
-                        >
-                            {loading
-                                ? "Loading..."
-                                : "Load"}
-                        </button>
-                    </div>
+                    <button
+                        type="submit"
+                        className="agreementPrimaryButton"
+                        disabled={
+                            loading
+                        }
+                    >
+                        Load Agreement
+                    </button>
+                </form>
+            </section>
 
-                    {!agreement && (
-                        <div className="agreementEmptyState">
-                            <strong>
-                                No Agreement loaded
-                            </strong>
+            <section className="agreementCard">
+                <h2>
+                    Create agreement
+                </h2>
 
-                            <p>
-                                Create a new Agreement
-                                or enter an existing
-                                on-chain Agreement ID.
-                            </p>
-                        </div>
-                    )}
+                <form
+                    onSubmit={
+                        handleCreateAgreement
+                    }
+                >
+                    <input
+                        type="text"
+                        value={
+                            contractorWalletAddress
+                        }
+                        onChange={
+                            (event) =>
+                                setAgreementMetadataUri(
+                                    event.target.value
+                                )
+                        }
+                        placeholder="Metadata URI"
+                    />
 
-                    {agreement && (
-                        <div className="agreementSummary">
-                            <div className="agreementIdentityRow">
-                                <div>
-                                    <span>
-                                        Agreement
-                                    </span>
+                    <input
+                        type="text"
+                        value={
+                            agreementTermsHash
+                        }
+                        onChange={
+                            (event) =>
+                                setAgreementTermsHash(
+                                    event.target.value
+                                )
+                        }
+                        placeholder="Terms hash"
+                    />
 
-                                    <strong className="mono">
-                                        #
-                                        {agreement.id.toString()}
-                                    </strong>
-                                </div>
-
-                                <span
-                                    className={`agreementStatus ${statusClass(
-                                        agreement.status
-                                    )}`}
-                                >
-                                    {
-                                        AGREEMENT_STATUS[
-                                        agreement
-                                            .status
-                                        ]
-                                    }
-                                </span>
-                            </div>
-
-                            <div className="agreementFacts">
-                                <div>
-                                    <span>
-                                        Client
-                                    </span>
-
-                                    <strong className="mono">
-                                        {shortAddress(
-                                            agreement.client
-                                        )}
-                                    </strong>
-                                </div>
-
-                                <div>
-                                    <span>
-                                        Contractor
-                                    </span>
-
-                                    <strong className="mono">
-                                        {shortAddress(
-                                            agreement.contractor
-                                        )}
-                                    </strong>
-                                </div>
-
-                                <div>
-                                    <span>
-                                        Asset
-                                    </span>
-
-                                    <strong>
-                                        {
-                                            tokenMeta.symbol
-                                        }
-                                    </strong>
-                                </div>
-
-                                <div>
-                                    <span>
-                                        Total
-                                    </span>
-
-                                    <strong>
-                                        {formatAmount(
-                                            agreement.totalAmount
-                                        )}{" "}
-                                        {
-                                            tokenMeta.symbol
-                                        }
-                                    </strong>
-                                </div>
-
-                                <div>
-                                    <span>
-                                        Remaining escrow
-                                    </span>
-
-                                    <strong>
-                                        {formatAmount(
-                                            agreement.remainingEscrow
-                                        )}{" "}
-                                        {
-                                            tokenMeta.symbol
-                                        }
-                                    </strong>
-                                </div>
-
-                                <div>
-                                    <span>
-                                        Milestones
-                                    </span>
-
-                                    <strong>
-                                        {
-                                            agreement.milestoneCount
-                                        }
-                                    </strong>
-                                </div>
-
-                                <div>
-                                    <span>
-                                        Your role
-                                    </span>
-
-                                    <strong>
-                                        {isClient
-                                            ? "Client"
-                                            : isContractor
-                                                ? "Contractor"
-                                                : "Observer"}
-                                    </strong>
-                                </div>
-                            </div>
-
-                            {agreement.metadataURI && (
-                                <div className="agreementMetadata">
-                                    <span>
-                                        Agreement metadata
-                                    </span>
-
-                                    <code>
-                                        {
-                                            agreement.metadataURI
-                                        }
-                                    </code>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </section>
-            </div>
+                    <button
+                        type="submit"
+                        className="agreementPrimaryButton"
+                        disabled={
+                            loading
+                        }
+                    >
+                        Create PAI Agreement
+                    </button>
+                </form>
+            </section>
 
             {agreement && (
-                <section className="agreementMilestoneSection">
-                    <div className="agreementSectionHeader">
-                        <div>
-                            <span className="eyebrow">
-                                Agreement #
-                                {agreement.id.toString()}
+                <>
+                    <section className="agreementCard">
+                        <span className="eyebrow">
+                            PAI Agreement
+                        </span>
+
+                        <h2>
+                            {agreement.title ||
+                                "Untitled agreement"}
+                        </h2>
+
+                        <p className="mono">
+                            {agreement.id}
+                        </p>
+
+                        <p>
+                            Status:{" "}
+                            <strong>
+                                {agreement.status}
+                            </strong>
+                        </p>
+
+                        <p>
+                            Client:{" "}
+                            <span className="mono">
+                                {clientParty
+                                    ?.walletAddress ||
+                                    "-"}
                             </span>
+                        </p>
 
-                            <h2>
-                                Milestones
-                            </h2>
-                        </div>
+                        <p>
+                            Contractor:{" "}
+                            <span className="mono">
+                                {contractorParty
+                                    ?.walletAddress ||
+                                    "-"}
+                            </span>
+                        </p>
 
-                        <strong>
-                            {
-                                milestones.length
-                            }{" "}
-                            defined
-                        </strong>
-                    </div>
+                        <p>
+                            Settlement:{" "}
+                            <strong>
+                                {settlementReady
+                                    ? `linked as ${externalAgreementId}`
+                                    : "not linked for this chain"}
+                            </strong>
+                        </p>
 
-                    {isClient &&
-                        agreement.status ===
-                        0 && (
-                            <form
-                                className="agreementMilestoneForm"
-                                onSubmit={
-                                    handleAddMilestone
-                                }
-                            >
-                                <label>
-                                    Amount
-
-                                    <div className="agreementAmountInput">
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            step="any"
-                                            placeholder="0.00"
-                                            value={
-                                                milestoneAmount
-                                            }
-                                            onChange={(
-                                                event
-                                            ) =>
-                                                setMilestoneAmount(
-                                                    event
-                                                        .target
-                                                        .value
-                                                )
-                                            }
-                                        />
-
-                                        <span>
-                                            {
-                                                tokenMeta.symbol
-                                            }
-                                        </span>
-                                    </div>
-                                </label>
-
-                                <label>
-                                    Milestone specification URI
-
-                                    <input
-                                        type="text"
-                                        placeholder="ipfs://milestone-specification"
-                                        value={
-                                            milestoneMetadata
-                                        }
-                                        onChange={(
-                                            event
-                                        ) =>
-                                            setMilestoneMetadata(
-                                                event
-                                                    .target
-                                                    .value
-                                            )
-                                        }
-                                    />
-                                </label>
-
-                                <button
-                                    type="submit"
-                                    className="agreementPrimaryButton"
-                                >
-                                    Add Milestone
-                                </button>
-                            </form>
-                        )}
-
-                    <div className="agreementMilestoneList">
-                        {milestones.length ===
-                            0 ? (
-                            <div className="agreementEmptyState">
-                                <strong>
-                                    No milestones yet
-                                </strong>
-
-                                <p>
-                                    The client must add
-                                    at least one
-                                    milestone before the
-                                    contractor can
-                                    accept.
-                                </p>
-                            </div>
-                        ) : (
-                            milestones.map(
-                                (milestone) => (
-                                    <article
-                                        className="agreementMilestoneCard"
-                                        key={milestone.id.toString()}
-                                    >
-                                        <div className="agreementMilestoneIndex">
-                                            {String(
-                                                milestone.id
-                                            ).padStart(
-                                                2,
-                                                "0"
-                                            )}
-                                        </div>
-
-                                        <div className="agreementMilestoneBody">
-                                            <div className="agreementMilestoneHeading">
-                                                <div>
-                                                    <span>
-                                                        Milestone{" "}
-                                                        #
-                                                        {milestone.id.toString()}
-                                                    </span>
-
-                                                    <strong>
-                                                        {formatAmount(
-                                                            milestone.amount
-                                                        )}{" "}
-                                                        {
-                                                            tokenMeta.symbol
-                                                        }
-                                                    </strong>
-                                                </div>
-
-                                                <span
-                                                    className={`milestoneStatus milestone-${milestone.status}`}
-                                                >
-                                                    {
-                                                        MILESTONE_STATUS[
-                                                        milestone
-                                                            .status
-                                                        ]
-                                                    }
-                                                </span>
-                                            </div>
-
-                                            <code>
-                                                {milestone.metadataURI ||
-                                                    "No metadata URI"}
-                                            </code>
-
-                                            {milestone.evidenceURI && (
-                                                <div className="agreementMetadata">
-                                                    <span>
-                                                        Submitted evidence
-                                                    </span>
-
-                                                    <code>
-                                                        {
-                                                            milestone.evidenceURI
-                                                        }
-                                                    </code>
-                                                </div>
-                                            )}
-
-                                            {milestone.evidenceHash &&
-                                                milestone.evidenceHash !==
-                                                ethers.ZeroHash && (
-                                                    <div className="agreementMetadata">
-                                                        <span>
-                                                            Evidence hash
-                                                        </span>
-
-                                                        <code>
-                                                            {
-                                                                milestone.evidenceHash
-                                                            }
-                                                        </code>
-                                                    </div>
-                                                )}
-
-                                            {isContractor &&
-                                                agreement.status ===
-                                                2 &&
-                                                milestone.status ===
-                                                0 && (
-                                                    <div className="agreementAcceptanceBox">
-                                                        <div>
-                                                            <span className="eyebrow">
-                                                                Contractor delivery
-                                                            </span>
-
-                                                            <h3>
-                                                                Deliver milestone
-                                                            </h3>
-
-                                                            <p>
-                                                                Attach the delivery or evidence URI and a proof value. PAI records the delivery against this milestone for client review.
-                                                            </p>
-                                                        </div>
-
-                                                        <div className="agreementMilestoneForm">
-                                                            <label>
-                                                                Evidence URI
-
-                                                                <input
-                                                                    type="text"
-                                                                    placeholder="ipfs://... or https://..."
-                                                                    value={
-                                                                        evidenceByMilestone[
-                                                                            milestone.id.toString()
-                                                                        ]?.uri ||
-                                                                        ""
-                                                                    }
-                                                                    onChange={(
-                                                                        event
-                                                                    ) =>
-                                                                        updateEvidenceField(
-                                                                            milestone.id,
-                                                                            "uri",
-                                                                            event.target.value
-                                                                        )
-                                                                    }
-                                                                />
-                                                            </label>
-
-                                                            <label>
-                                                                Evidence hash or proof
-
-                                                                <input
-                                                                    type="text"
-                                                                    placeholder="0x bytes32, checksum, commit hash or proof text"
-                                                                    value={
-                                                                        evidenceByMilestone[
-                                                                            milestone.id.toString()
-                                                                        ]?.proof ||
-                                                                        ""
-                                                                    }
-                                                                    onChange={(
-                                                                        event
-                                                                    ) =>
-                                                                        updateEvidenceField(
-                                                                            milestone.id,
-                                                                            "proof",
-                                                                            event.target.value
-                                                                        )
-                                                                    }
-                                                                />
-                                                            </label>
-
-                                                            <button
-                                                                type="button"
-                                                                className="agreementPrimaryButton"
-                                                                disabled={
-                                                                    loading
-                                                                }
-                                                                onClick={() =>
-                                                                    handleSubmitMilestone(
-                                                                        milestone
-                                                                    )
-                                                                }
-                                                            >
-                                                                Deliver Milestone
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                            {isClient &&
-                                                agreement.status ===
-                                                2 &&
-                                                milestone.status ===
-                                                1 && (
-                                                    <div className="agreementAcceptanceBox">
-                                                        <div>
-                                                            <span className="eyebrow">
-                                                                Client review
-                                                            </span>
-
-                                                            <h3>
-                                                                Review submitted milestone
-                                                            </h3>
-
-                                                            <p>
-                                                                Approving releases only this
-                                                                milestone amount to the
-                                                                contractor. Opening a dispute
-                                                                moves this milestone to
-                                                                arbitration instead.
-                                                            </p>
-                                                        </div>
-
-                                                        <div className="agreementMilestoneForm">
-                                                            <button
-                                                                type="button"
-                                                                className="agreementPrimaryButton"
-                                                                disabled={
-                                                                    loading
-                                                                }
-                                                                onClick={() =>
-                                                                    handleApproveMilestone(
-                                                                        milestone
-                                                                    )
-                                                                }
-                                                            >
-                                                                Approve & Release{" "}
-                                                                {formatAmount(
-                                                                    milestone.amount
-                                                                )}{" "}
-                                                                {
-                                                                    tokenMeta.symbol
-                                                                }
-                                                            </button>
-
-                                                            <button
-                                                                type="button"
-                                                                className="agreementAcceptButton"
-                                                                disabled={
-                                                                    loading
-                                                                }
-                                                                onClick={() =>
-                                                                    handleOpenMilestoneDispute(
-                                                                        milestone
-                                                                    )
-                                                                }
-                                                            >
-                                                                Open Dispute
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                            {milestone.status ===
-                                                2 && (
-                                                    <div className="agreementWaitingNotice">
-                                                        Milestone is disputed and
-                                                        waiting for arbitration.
-                                                    </div>
-                                                )}
-
-                                            {milestone.status ===
-                                                3 && (
-                                                    <div className="agreementAcceptedNotice">
-                                                        Milestone approved and
-                                                        released to the contractor.
-                                                    </div>
-                                                )}
-
-                                            {milestone.status ===
-                                                4 && (
-                                                    <div className="agreementWaitingNotice">
-                                                        Milestone refunded to the
-                                                        client.
-                                                    </div>
-                                                )}
-                                        </div>
-                                    </article>
-                                )
-                            )
-                        )}
-                    </div>
-
-                    {agreement.status ===
-                        0 &&
-                        isContractor && (
-                            <div className="agreementAcceptanceBox">
-                                <div>
-                                    <span className="eyebrow">
-                                        Counterparty
-                                        approval
-                                    </span>
-
-                                    <h3>
-                                        Accept Agreement
-                                    </h3>
-
-                                    <p>
-                                        Acceptance locks
-                                        the defined
-                                        milestones and
-                                        confirms these
-                                        terms from your
-                                        wallet.
-                                    </p>
-                                </div>
-
+                        {isClient &&
+                            agreement.status ===
+                                "DRAFT" && (
                                 <button
                                     type="button"
-                                    className="agreementAcceptButton"
+                                    className="agreementPrimaryButton"
                                     disabled={
-                                        milestones.length ===
-                                        0
+                                        loading
+                                    }
+                                    onClick={
+                                        handleProposeAgreement
+                                    }
+                                >
+                                    Propose Agreement
+                                </button>
+                            )}
+
+                        {isContractor &&
+                            agreement.status ===
+                                "PROPOSED" && (
+                                <button
+                                    type="button"
+                                    className="agreementPrimaryButton"
+                                    disabled={
+                                        loading
                                     }
                                     onClick={
                                         handleAcceptAgreement
@@ -1812,143 +1110,298 @@ export default function AgreementWorkspace() {
                                 >
                                     Accept Agreement
                                 </button>
-                            </div>
-                        )}
+                            )}
 
-                    {agreement.status ===
-                        0 &&
-                        !isContractor && (
-                            <div className="agreementWaitingNotice">
-                                Waiting for contractor{" "}
-                                <strong className="mono">
-                                    {shortAddress(
-                                        agreement.contractor
-                                    )}
-                                </strong>{" "}
-                                to accept the Agreement.
-                            </div>
-                        )}
-
-                    {agreement.status ===
-                        1 &&
-                        isClient &&
-                        agreement.token ===
-                        ethers.ZeroAddress && (
-                            <div className="agreementAcceptanceBox">
-                                <div>
-                                    <span className="eyebrow">
-                                        Escrow funding
-                                    </span>
-
-                                    <h3>
-                                        Fund Agreement
-                                    </h3>
-
-                                    <p>
-                                        The contractor accepted
-                                        the terms. Lock the full
-                                        Agreement value in ESCT
-                                        escrow to activate the
-                                        milestone lifecycle.
-                                    </p>
-
-                                    <p>
-                                        Required funding:{" "}
-                                        <strong>
-                                            {formatAmount(
-                                                agreement.totalAmount
-                                            )}{" "}
-                                            ETH
-                                        </strong>
-                                    </p>
-                                </div>
-
+                        {isClient &&
+                            agreement.status ===
+                                "ACCEPTED" && (
                                 <button
                                     type="button"
                                     className="agreementPrimaryButton"
                                     disabled={
-                                        isAgreementPaused
+                                        loading ||
+                                        !settlementReady
                                     }
                                     onClick={
                                         handleFundAgreement
                                     }
                                 >
-                                    Fund{" "}
-                                    {formatAmount(
-                                        agreement.totalAmount
-                                    )}{" "}
-                                    ETH
+                                    Fund Linked ESCT Settlement
                                 </button>
-                            </div>
+                            )}
+                    </section>
+
+                    {isClient &&
+                        agreement.status ===
+                            "DRAFT" && (
+                            <section className="agreementCard">
+                                <h2>
+                                    Add milestone
+                                </h2>
+
+                                <form
+                                    onSubmit={
+                                        handleAddMilestone
+                                    }
+                                >
+                                    <input
+                                        value={
+                                            milestoneTitle
+                                        }
+                                        onChange={
+                                            (event) =>
+                                                setMilestoneTitle(
+                                                    event.target.value
+                                                )
+                                        }
+                                        placeholder="Milestone title"
+                                    />
+
+                                    <input
+                                        value={
+                                            milestoneSpecificationUri
+                                        }
+                                        onChange={
+                                            (event) =>
+                                                setMilestoneSpecificationUri(
+                                                    event.target.value
+                                                )
+                                        }
+                                        placeholder="Specification URI"
+                                    />
+
+                                    <input
+                                        value={
+                                            milestoneAmount
+                                        }
+                                        onChange={
+                                            (event) =>
+                                                setMilestoneAmount(
+                                                    event.target.value
+                                                )
+                                        }
+                                        placeholder="Amount"
+                                    />
+
+                                    <input
+                                        value={
+                                            milestoneAsset
+                                        }
+                                        onChange={
+                                            (event) =>
+                                                setMilestoneAsset(
+                                                    event.target.value
+                                                )
+                                        }
+                                        placeholder="Asset, e.g. ETH"
+                                    />
+
+                                    <button
+                                        type="submit"
+                                        className="agreementPrimaryButton"
+                                        disabled={
+                                            loading
+                                        }
+                                    >
+                                        Add PAI Milestone
+                                    </button>
+                                </form>
+                            </section>
                         )}
 
-                    {agreement.status ===
-                        1 &&
-                        isClient &&
-                        agreement.token !==
-                        ethers.ZeroAddress && (
-                            <div className="agreementAcceptedNotice">
-                                Agreement accepted. ERC20
-                                funding controls are the next
-                                step for this Agreement.
-                            </div>
-                        )}
+                    <section className="agreementCard">
+                        <h2>
+                            Milestones
+                        </h2>
 
-                    {agreement.status ===
-                        1 &&
-                        !isClient && (
-                            <div className="agreementAcceptedNotice">
-                                Agreement accepted. Waiting
-                                for the client{" "}
-                                <strong className="mono">
-                                    {shortAddress(
-                                        agreement.client
-                                    )}
-                                </strong>{" "}
-                                to fund the escrow.
-                            </div>
-                        )}
+                        {agreement.milestones
+                            ?.length ===
+                        0 ? (
+                            <p>
+                                No milestones yet.
+                            </p>
+                        ) : (
+                            agreement.milestones
+                                ?.map(
+                                    (
+                                        milestone
+                                    ) => {
+                                        const externalMilestoneId =
+                                            getExternalMilestoneId(
+                                                settlementBinding,
+                                                milestone.id
+                                            );
 
-                    {agreement.status ===
-                        2 &&
-                        isClient && (
-                            <div className="agreementAcceptedNotice">
-                                Agreement funded and active.
-                                Submitted milestones can be
-                                approved for release or moved
-                                into dispute from the milestone
-                                cards above.
-                            </div>
-                        )}
+                                        return (
+                                            <div
+                                                key={
+                                                    milestone.id
+                                                }
+                                                className="agreementMilestoneCard"
+                                            >
+                                                <h3>
+                                                    Milestone{" "}
+                                                    {milestone.position}
+                                                    {milestone.title
+                                                        ? ` — ${milestone.title}`
+                                                        : ""}
+                                                </h3>
 
-                    {agreement.status ===
-                        2 &&
-                        isContractor && (
-                            <div className="agreementAcceptedNotice">
-                                Agreement funded and active.
-                                Deliver milestone work from the
-                                milestone cards above.
-                            </div>
-                        )}
+                                                <p>
+                                                    PAI status:{" "}
+                                                    <strong>
+                                                        {milestone.status}
+                                                    </strong>
+                                                </p>
 
-                    {agreement.status ===
-                        2 &&
-                        !isClient &&
-                        !isContractor && (
-                            <div className="agreementAcceptedNotice">
-                                Agreement funded and active.
-                            </div>
-                        )}
+                                                <p>
+                                                    Amount:{" "}
+                                                    {milestone.amount ||
+                                                        "-"}{" "}
+                                                    {milestone.asset ||
+                                                        ""}
+                                                </p>
 
-                    {agreement.status ===
-                        3 && (
-                            <div className="agreementAcceptedNotice">
-                                Agreement completed. All
-                                milestone escrow has been
-                                resolved.
-                            </div>
+                                                <p>
+                                                    Settlement ID:{" "}
+                                                    <span className="mono">
+                                                        {externalMilestoneId ||
+                                                            "not linked"}
+                                                    </span>
+                                                </p>
+
+                                                {isContractor &&
+                                                    (
+                                                        agreement.status ===
+                                                            "ACCEPTED" ||
+                                                        agreement.status ===
+                                                            "IN_PROGRESS"
+                                                    ) &&
+                                                    (
+                                                        milestone.status ===
+                                                            "PENDING" ||
+                                                        milestone.status ===
+                                                            "REVISION_REQUESTED"
+                                                    ) && (
+                                                        <div>
+                                                            <input
+                                                                value={
+                                                                    evidenceByMilestone[
+                                                                        milestone.id
+                                                                    ]?.uri ||
+                                                                    ""
+                                                                }
+                                                                onChange={
+                                                                    (event) =>
+                                                                        updateEvidence(
+                                                                            milestone.id,
+                                                                            "uri",
+                                                                            event.target.value
+                                                                        )
+                                                                }
+                                                                placeholder="Evidence URI"
+                                                            />
+
+                                                            <input
+                                                                value={
+                                                                    evidenceByMilestone[
+                                                                        milestone.id
+                                                                    ]?.hash ||
+                                                                    ""
+                                                                }
+                                                                onChange={
+                                                                    (event) =>
+                                                                        updateEvidence(
+                                                                            milestone.id,
+                                                                            "hash",
+                                                                            event.target.value
+                                                                        )
+                                                                }
+                                                                placeholder="Evidence hash"
+                                                            />
+
+                                                            <button
+                                                                type="button"
+                                                                className="agreementPrimaryButton"
+                                                                disabled={
+                                                                    loading
+                                                                }
+                                                                onClick={
+                                                                    () =>
+                                                                        handleSubmitEvidence(
+                                                                            milestone
+                                                                        )
+                                                                }
+                                                            >
+                                                                Submit Evidence to PAI
+                                                            </button>
+                                                        </div>
+                                                    )}
+
+                                                {isClient &&
+                                                    milestone.status ===
+                                                        "SUBMITTED" && (
+                                                        <div>
+                                                            <button
+                                                                type="button"
+                                                                className="agreementPrimaryButton"
+                                                                disabled={
+                                                                    loading ||
+                                                                    !settlementReady ||
+                                                                    !externalMilestoneId
+                                                                }
+                                                                onClick={
+                                                                    () =>
+                                                                        handleReleaseMilestone(
+                                                                            milestone
+                                                                        )
+                                                                }
+                                                            >
+                                                                Release Linked Settlement
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                disabled={
+                                                                    loading ||
+                                                                    !settlementReady ||
+                                                                    !externalMilestoneId
+                                                                }
+                                                                onClick={
+                                                                    () =>
+                                                                        handleOpenDispute(
+                                                                            milestone
+                                                                        )
+                                                                }
+                                                            >
+                                                                Open ESCT Dispute
+                                                            </button>
+                                                        </div>
+                                                    )}
+
+                                                {milestone.evidence
+                                                    ?.map(
+                                                        (
+                                                            evidence
+                                                        ) => (
+                                                            <div
+                                                                key={
+                                                                    evidence.id
+                                                                }
+                                                            >
+                                                                <span className="mono">
+                                                                    {evidence.uri}
+                                                                </span>
+                                                            </div>
+                                                        )
+                                                    )}
+                                            </div>
+                                        );
+                                    }
+                                )
                         )}
-                </section>
+                    </section>
+                </>
             )}
         </div>
     );

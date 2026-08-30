@@ -34,6 +34,30 @@ function hasDeployedCode(code) {
     );
 }
 
+function requireEsctUintId(
+    value,
+    label
+) {
+    const normalized =
+        String(
+            value ?? ""
+        ).trim();
+
+    if (
+        !/^\d+$/.test(
+            normalized
+        )
+    ) {
+        throw new Error(
+            `Invalid ESCT ${label}. Expected an external numeric settlement ID.`
+        );
+    }
+
+    return BigInt(
+        normalized
+    );
+}
+
 /**
  * Temporary compatibility transport for the legacy mixed
  * AgreementEscrow deployment.
@@ -113,32 +137,47 @@ export function createEsctAgreementSettlementClient(
 
     return {
         fundAgreementETH(
-            agreementId,
+            externalAgreementId,
             overrides
         ) {
             return contract.fundAgreementETH(
-                agreementId,
+                requireEsctUintId(
+                    externalAgreementId,
+                    "agreement ID"
+                ),
                 overrides
             );
         },
 
         releaseMilestone(
-            agreementId,
-            milestoneId
+            externalAgreementId,
+            externalMilestoneId
         ) {
             return contract.approveMilestone(
-                agreementId,
-                milestoneId
+                requireEsctUintId(
+                    externalAgreementId,
+                    "agreement ID"
+                ),
+                requireEsctUintId(
+                    externalMilestoneId,
+                    "milestone ID"
+                )
             );
         },
 
         openMilestoneDispute(
-            agreementId,
-            milestoneId
+            externalAgreementId,
+            externalMilestoneId
         ) {
             return contract.openMilestoneDispute(
-                agreementId,
-                milestoneId
+                requireEsctUintId(
+                    externalAgreementId,
+                    "agreement ID"
+                ),
+                requireEsctUintId(
+                    externalMilestoneId,
+                    "milestone ID"
+                )
             );
         },
     };
