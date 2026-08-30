@@ -269,6 +269,8 @@ function ProtocolSidebar() {
         <div className="sidebarStatusHeading">
           <span
             className={
+              !isConnected ||
+              !isCorrectNetwork ||
               isPaused
                 ? "healthDot warning"
                 : "healthDot"
@@ -278,16 +280,33 @@ function ProtocolSidebar() {
           <span>Protocol health</span>
         </div>
 
-        <strong>
-          {isPaused
-            ? "Payments paused"
-            : "Operational"}
+        <strong
+          className={
+            !isConnected ||
+            !isCorrectNetwork
+              ? "warningText"
+              : isPaused
+                ? "dangerText"
+                : "healthyText"
+          }
+        >
+          {!isConnected
+            ? "Unverified"
+            : !isCorrectNetwork
+              ? "Wrong network"
+              : isPaused
+                ? "Payments paused"
+                : "Operational"}
         </strong>
 
         <small>
-          {isPaused
-            ? "New payments disabled"
-            : "Payment engine active"}
+          {!isConnected
+            ? "Connect wallet to verify"
+            : !isCorrectNetwork
+              ? "Switch to expected network"
+              : isPaused
+                ? "New payments disabled"
+                : "Payment engine active"}
         </small>
       </div>
 
@@ -650,14 +669,21 @@ function DashboardPage() {
 
           <strong
             className={
-              isPaused
-                ? "dangerText"
-                : "healthyText"
+              !isConnected ||
+              !isCorrectNetwork
+                ? ""
+                : isPaused
+                  ? "dangerText"
+                  : "healthyText"
             }
           >
-            {isPaused
-              ? "Paused"
-              : "Active"}
+            {!isConnected
+              ? "Unverified"
+              : !isCorrectNetwork
+                ? "Unverified"
+                : isPaused
+                  ? "Paused"
+                  : "Active"}
           </strong>
 
           <small>
