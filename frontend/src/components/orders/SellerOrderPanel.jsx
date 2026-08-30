@@ -1,4 +1,4 @@
-import { ethers } from "ethers";
+﻿import { ethers } from "ethers";
 import { useState } from "react";
 
 import { useWeb3 } from "../../hooks/useWeb3.js";
@@ -1160,7 +1160,7 @@ export default function SellerOrderPanel() {
                                                                         field is not
                                                                         already a
                                                                         bytes32 hash,
-                                                                        ESCT hashes the
+                                                                        PAI hashes the
                                                                         entered proof
                                                                         text locally
                                                                         before sending

@@ -1,4 +1,4 @@
-import { useWeb3 } from "../../hooks/useWeb3.js";
+﻿import { useWeb3 } from "../../hooks/useWeb3.js";
 import "./WalletControl.css";
 
 function shortAddress(address) {
@@ -109,8 +109,8 @@ export default function WalletControl() {
                     .join(" ")}
                 title={
                     isCorrectNetwork
-                        ? `${account} â€” ${getNetworkName(chainId)}`
-                        : `${account} â€” Wrong network`
+                        ? `${account} Ã¢â‚¬â€ ${getNetworkName(chainId)}`
+                        : `${account} Ã¢â‚¬â€ Wrong network`
                 }
             >
                 <span
@@ -165,7 +165,7 @@ export default function WalletControl() {
                     >
                         {isAuthenticating
                             ? "Signing in..."
-                            : "Sign in to ESCT"}
+                            : "Sign in to PAI"}
                     </button>
                 )}
 

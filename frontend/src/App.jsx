@@ -1,4 +1,4 @@
-import {
+﻿import {
   useEffect,
   useState,
 } from "react";
@@ -318,7 +318,7 @@ function ProtocolSidebar() {
       </div>
 
       <div className="sidebarVersion">
-        ESCT Protocol
+        PAI
         <span>RC2 / Testnet</span>
       </div>
     </aside>
@@ -435,7 +435,7 @@ function DashboardPage() {
           </span>
 
           <h1>
-            ESCT Dashboard
+            PAI Dashboard
           </h1>
 
           <p>
@@ -699,7 +699,7 @@ function DashboardPage() {
 
           <NavLink to="/buyer">
               Open workspace
-              <span>→</span>
+              <span>â†’</span>
             </NavLink>
           </div>
         </div>
@@ -726,7 +726,7 @@ function DashboardPage() {
 
             <NavLink to="/seller">
               Open workspace
-              <span>→</span>
+              <span>â†’</span>
             </NavLink>
           </div>
         </div>
@@ -753,7 +753,7 @@ function DashboardPage() {
 
             <NavLink to="/arbitration">
               Open workspace
-              <span>→</span>
+              <span>â†’</span>
             </NavLink>
           </div>
         </div>
@@ -780,7 +780,7 @@ function DashboardPage() {
 
             <NavLink to="/admin">
               Open workspace
-              <span>→</span>
+              <span>â†’</span>
             </NavLink>
           </div>
         </div>
@@ -907,7 +907,7 @@ function SellerPage() {
           </h3>
 
           <p>
-            ESCT checks that the connected
+            PAI checks that the connected
             wallet is the recorded seller.
           </p>
         </div>
@@ -1034,14 +1034,14 @@ function App() {
           to="/"
         >
           <span className="brandGlyph">
-            E
+            P
           </span>
 
           <div>
-            <strong>ESCT</strong>
+            <strong>PAI</strong>
 
             <small>
-              Protocol
+              Infrastructure
             </small>
           </div>
         </NavLink>
@@ -1187,5 +1187,3 @@ function App() {
 }
 
 export default App;
-
-

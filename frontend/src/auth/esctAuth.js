@@ -1,4 +1,4 @@
-async function readJson(response) {
+﻿async function readJson(response) {
     try {
         return await response.json();
     } catch {
@@ -79,7 +79,7 @@ export function buildSiweMessage({
         `${domain} wants you to sign in with your Ethereum account:`,
         walletAddress,
         "",
-        "Sign in to ESCT.",
+        "Sign in to PAI.",
         "",
         `URI: ${uri}`,
         `Version: ${version}`,
@@ -123,7 +123,7 @@ export async function verifySiweAuthentication({
 
     return requireSuccess(
         response,
-        "ESCT authentication failed."
+        "PAI authentication failed."
     );
 }
 
@@ -153,7 +153,7 @@ export async function fetchCurrentSession() {
 
     return requireSuccess(
         response,
-        "Unable to restore ESCT session."
+        "Unable to restore PAI session."
     );
 }
 
@@ -176,6 +176,6 @@ export async function logoutSession() {
 
     return requireSuccess(
         response,
-        "Unable to log out of ESCT."
+        "Unable to log out of PAI."
     );
 }

@@ -1,4 +1,4 @@
-import { ethers } from "ethers";
+﻿import { ethers } from "ethers";
 import { useState } from "react";
 
 import { useWeb3 } from "../../hooks/useWeb3.js";
@@ -1589,7 +1589,7 @@ export default function AgreementWorkspace() {
                                     <p>
                                         The contractor accepted
                                         the terms. Lock the full
-                                        Agreement value in ESCT
+                                        Agreement value in PAI
                                         escrow to activate the
                                         milestone lifecycle.
                                     </p>
