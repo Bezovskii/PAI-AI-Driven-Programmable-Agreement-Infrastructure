@@ -113,27 +113,27 @@ export function Web3Provider({
 
 
     /* =====================================================
-                       AGREEMENT STATE
+                       ESCT SETTLEMENT STATE
        ===================================================== */
 
     const [
-        agreementContract,
-        setAgreementContract,
+        esctSettlementContract,
+        setEsctSettlementContract,
     ] = useState(null);
 
     const [
-        agreementOwner,
-        setAgreementOwner,
+        esctSettlementOwner,
+        setEsctSettlementOwner,
     ] = useState("");
 
     const [
-        agreementArbitrator,
-        setAgreementArbitrator,
+        esctSettlementArbitrator,
+        setEsctSettlementArbitrator,
     ] = useState("");
 
     const [
-        isAgreementPaused,
-        setIsAgreementPaused,
+        isEsctSettlementPaused,
+        setIsEsctSettlementPaused,
     ] = useState(false);
 
     /* =====================================================
@@ -155,15 +155,15 @@ export function Web3Provider({
 
 
     /* =====================================================
-                     CLEAR AGREEMENT
+                     CLEAR ESCT SETTLEMENT
        ===================================================== */
 
-    const clearAgreementState =
+    const clearEsctSettlementState =
         useCallback(() => {
-            setAgreementContract(null);
-            setAgreementOwner("");
-            setAgreementArbitrator("");
-            setIsAgreementPaused(false);
+            setEsctSettlementContract(null);
+            setEsctSettlementOwner("");
+            setEsctSettlementArbitrator("");
+            setIsEsctSettlementPaused(false);
         }, []);
 
     /* =====================================================
@@ -196,17 +196,17 @@ export function Web3Provider({
             setAccount("");
             setChainId(null);
 
-            clearAgreementState();
+            clearEsctSettlementState();
         }, [
-            clearAgreementState,
+            clearEsctSettlementState,
         ]);
 
 
     /* =====================================================
-                   LOAD AGREEMENT STATE
+                   LOAD ESCT SETTLEMENT STATE
        ===================================================== */
 
-    const loadAgreementState =
+    const loadEsctSettlementState =
         useCallback(
             async (
                 appContract
@@ -221,15 +221,15 @@ export function Web3Provider({
                     appContract.paused(),
                 ]);
 
-                setAgreementOwner(
+                setEsctSettlementOwner(
                     protocolOwner
                 );
 
-                setAgreementArbitrator(
+                setEsctSettlementArbitrator(
                     protocolArbitrator
                 );
 
-                setIsAgreementPaused(
+                setIsEsctSettlementPaused(
                     Boolean(paused)
                 );
             },
@@ -360,7 +360,7 @@ export function Web3Provider({
                     detectedChainId !==
                     expectedChainId
                 ) {
-                            clearAgreementState();
+                            clearEsctSettlementState();
 
                     return true;
                 }
@@ -370,9 +370,9 @@ export function Web3Provider({
 
                 const {
                     agreementContract:
-                        settlementAgreementContract,
+                        loadedEsctSettlementContract,
                     address:
-                        agreementTransportAddress,
+                        esctSettlementTransportAddress,
                 } =
                     await createEsctAgreementTransport({
                         provider:
@@ -385,30 +385,30 @@ export function Web3Provider({
                             detectedChainId,
                     });
 
-                if (!settlementAgreementContract) {
-                    clearAgreementState();
+                if (!loadedEsctSettlementContract) {
+                    clearEsctSettlementState();
 
                     console.warn(
-                        `Agreement transport is unavailable at ${agreementTransportAddress} on chain ${detectedChainId}.`
+                        `ESCT settlement transport is unavailable at ${esctSettlementTransportAddress} on chain ${detectedChainId}.`
                     );
 
                     return true;
                 }
 
-                await loadAgreementState(
-                    settlementAgreementContract
+                await loadEsctSettlementState(
+                    loadedEsctSettlementContract
                 );
 
-                setAgreementContract(
-                    settlementAgreementContract
+                setEsctSettlementContract(
+                    loadedEsctSettlementContract
                 );
 
                 return true;
             },
             [
-                clearAgreementState,
+                clearEsctSettlementState,
                 expectedChainId,
-                loadAgreementState,
+                loadEsctSettlementState,
                 resetConnection,
             ]
         );
@@ -795,25 +795,25 @@ export function Web3Provider({
         );
 
     /* =====================================================
-                  REFRESH AGREEMENT STATE
+                  REFRESH ESCT SETTLEMENT STATE
        ===================================================== */
 
-    const refreshAgreementState =
+    const refreshEsctSettlementState =
         useCallback(
             async () => {
                 if (
-                    !agreementContract
+                    !esctSettlementContract
                 ) {
                     return;
                 }
 
                 try {
-                    await loadAgreementState(
-                        agreementContract
+                    await loadEsctSettlementState(
+                        esctSettlementContract
                     );
                 } catch (error) {
                     console.error(
-                        "Unable to refresh Agreement protocol state:",
+                        "Unable to refresh ESCT settlement state:",
                         error
                     );
 
@@ -836,8 +836,8 @@ export function Web3Provider({
                 }
             },
             [
-                agreementContract,
-                loadAgreementState,
+                esctSettlementContract,
+                loadEsctSettlementState,
             ]
         );
 
@@ -915,7 +915,7 @@ export function Web3Provider({
                         error: "",
                     });
 
-                    await refreshAgreementState();
+                    await refreshEsctSettlementState();
 
                     return receipt;
                 } catch (error) {
@@ -945,7 +945,7 @@ export function Web3Provider({
                 }
             },
             [
-                refreshAgreementState,
+                refreshEsctSettlementState,
             ]
         );
 
@@ -1220,29 +1220,29 @@ export function Web3Provider({
                        AGREEMENT ROLES
        ===================================================== */
 
-    const isAgreementReady =
+    const isEsctSettlementReady =
         Boolean(
             isConnected &&
             isCorrectNetwork &&
-            agreementContract
+            esctSettlementContract
         );
 
-    const isAgreementOwner =
+    const isEsctSettlementOwner =
         Boolean(
-            isAgreementReady &&
+            isEsctSettlementReady &&
             normalizedAccount &&
-            agreementOwner &&
+            esctSettlementOwner &&
             normalizedAccount ===
-            agreementOwner.toLowerCase()
+            esctSettlementOwner.toLowerCase()
         );
 
-    const isAgreementArbitrator =
+    const isEsctSettlementArbitrator =
         Boolean(
-            isAgreementReady &&
+            isEsctSettlementReady &&
             normalizedAccount &&
-            agreementArbitrator &&
+            esctSettlementArbitrator &&
             normalizedAccount ===
-            agreementArbitrator.toLowerCase()
+            esctSettlementArbitrator.toLowerCase()
         );
 
     /* =====================================================
@@ -1282,17 +1282,17 @@ export function Web3Provider({
                 logout,
 
 
-                /* Agreement */
+                /* ESCT settlement integration */
 
-                agreementContract,
+                esctSettlementContract,
 
-                agreementOwner,
-                agreementArbitrator,
-                isAgreementPaused,
+                esctSettlementOwner,
+                esctSettlementArbitrator,
+                isEsctSettlementPaused,
 
-                isAgreementReady,
-                isAgreementOwner,
-                isAgreementArbitrator,
+                isEsctSettlementReady,
+                isEsctSettlementOwner,
+                isEsctSettlementArbitrator,
 
                 /* Transactions */
 
@@ -1300,7 +1300,7 @@ export function Web3Provider({
 
                 executeTransaction,
 
-                refreshAgreementState,
+                refreshEsctSettlementState,
 
                 clearTransaction,
             }),
@@ -1333,21 +1333,21 @@ export function Web3Provider({
 
 
 
-                agreementContract,
+                esctSettlementContract,
 
-                agreementOwner,
-                agreementArbitrator,
-                isAgreementPaused,
+                esctSettlementOwner,
+                esctSettlementArbitrator,
+                isEsctSettlementPaused,
 
-                isAgreementReady,
-                isAgreementOwner,
-                isAgreementArbitrator,
+                isEsctSettlementReady,
+                isEsctSettlementOwner,
+                isEsctSettlementArbitrator,
 
                 transaction,
 
                 executeTransaction,
 
-                refreshAgreementState,
+                refreshEsctSettlementState,
 
                 clearTransaction,
             ]

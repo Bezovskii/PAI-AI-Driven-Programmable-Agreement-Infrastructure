@@ -129,7 +129,7 @@ export default function AgreementWorkspace() {
     const {
         account,
         chainId,
-        agreementContract,
+        esctSettlementContract,
         executeTransaction,
     } = useWeb3();
 
@@ -213,10 +213,10 @@ export default function AgreementWorkspace() {
         useMemo(
             () =>
                 createEsctAgreementSettlementClient(
-                    agreementContract
+                    esctSettlementContract
                 ),
             [
-                agreementContract,
+                esctSettlementContract,
             ]
         );
 
@@ -225,8 +225,8 @@ export default function AgreementWorkspace() {
         useMemo(
             () => {
                 const value =
-                    agreementContract?.target ||
-                    agreementContract?.address;
+                    esctSettlementContract?.target ||
+                    esctSettlementContract?.address;
 
                 return (
                     typeof value === "string"
@@ -235,7 +235,7 @@ export default function AgreementWorkspace() {
                 );
             },
             [
-                agreementContract,
+                esctSettlementContract,
             ]
         );
 
