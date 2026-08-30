@@ -1,10 +1,10 @@
 import { ethers } from "ethers";
 
 import {
-    agreementContractAddress,
-} from "../contract/agreementContractAddress.js";
+    esctSettlementContractAddress,
+} from "./esctSettlementContractAddress.js";
 
-import agreementABI from "../contract/AgreementEscrowABI.json";
+import legacyAgreementEscrowABI from "./legacyAgreementEscrowABI.json";
 
 function resolveAbi(source, label) {
     const abi =
@@ -21,9 +21,9 @@ function resolveAbi(source, label) {
     return abi;
 }
 
-const agreementTransportABI =
+const legacySettlementTransportABI =
     resolveAbi(
-        agreementABI,
+        legacyAgreementEscrowABI,
         "agreement settlement"
     );
 
@@ -88,14 +88,14 @@ export async function createEsctAgreementTransport({
 
     const deployedCode =
         await provider.getCode(
-            agreementContractAddress
+            esctSettlementContractAddress
         );
 
     if (!hasDeployedCode(deployedCode)) {
         return {
             agreementContract: null,
             address:
-                agreementContractAddress,
+                esctSettlementContractAddress,
             chainId,
         };
     }
@@ -103,13 +103,13 @@ export async function createEsctAgreementTransport({
     return {
         agreementContract:
             new ethers.Contract(
-                agreementContractAddress,
-                agreementTransportABI,
+                esctSettlementContractAddress,
+                legacySettlementTransportABI,
                 signer
             ),
 
         address:
-            agreementContractAddress,
+            esctSettlementContractAddress,
 
         chainId,
     };
