@@ -11,7 +11,7 @@ import {
 } from "../../agreements/paiAgreementApi.js";
 
 import {
-    createEsctAgreementSettlementClient,
+    createEsctSettlementClient,
 } from "../../settlement/esctSettlementAdapter.js";
 
 import {
@@ -212,7 +212,7 @@ export default function AgreementWorkspace() {
     const esctSettlementClient =
         useMemo(
             () =>
-                createEsctAgreementSettlementClient(
+                createEsctSettlementClient(
                     esctSettlementContract
                 ),
             [

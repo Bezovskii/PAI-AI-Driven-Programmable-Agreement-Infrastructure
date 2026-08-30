@@ -8,7 +8,7 @@ import {
 } from "react";
 
 import {
-    createEsctAgreementTransport,
+    createEsctSettlementTransport,
 } from "../settlement/esctSettlementAdapter.js";
 
 import {
@@ -365,16 +365,16 @@ export function Web3Provider({
                     return true;
                 }
                 /* =========================================
-                   LEGACY AGREEMENT TRANSPORT
+                   LEGACY ESCT SETTLEMENT TRANSPORT
                    ========================================= */
 
                 const {
-                    agreementContract:
+                    settlementContract:
                         loadedEsctSettlementContract,
                     address:
                         esctSettlementTransportAddress,
                 } =
-                    await createEsctAgreementTransport({
+                    await createEsctSettlementTransport({
                         provider:
                             browserProvider,
 

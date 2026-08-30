@@ -24,7 +24,7 @@ function resolveAbi(source, label) {
 const legacySettlementTransportABI =
     resolveAbi(
         legacyAgreementEscrowABI,
-        "agreement settlement"
+        "legacy settlement transport"
     );
 
 function hasDeployedCode(code) {
@@ -62,27 +62,27 @@ function requireEsctUintId(
  * Temporary compatibility transport for the legacy mixed
  * AgreementEscrow deployment.
  *
- * PAI agreement operations and ESCT settlement operations
- * use separate higher-level clients even though they currently
- * share this deployed transport.
+ * The PAI agreement domain does not use this transport.
+ * Only the ESCT settlement integration reaches the legacy
+ * deployment through this adapter.
  *
  * The transport can later be replaced without changing the
  * PAI agreement workspace.
  */
-export async function createEsctAgreementTransport({
+export async function createEsctSettlementTransport({
     provider,
     signer,
     chainId,
 }) {
     if (!provider) {
         throw new Error(
-            "A provider is required to connect to the agreement transport."
+            "A provider is required to connect to the ESCT settlement transport."
         );
     }
 
     if (!signer) {
         throw new Error(
-            "A wallet signer is required to connect to the agreement transport."
+            "A wallet signer is required to connect to the ESCT settlement transport."
         );
     }
 
@@ -93,7 +93,7 @@ export async function createEsctAgreementTransport({
 
     if (!hasDeployedCode(deployedCode)) {
         return {
-            agreementContract: null,
+            settlementContract: null,
             address:
                 esctSettlementContractAddress,
             chainId,
@@ -101,7 +101,7 @@ export async function createEsctAgreementTransport({
     }
 
     return {
-        agreementContract:
+        settlementContract:
             new ethers.Contract(
                 esctSettlementContractAddress,
                 legacySettlementTransportABI,
@@ -128,10 +128,10 @@ export async function createEsctAgreementTransport({
  * The legacy AgreementEscrow transport is intentionally hidden
  * behind this boundary.
  */
-export function createEsctAgreementSettlementClient(
-    contract
+export function createEsctSettlementClient(
+    settlementContract
 ) {
-    if (!contract) {
+    if (!settlementContract) {
         return null;
     }
 
@@ -140,7 +140,7 @@ export function createEsctAgreementSettlementClient(
             externalAgreementId,
             overrides
         ) {
-            return contract.fundAgreementETH(
+            return settlementContract.fundAgreementETH(
                 requireEsctUintId(
                     externalAgreementId,
                     "agreement ID"
@@ -153,7 +153,7 @@ export function createEsctAgreementSettlementClient(
             externalAgreementId,
             externalMilestoneId
         ) {
-            return contract.approveMilestone(
+            return settlementContract.approveMilestone(
                 requireEsctUintId(
                     externalAgreementId,
                     "agreement ID"
@@ -169,7 +169,7 @@ export function createEsctAgreementSettlementClient(
             externalAgreementId,
             externalMilestoneId
         ) {
-            return contract.openMilestoneDispute(
+            return settlementContract.openMilestoneDispute(
                 requireEsctUintId(
                     externalAgreementId,
                     "agreement ID"
