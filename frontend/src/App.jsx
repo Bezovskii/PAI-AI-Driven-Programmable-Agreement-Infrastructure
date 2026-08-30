@@ -1,4 +1,4 @@
-﻿import {
+import {
   useEffect,
   useState,
 } from "react";
@@ -1033,17 +1033,15 @@ function App() {
           className="roleBrand"
           to="/"
         >
-          <span className="brandGlyph">
-            P
+          <span className="brandGlyph" aria-hidden="true">
+            <img src="/pai-mark.png" alt="" />
           </span>
 
-          <div>
-            <strong>PAI</strong>
-
-            <small>
-              Infrastructure
-            </small>
-          </div>
+          <img
+            className="brandWordmark"
+            src="/pai-wordmark.png"
+            alt="PAI"
+          />
         </NavLink>
 
         <nav className="roleNav">
