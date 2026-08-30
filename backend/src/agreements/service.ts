@@ -8,6 +8,8 @@ import {
   AgreementNotFoundError,
   type AgreementRouteOperations,
   type AgreementView,
+  type MilestoneReviewInput,
+  type MilestoneRouteResult,
 } from "./routes.js";
 
 /* =========================================================
@@ -60,6 +62,166 @@ function sameWallet(
 export function createPrismaAgreementOperations(
   prisma: PrismaClient,
 ): AgreementRouteOperations {
+  const reviewSubmittedMilestone =
+    async (
+      input:
+        MilestoneReviewInput,
+      nextStatus:
+        "REVISION_REQUESTED" |
+        "APPROVED",
+    ): Promise<MilestoneRouteResult> => {
+      const actorWallet =
+        normalizeWalletAddress(
+          input.actor.walletAddress,
+        );
+
+      return prisma.$transaction(
+        async (
+          transaction,
+        ) => {
+          const agreement =
+            await transaction
+              .agreement
+              .findUnique({
+                where: {
+                  id:
+                    input.agreementId,
+                },
+
+                select: {
+                  id:
+                    true,
+
+                  status:
+                    true,
+
+                  parties: {
+                    where: {
+                      walletAddress:
+                        actorWallet,
+                    },
+
+                    select: {
+                      role:
+                        true,
+                    },
+                  },
+                },
+              });
+
+          if (!agreement) {
+            throw new AgreementNotFoundError();
+          }
+
+          const client =
+            agreement.parties[0];
+
+          if (
+            !client ||
+            client.role !==
+              "CLIENT"
+          ) {
+            throw new AgreementAccessError(
+              "Only the client may review milestone submissions.",
+            );
+          }
+
+          if (
+            agreement.status !==
+            "IN_PROGRESS"
+          ) {
+            throw new AgreementConflictError(
+              "Milestone submissions may only be reviewed while the agreement is in progress.",
+            );
+          }
+
+          const milestone =
+            await transaction
+              .milestone
+              .findFirst({
+                where: {
+                  id:
+                    input.milestoneId,
+
+                  agreementId:
+                    agreement.id,
+                },
+
+                select: {
+                  id:
+                    true,
+
+                  agreementId:
+                    true,
+
+                  position:
+                    true,
+
+                  status:
+                    true,
+                },
+              });
+
+          if (!milestone) {
+            throw new AgreementNotFoundError();
+          }
+
+          if (
+            milestone.status !==
+            "SUBMITTED"
+          ) {
+            throw new AgreementConflictError(
+              "Only a submitted milestone may be reviewed.",
+            );
+          }
+
+          const update =
+            await transaction
+              .milestone
+              .updateMany({
+                where: {
+                  id:
+                    milestone.id,
+
+                  agreementId:
+                    agreement.id,
+
+                  status:
+                    "SUBMITTED",
+                },
+
+                data: {
+                  status:
+                    nextStatus,
+                },
+              });
+
+          if (
+            update.count !==
+            1
+          ) {
+            throw new AgreementConflictError(
+              "Milestone state changed before review completed.",
+            );
+          }
+
+          return {
+            id:
+              milestone.id,
+
+            agreementId:
+              milestone.agreementId,
+
+            position:
+              milestone.position,
+
+            status:
+              nextStatus,
+          };
+        },
+      );
+    };
+
   return {
     /* =====================================================
        CREATE
@@ -1016,5 +1178,27 @@ export function createPrismaAgreementOperations(
           },
         );
       },
+
+    /* =====================================================
+       REVIEW MILESTONE
+       ===================================================== */
+
+    requestMilestoneRevision:
+      async (
+        input,
+      ) =>
+        reviewSubmittedMilestone(
+          input,
+          "REVISION_REQUESTED",
+        ),
+
+    approveMilestone:
+      async (
+        input,
+      ) =>
+        reviewSubmittedMilestone(
+          input,
+          "APPROVED",
+        ),
   };
 }

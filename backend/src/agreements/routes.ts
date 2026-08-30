@@ -141,6 +141,16 @@ export interface SubmitEvidenceInput {
     string | undefined;
 }
 
+export interface MilestoneReviewInput {
+  readonly actor:
+    AgreementRouteActor;
+
+  readonly agreementId:
+    string;
+
+  readonly milestoneId:
+    string;
+}
 export interface AgreementRouteOperations {
   readonly createAgreement:
     (
@@ -177,6 +187,17 @@ export interface AgreementRouteOperations {
       input:
         SubmitEvidenceInput,
     ) => Promise<EvidenceRouteResult>;
+  readonly requestMilestoneRevision:
+    (
+      input:
+        MilestoneReviewInput,
+    ) => Promise<MilestoneRouteResult>;
+
+  readonly approveMilestone:
+    (
+      input:
+        MilestoneReviewInput,
+    ) => Promise<MilestoneRouteResult>;
 }
 
 export interface AgreementRouteOptions {
@@ -1204,6 +1225,161 @@ export function registerAgreementRoutes(
           .code(201)
           .send(
             evidence,
+          );
+      } catch (error) {
+        return sendDomainError(
+          error,
+          reply,
+        );
+      }
+    },
+  );
+  typedApp.post(
+    "/api/v1/agreements/:id/milestones/:milestoneId/request-revision",
+    {
+      schema: {
+        params:
+          MilestoneParamsSchema,
+
+        response: {
+          200:
+            MilestoneResultSchema,
+
+          401:
+            UnauthenticatedSchema,
+
+          403:
+            ForbiddenSchema,
+
+          404:
+            NotFoundSchema,
+
+          409:
+            ConflictSchema,
+        },
+      },
+    },
+    async (
+      request,
+      reply,
+    ) => {
+      const session =
+        await resolveActor(
+          request,
+          options,
+        );
+
+      if (!session) {
+        return reply
+          .code(401)
+          .send({
+            error:
+              "unauthenticated",
+          });
+      }
+
+      try {
+        const milestone =
+          await options.operations
+            .requestMilestoneRevision({
+              actor: {
+                userId:
+                  session.userId,
+
+                walletAddress:
+                  session.walletAddress,
+              },
+
+              agreementId:
+                request.params.id,
+
+              milestoneId:
+                request.params
+                  .milestoneId,
+            });
+
+        return reply
+          .code(200)
+          .send(
+            milestone,
+          );
+      } catch (error) {
+        return sendDomainError(
+          error,
+          reply,
+        );
+      }
+    },
+  );
+
+  typedApp.post(
+    "/api/v1/agreements/:id/milestones/:milestoneId/approve",
+    {
+      schema: {
+        params:
+          MilestoneParamsSchema,
+
+        response: {
+          200:
+            MilestoneResultSchema,
+
+          401:
+            UnauthenticatedSchema,
+
+          403:
+            ForbiddenSchema,
+
+          404:
+            NotFoundSchema,
+
+          409:
+            ConflictSchema,
+        },
+      },
+    },
+    async (
+      request,
+      reply,
+    ) => {
+      const session =
+        await resolveActor(
+          request,
+          options,
+        );
+
+      if (!session) {
+        return reply
+          .code(401)
+          .send({
+            error:
+              "unauthenticated",
+          });
+      }
+
+      try {
+        const milestone =
+          await options.operations
+            .approveMilestone({
+              actor: {
+                userId:
+                  session.userId,
+
+                walletAddress:
+                  session.walletAddress,
+              },
+
+              agreementId:
+                request.params.id,
+
+              milestoneId:
+                request.params
+                  .milestoneId,
+            });
+
+        return reply
+          .code(200)
+          .send(
+            milestone,
           );
       } catch (error) {
         return sendDomainError(

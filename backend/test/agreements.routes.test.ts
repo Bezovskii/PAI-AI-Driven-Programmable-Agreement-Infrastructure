@@ -66,6 +66,20 @@ function createUnexpectedOperations():
           "submitEvidence must not be called.",
         );
       },
+
+    requestMilestoneRevision:
+      async () => {
+        throw new Error(
+          "requestMilestoneRevision must not be called.",
+        );
+      },
+
+    approveMilestone:
+      async () => {
+        throw new Error(
+          "approveMilestone must not be called.",
+        );
+      },
   };
 }
 
@@ -177,6 +191,22 @@ test(
             "ipfs://evidence-1",
         },
       },
+
+      {
+        method:
+          "POST" as const,
+
+        url:
+          "/api/v1/agreements/agreement-1/milestones/milestone-1/request-revision",
+      },
+
+      {
+        method:
+          "POST" as const,
+
+        url:
+          "/api/v1/agreements/agreement-1/milestones/milestone-1/approve",
+      },
     ];
 
     for (
@@ -227,6 +257,7 @@ test(
 
     const operations:
       AgreementRouteOperations = {
+        ...createUnexpectedOperations(),
         createAgreement:
           async (
             input,
@@ -475,6 +506,283 @@ test(
       {
         error:
           "unauthenticated",
+      },
+    );
+  },
+);
+/* =========================================================
+   MILESTONE REVIEW ROUTES
+   ========================================================= */
+
+test(
+  "request-revision forwards authenticated CLIENT review input",
+  async (t) => {
+    let receivedToken =
+      "";
+
+    let receivedInput:
+      unknown;
+
+    const operations:
+      AgreementRouteOperations = {
+        ...createUnexpectedOperations(),
+
+        requestMilestoneRevision:
+          async (
+            input,
+          ) => {
+            receivedInput =
+              input;
+
+            return {
+              id:
+                "milestone-1",
+
+              agreementId:
+                "agreement-1",
+
+              position:
+                1,
+
+              status:
+                "REVISION_REQUESTED",
+            };
+          },
+      };
+
+    const app =
+      buildApp({
+        logger:
+          false,
+
+        readinessProbe:
+          async () =>
+            true,
+
+        agreements: {
+          sessionCookieName:
+            COOKIE_NAME,
+
+          resolveSession:
+            async (
+              rawToken,
+            ) => {
+              receivedToken =
+                rawToken;
+
+              return {
+                userId:
+                  "user-client",
+
+                walletAddress:
+                  CLIENT_WALLET,
+              };
+            },
+
+          operations,
+        },
+      });
+
+    t.after(
+      async () => {
+        await app.close();
+      },
+    );
+
+    const response =
+      await app.inject({
+        method:
+          "POST",
+
+        url:
+          "/api/v1/agreements/agreement-1/milestones/milestone-1/request-revision",
+
+        headers: {
+          cookie:
+            `${COOKIE_NAME}=${RAW_TOKEN}`,
+        },
+      });
+
+    assert.equal(
+      response.statusCode,
+      200,
+    );
+
+    assert.deepEqual(
+      response.json(),
+      {
+        id:
+          "milestone-1",
+
+        agreementId:
+          "agreement-1",
+
+        position:
+          1,
+
+        status:
+          "REVISION_REQUESTED",
+      },
+    );
+
+    assert.equal(
+      receivedToken,
+      RAW_TOKEN,
+    );
+
+    assert.deepEqual(
+      receivedInput,
+      {
+        actor: {
+          userId:
+            "user-client",
+
+          walletAddress:
+            CLIENT_WALLET,
+        },
+
+        agreementId:
+          "agreement-1",
+
+        milestoneId:
+          "milestone-1",
+      },
+    );
+  },
+);
+
+test(
+  "approve route forwards authenticated CLIENT review input",
+  async (t) => {
+    let receivedToken =
+      "";
+
+    let receivedInput:
+      unknown;
+
+    const operations:
+      AgreementRouteOperations = {
+        ...createUnexpectedOperations(),
+
+        approveMilestone:
+          async (
+            input,
+          ) => {
+            receivedInput =
+              input;
+
+            return {
+              id:
+                "milestone-1",
+
+              agreementId:
+                "agreement-1",
+
+              position:
+                1,
+
+              status:
+                "APPROVED",
+            };
+          },
+      };
+
+    const app =
+      buildApp({
+        logger:
+          false,
+
+        readinessProbe:
+          async () =>
+            true,
+
+        agreements: {
+          sessionCookieName:
+            COOKIE_NAME,
+
+          resolveSession:
+            async (
+              rawToken,
+            ) => {
+              receivedToken =
+                rawToken;
+
+              return {
+                userId:
+                  "user-client",
+
+                walletAddress:
+                  CLIENT_WALLET,
+              };
+            },
+
+          operations,
+        },
+      });
+
+    t.after(
+      async () => {
+        await app.close();
+      },
+    );
+
+    const response =
+      await app.inject({
+        method:
+          "POST",
+
+        url:
+          "/api/v1/agreements/agreement-1/milestones/milestone-1/approve",
+
+        headers: {
+          cookie:
+            `${COOKIE_NAME}=${RAW_TOKEN}`,
+        },
+      });
+
+    assert.equal(
+      response.statusCode,
+      200,
+    );
+
+    assert.deepEqual(
+      response.json(),
+      {
+        id:
+          "milestone-1",
+
+        agreementId:
+          "agreement-1",
+
+        position:
+          1,
+
+        status:
+          "APPROVED",
+      },
+    );
+
+    assert.equal(
+      receivedToken,
+      RAW_TOKEN,
+    );
+
+    assert.deepEqual(
+      receivedInput,
+      {
+        actor: {
+          userId:
+            "user-client",
+
+          walletAddress:
+            CLIENT_WALLET,
+        },
+
+        agreementId:
+          "agreement-1",
+
+        milestoneId:
+          "milestone-1",
       },
     );
   },

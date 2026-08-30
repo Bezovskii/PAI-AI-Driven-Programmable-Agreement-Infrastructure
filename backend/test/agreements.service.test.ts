@@ -955,3 +955,532 @@ test(
     );
   },
 );
+/* =========================================================
+   MILESTONE REVIEW
+   ========================================================= */
+
+test(
+  "CLIENT requests revision for SUBMITTED milestone",
+  async () => {
+    let updateArgs:
+      unknown;
+
+    const transaction = {
+      agreement: {
+        findUnique:
+          async () => ({
+            id:
+              "agreement-1",
+
+            status:
+              "IN_PROGRESS",
+
+            parties: [
+              {
+                role:
+                  "CLIENT",
+              },
+            ],
+          }),
+      },
+
+      milestone: {
+        findFirst:
+          async () => ({
+            id:
+              "milestone-1",
+
+            agreementId:
+              "agreement-1",
+
+            position:
+              1,
+
+            status:
+              "SUBMITTED",
+          }),
+
+        updateMany:
+          async (
+            args: unknown,
+          ) => {
+            updateArgs =
+              args;
+
+            return {
+              count:
+                1,
+            };
+          },
+      },
+    };
+
+    const prisma =
+      asPrismaClient({
+        $transaction:
+          async (
+            work: (
+              tx:
+                typeof transaction,
+            ) => Promise<unknown>,
+          ) =>
+            work(
+              transaction,
+            ),
+      });
+
+    const operations =
+      createPrismaAgreementOperations(
+        prisma,
+      );
+
+    const result =
+      await operations
+        .requestMilestoneRevision({
+          actor:
+            CLIENT_ACTOR,
+
+          agreementId:
+            "agreement-1",
+
+          milestoneId:
+            "milestone-1",
+        });
+
+    assert.deepEqual(
+      result,
+      {
+        id:
+          "milestone-1",
+
+        agreementId:
+          "agreement-1",
+
+        position:
+          1,
+
+        status:
+          "REVISION_REQUESTED",
+      },
+    );
+
+    assert.deepEqual(
+      updateArgs,
+      {
+        where: {
+          id:
+            "milestone-1",
+
+          agreementId:
+            "agreement-1",
+
+          status:
+            "SUBMITTED",
+        },
+
+        data: {
+          status:
+            "REVISION_REQUESTED",
+        },
+      },
+    );
+  },
+);
+
+test(
+  "CLIENT approves SUBMITTED milestone",
+  async () => {
+    let updateArgs:
+      unknown;
+
+    const transaction = {
+      agreement: {
+        findUnique:
+          async () => ({
+            id:
+              "agreement-1",
+
+            status:
+              "IN_PROGRESS",
+
+            parties: [
+              {
+                role:
+                  "CLIENT",
+              },
+            ],
+          }),
+      },
+
+      milestone: {
+        findFirst:
+          async () => ({
+            id:
+              "milestone-1",
+
+            agreementId:
+              "agreement-1",
+
+            position:
+              1,
+
+            status:
+              "SUBMITTED",
+          }),
+
+        updateMany:
+          async (
+            args: unknown,
+          ) => {
+            updateArgs =
+              args;
+
+            return {
+              count:
+                1,
+            };
+          },
+      },
+    };
+
+    const prisma =
+      asPrismaClient({
+        $transaction:
+          async (
+            work: (
+              tx:
+                typeof transaction,
+            ) => Promise<unknown>,
+          ) =>
+            work(
+              transaction,
+            ),
+      });
+
+    const operations =
+      createPrismaAgreementOperations(
+        prisma,
+      );
+
+    const result =
+      await operations
+        .approveMilestone({
+          actor:
+            CLIENT_ACTOR,
+
+          agreementId:
+            "agreement-1",
+
+          milestoneId:
+            "milestone-1",
+        });
+
+    assert.deepEqual(
+      result,
+      {
+        id:
+          "milestone-1",
+
+        agreementId:
+          "agreement-1",
+
+        position:
+          1,
+
+        status:
+          "APPROVED",
+      },
+    );
+
+    assert.deepEqual(
+      updateArgs,
+      {
+        where: {
+          id:
+            "milestone-1",
+
+          agreementId:
+            "agreement-1",
+
+          status:
+            "SUBMITTED",
+        },
+
+        data: {
+          status:
+            "APPROVED",
+        },
+      },
+    );
+  },
+);
+
+test(
+  "CONTRACTOR resubmits REVISION_REQUESTED milestone to SUBMITTED",
+  async () => {
+    let evidenceData:
+      unknown;
+
+    let milestoneUpdateArgs:
+      unknown;
+
+    let agreementUpdateCalled =
+      false;
+
+    const transaction = {
+      agreement: {
+        findUnique:
+          async () => ({
+            id:
+              "agreement-1",
+
+            status:
+              "IN_PROGRESS",
+
+            parties: [
+              {
+                id:
+                  "party-contractor",
+
+                role:
+                  "CONTRACTOR",
+              },
+            ],
+          }),
+
+        update:
+          async () => {
+            agreementUpdateCalled =
+              true;
+
+            return {};
+          },
+      },
+
+      milestone: {
+        findFirst:
+          async () => ({
+            id:
+              "milestone-1",
+
+            status:
+              "REVISION_REQUESTED",
+          }),
+
+        update:
+          async (
+            args: unknown,
+          ) => {
+            milestoneUpdateArgs =
+              args;
+
+            return {};
+          },
+      },
+
+      evidence: {
+        create:
+          async (
+            args: {
+              data:
+                unknown;
+            },
+          ) => {
+            evidenceData =
+              args.data;
+
+            return {
+              id:
+                "evidence-2",
+
+              milestoneId:
+                "milestone-1",
+
+              uri:
+                "ipfs://evidence-2",
+
+              hash:
+                "0xevidence2",
+            };
+          },
+      },
+    };
+
+    const prisma =
+      asPrismaClient({
+        $transaction:
+          async (
+            work: (
+              tx:
+                typeof transaction,
+            ) => Promise<unknown>,
+          ) =>
+            work(
+              transaction,
+            ),
+      });
+
+    const operations =
+      createPrismaAgreementOperations(
+        prisma,
+      );
+
+    const result =
+      await operations
+        .submitEvidence({
+          actor:
+            CONTRACTOR_ACTOR,
+
+          agreementId:
+            "agreement-1",
+
+          milestoneId:
+            "milestone-1",
+
+          uri:
+            "ipfs://evidence-2",
+
+          hash:
+            "0xevidence2",
+
+          description:
+            "Revised delivery",
+        });
+
+    assert.deepEqual(
+      result,
+      {
+        id:
+          "evidence-2",
+
+        milestoneId:
+          "milestone-1",
+
+        uri:
+          "ipfs://evidence-2",
+
+        hash:
+          "0xevidence2",
+      },
+    );
+
+    assert.deepEqual(
+      evidenceData,
+      {
+        milestoneId:
+          "milestone-1",
+
+        submittedByPartyId:
+          "party-contractor",
+
+        uri:
+          "ipfs://evidence-2",
+
+        hash:
+          "0xevidence2",
+
+        description:
+          "Revised delivery",
+      },
+    );
+
+    assert.deepEqual(
+      milestoneUpdateArgs,
+      {
+        where: {
+          id:
+            "milestone-1",
+        },
+
+        data: {
+          status:
+            "SUBMITTED",
+        },
+      },
+    );
+
+    assert.equal(
+      agreementUpdateCalled,
+      false,
+      "IN_PROGRESS agreement must remain IN_PROGRESS on resubmission",
+    );
+  },
+);
+
+test(
+  "CONTRACTOR cannot review a SUBMITTED milestone",
+  async () => {
+    let milestoneQueried =
+      false;
+
+    const transaction = {
+      agreement: {
+        findUnique:
+          async () => ({
+            id:
+              "agreement-1",
+
+            status:
+              "IN_PROGRESS",
+
+            parties: [
+              {
+                role:
+                  "CONTRACTOR",
+              },
+            ],
+          }),
+      },
+
+      milestone: {
+        findFirst:
+          async () => {
+            milestoneQueried =
+              true;
+
+            return null;
+          },
+      },
+    };
+
+    const prisma =
+      asPrismaClient({
+        $transaction:
+          async (
+            work: (
+              tx:
+                typeof transaction,
+            ) => Promise<unknown>,
+          ) =>
+            work(
+              transaction,
+            ),
+      });
+
+    const operations =
+      createPrismaAgreementOperations(
+        prisma,
+      );
+
+    await assert.rejects(
+      operations
+        .approveMilestone({
+          actor:
+            CONTRACTOR_ACTOR,
+
+          agreementId:
+            "agreement-1",
+
+          milestoneId:
+            "milestone-1",
+        }),
+      AgreementAccessError,
+    );
+
+    assert.equal(
+      milestoneQueried,
+      false,
+      "milestone lookup must not occur before CLIENT authorization",
+    );
+  },
+);
