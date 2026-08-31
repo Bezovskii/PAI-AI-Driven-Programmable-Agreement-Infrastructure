@@ -606,3 +606,97 @@ test(
     );
   },
 );
+test(
+  "SIWE verifier rejects nonexistent nonce",
+  async () => {
+    const {
+      verifySiwe,
+      getConsumed,
+    } =
+      buildVerifier(
+        null,
+      );
+
+    const message =
+      makeMessage();
+
+    const signature =
+      await wallet.signMessage(
+        message,
+      );
+
+    await assert.rejects(
+      verifySiwe({
+        message,
+        signature,
+      }),
+      (error: unknown) => {
+        assert.ok(
+          error instanceof
+            InvalidSiweAuthenticationError,
+        );
+
+        assert.equal(
+          error.reason,
+          "nonce_not_found",
+        );
+
+        return true;
+      },
+    );
+
+    assert.equal(
+      getConsumed(),
+      undefined,
+    );
+  },
+);
+
+test(
+  "SIWE verifier rejects wallet that does not match stored nonce",
+  async () => {
+    const {
+      verifySiwe,
+      getConsumed,
+    } =
+      buildVerifier(
+        makeStoredNonce({
+          walletAddress:
+            otherWallet.address,
+        }),
+      );
+
+    const message =
+      makeMessage();
+
+    const signature =
+      await wallet.signMessage(
+        message,
+      );
+
+    await assert.rejects(
+      verifySiwe({
+        message,
+        signature,
+      }),
+      (error: unknown) => {
+        assert.ok(
+          error instanceof
+            InvalidSiweAuthenticationError,
+        );
+
+        assert.equal(
+          error.reason,
+          "wallet_mismatch",
+        );
+
+        return true;
+      },
+    );
+
+    assert.equal(
+      getConsumed(),
+      undefined,
+    );
+  },
+);
