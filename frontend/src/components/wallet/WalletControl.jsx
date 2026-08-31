@@ -75,6 +75,34 @@ export default function WalletControl() {
             !isAuthenticatedWalletConnected
         );
 
+    const handleSwitchNetwork =
+        async () => {
+            if (
+                typeof window === "undefined" ||
+                !window.ethereum
+            ) {
+                return;
+            }
+
+            try {
+                await window.ethereum.request({
+                    method:
+                        "wallet_switchEthereumChain",
+                    params: [
+                        {
+                            chainId:
+                                `0x${expectedChainId.toString(16)}`,
+                        },
+                    ],
+                });
+            } catch (error) {
+                console.error(
+                    "Network switch failed:",
+                    error
+                );
+            }
+        };
+
     const handleAuthenticate =
         async () => {
             try {
@@ -171,9 +199,13 @@ export default function WalletControl() {
 
             {!isCorrectNetwork &&
                 !isCheckingSession && (
-                    <span className="walletInlineStatus warning">
+                    <button
+                        type="button"
+                        className="walletNetworkButton"
+                        onClick={handleSwitchNetwork}
+                    >
                         Switch to chain {expectedChainId}
-                    </span>
+                    </button>
                 )}
 
             {isAuthenticatedWalletConnected && (

@@ -272,3 +272,21 @@
         padding: 0 9px;
     }
 }
+.walletNetworkButton {
+    min-height: 36px;
+    padding: 0 11px;
+    color: #ffcf73;
+    background: rgba(255, 178, 28, 0.05);
+    border: 1px solid rgba(255, 178, 28, 0.28);
+    border-radius: 9px;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 850;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.walletNetworkButton:hover {
+    background: rgba(255, 178, 28, 0.12);
+    border-color: rgba(255, 178, 28, 0.48);
+}
