@@ -1,4 +1,4 @@
-﻿import { ethers } from "ethers";
+import { ethers } from "ethers";
 import { useState } from "react";
 
 import { useWeb3 } from "../../hooks/useWeb3.js";
@@ -676,25 +676,6 @@ export default function SellerOrderPanel() {
 
     return (
         <div className="rolePage">
-            <div className="pageHeading">
-                <div>
-                    <span className="eyebrow">
-                        Seller / Contractor
-                    </span>
-
-                    <h1>
-                        Seller workspace
-                    </h1>
-
-                    <p>
-                        Manage one-off escrow
-                        orders and execute
-                        programmable Agreement
-                        milestones from the same
-                        workspace.
-                    </p>
-                </div>
-            </div>
 
             {/* =================================================
                 AGREEMENT WORK
