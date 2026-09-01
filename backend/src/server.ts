@@ -1,3 +1,5 @@
+import Fastify from "fastify";
+
 import {
   buildApp,
 } from "./application.js";
@@ -298,54 +300,60 @@ const revokeSession =
    APPLICATION
    ========================================================= */
 
-const app =
-  buildApp({
+const fastify =
+  Fastify({
     logger: true,
+  });
 
-    readinessProbe:
-      async () =>
-        isDatabaseReady(
-          prisma,
-        ),
+const app =
+  buildApp(
+    {
+      readinessProbe:
+        async () =>
+          isDatabaseReady(
+            prisma,
+          ),
 
-    auth: {
-      issueNonce:
-        issueAuthNonce,
+      auth: {
+        issueNonce:
+          issueAuthNonce,
 
-      verifySiwe,
+        verifySiwe,
 
-      issueSession,
+        issueSession,
 
-      resolveSession,
+        resolveSession,
 
-      revokeSession,
+        revokeSession,
 
-      sessionCookie: {
-        name:
-          config
-            .sessionCookieName,
+        sessionCookie: {
+          name:
+            config
+              .sessionCookieName,
 
-        secure:
-          config.nodeEnv ===
-          "production",
+          secure:
+            config.nodeEnv ===
+            "production",
 
-        maxAgeSeconds:
-          config
-            .sessionTtlSeconds,
-      },
+          maxAgeSeconds:
+            config
+              .sessionTtlSeconds,
+        },
 
-      siwe: {
-        domain:
-          config.siweDomain,
+        siwe: {
+          domain:
+            config.siweDomain,
 
-        uri:
-          config.siweUri,
+          uri:
+            config.siweUri,
 
-        chainId:
-          config.chainId,
+          chainId:
+            config.chainId,
+        },
       },
     },
-  });
+    fastify,
+  );
 
 /* =========================================================
    GRACEFUL SHUTDOWN

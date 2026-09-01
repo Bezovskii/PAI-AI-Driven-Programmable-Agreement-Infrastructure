@@ -1,6 +1,7 @@
 import cookie from "@fastify/cookie";
 
 import Fastify, {
+  type FastifyInstance,
   type FastifyServerOptions,
 } from "fastify";
 
@@ -19,13 +20,13 @@ export type ReadinessProbe =
 
 export interface BuildAppOptions {
   readonly logger?:
-    FastifyServerOptions["logger"];
+  FastifyServerOptions["logger"];
 
   readonly readinessProbe:
-    ReadinessProbe;
+  ReadinessProbe;
 
   readonly auth?:
-    AuthRouteOptions;
+  AuthRouteOptions;
 }
 
 const HealthResponseSchema =
@@ -81,13 +82,17 @@ const NotReadyResponseSchema =
 
 export function buildApp(
   options: BuildAppOptions,
+  existingApp?: FastifyInstance,
 ) {
   const app =
-    Fastify({
-      logger:
-        options.logger ??
-        false,
-    }).withTypeProvider<TypeBoxTypeProvider>();
+    (
+      existingApp ??
+      Fastify({
+        logger:
+          options.logger ??
+          false,
+      })
+    ).withTypeProvider<TypeBoxTypeProvider>();
 
   app.register(
     cookie,
