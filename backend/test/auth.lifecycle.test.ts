@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {
     buildApp,
-} from "../src/app.js";
+} from "../src/application.js";
 
 import type {
     ResolveSession,

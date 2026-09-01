@@ -1,9 +1,9 @@
-﻿import assert from "node:assert/strict";
+import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
   buildApp,
-} from "../src/app.js";
+} from "../src/application.js";
 
 test(
   "GET /readyz returns 200 when database is ready",

@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {
   buildApp,
-} from "../src/app.js";
+} from "../src/application.js";
 
 const WALLET =
   "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";

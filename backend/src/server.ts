@@ -1,6 +1,6 @@
 import {
   buildApp,
-} from "./app.js";
+} from "./application.js";
 
 import {
   createAuthNonceIssuer,

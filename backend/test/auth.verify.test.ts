@@ -11,7 +11,7 @@ import {
 
 import {
   buildApp,
-} from "../src/app.js";
+} from "../src/application.js";
 
 import {
   createSiweVerifier,
