@@ -1,0 +1,429 @@
+{
+  "registryVersion": "pai.issue-codes.v0.2",
+  "targetSchemaVersion": "pai.agreement.v0.2",
+  "description": "Stable semantic issue codes emitted by the PAI Agreement Model. This registry reports source-grounded extraction problems only.",
+  "issueKinds": [
+    {
+      "kind": "missing_term",
+      "evidenceRequired": false,
+      "description": "A term needed to interpret the agreement is not stated in the source."
+    },
+    {
+      "kind": "ambiguity",
+      "evidenceRequired": true,
+      "description": "The source supports more than one materially different interpretation."
+    },
+    {
+      "kind": "contradiction",
+      "evidenceRequired": true,
+      "description": "Two or more explicit source statements cannot all be true as written."
+    },
+    {
+      "kind": "unresolved_reference",
+      "evidenceRequired": true,
+      "description": "A source reference cannot be linked safely to a unique agreement entity or identifier."
+    },
+    {
+      "kind": "unsupported_term",
+      "evidenceRequired": true,
+      "description": "The source states a term that Agreement Schema v0.2 cannot represent without invention or loss."
+    }
+  ],
+  "codes": [
+    {
+      "code": "MISSING_PARTY",
+      "kind": "missing_term",
+      "description": "No party is stated for a required agreement role.",
+      "pathPrefixes": [
+        "/agreement/parties"
+      ],
+      "evidenceRequired": false
+    },
+    {
+      "code": "MISSING_SCOPE",
+      "kind": "missing_term",
+      "description": "The work or exchange scope is not stated.",
+      "pathPrefixes": [
+        "/agreement/scope"
+      ],
+      "evidenceRequired": false
+    },
+    {
+      "code": "MISSING_DELIVERABLE",
+      "kind": "missing_term",
+      "description": "No deliverable is stated or directly implied.",
+      "pathPrefixes": [
+        "/agreement/scope/deliverables",
+        "/agreement/milestones"
+      ],
+      "evidenceRequired": false
+    },
+    {
+      "code": "MISSING_PRICE",
+      "kind": "missing_term",
+      "description": "No total price or payment amount is stated.",
+      "pathPrefixes": [
+        "/agreement/pricing/total",
+        "/agreement/payments"
+      ],
+      "evidenceRequired": false
+    },
+    {
+      "code": "MISSING_CURRENCY",
+      "kind": "missing_term",
+      "description": "A monetary amount is stated without any currency code or symbol.",
+      "pathPrefixes": [
+        "/agreement/pricing/total/currency",
+        "/agreement/payments"
+      ],
+      "evidenceRequired": false
+    },
+    {
+      "code": "MISSING_SETTLEMENT_ASSET",
+      "kind": "missing_term",
+      "description": "The settlement asset is not stated.",
+      "pathPrefixes": [
+        "/agreement/pricing/settlementAsset"
+      ],
+      "evidenceRequired": false
+    },
+    {
+      "code": "MISSING_SETTLEMENT_NETWORK",
+      "kind": "missing_term",
+      "description": "A blockchain asset is stated without its settlement network.",
+      "pathPrefixes": [
+        "/agreement/pricing/settlementAsset/networkId"
+      ],
+      "evidenceRequired": false
+    },
+    {
+      "code": "MISSING_DEADLINE",
+      "kind": "missing_term",
+      "description": "No applicable delivery or milestone deadline is stated.",
+      "pathPrefixes": [
+        "/agreement/milestones"
+      ],
+      "evidenceRequired": false
+    },
+    {
+      "code": "MISSING_PAYMENT_TRIGGER",
+      "kind": "missing_term",
+      "description": "A payment is stated without a trigger or timing condition.",
+      "pathPrefixes": [
+        "/agreement/payments"
+      ],
+      "evidenceRequired": false
+    },
+    {
+      "code": "MISSING_ACCEPTANCE_CRITERIA",
+      "kind": "missing_term",
+      "description": "Acceptance is required but no acceptance criteria are stated.",
+      "pathPrefixes": [
+        "/agreement/milestones"
+      ],
+      "evidenceRequired": false
+    },
+    {
+      "code": "MISSING_ACCEPTANCE_AUTHORITY",
+      "kind": "missing_term",
+      "description": "Acceptance is required but no approving party is stated.",
+      "pathPrefixes": [
+        "/agreement/milestones"
+      ],
+      "evidenceRequired": false
+    },
+    {
+      "code": "AMBIGUOUS_PARTY",
+      "kind": "ambiguity",
+      "description": "The source does not identify which of multiple possible parties is intended.",
+      "pathPrefixes": [
+        "/agreement/parties"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "AMBIGUOUS_PARTY_ROLE",
+      "kind": "ambiguity",
+      "description": "A stated party can plausibly hold multiple materially different agreement roles.",
+      "pathPrefixes": [
+        "/agreement/parties"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "AMBIGUOUS_SCOPE",
+      "kind": "ambiguity",
+      "description": "The stated work or exchange scope has multiple materially different readings.",
+      "pathPrefixes": [
+        "/agreement/scope"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "AMBIGUOUS_CURRENCY",
+      "kind": "ambiguity",
+      "description": "A currency expression such as a shared symbol does not uniquely identify the currency.",
+      "pathPrefixes": [
+        "/agreement/pricing/total/currency",
+        "/agreement/payments"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "AMBIGUOUS_SETTLEMENT_ASSET",
+      "kind": "ambiguity",
+      "description": "The source permits multiple materially different settlement assets.",
+      "pathPrefixes": [
+        "/agreement/pricing/settlementAsset"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "AMBIGUOUS_SETTLEMENT_NETWORK",
+      "kind": "ambiguity",
+      "description": "The source permits multiple materially different settlement networks.",
+      "pathPrefixes": [
+        "/agreement/pricing/settlementAsset/networkId"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "AMBIGUOUS_DEADLINE",
+      "kind": "ambiguity",
+      "description": "The stated deadline has multiple materially different interpretations.",
+      "pathPrefixes": [
+        "/agreement/milestones"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "AMBIGUOUS_PAYMENT_TRIGGER",
+      "kind": "ambiguity",
+      "description": "The event or timing that triggers payment is unclear.",
+      "pathPrefixes": [
+        "/agreement/payments"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "AMBIGUOUS_ACCEPTANCE_AUTHORITY",
+      "kind": "ambiguity",
+      "description": "Approval is stated but the approving party reference is ambiguous.",
+      "pathPrefixes": [
+        "/agreement/milestones"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "AMBIGUOUS_REVISION_SCOPE",
+      "kind": "ambiguity",
+      "description": "Revision rounds are stated without a clear applicable scope.",
+      "pathPrefixes": [
+        "/agreement/revisionTerms"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "CONTRADICTORY_SCOPE",
+      "kind": "contradiction",
+      "description": "Explicit scope statements conflict.",
+      "pathPrefixes": [
+        "/agreement/scope"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "CONTRADICTORY_PRICE",
+      "kind": "contradiction",
+      "description": "Explicit price statements conflict without requiring arithmetic to detect the conflict.",
+      "pathPrefixes": [
+        "/agreement/pricing/total",
+        "/agreement/payments"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "CONTRADICTORY_CURRENCY",
+      "kind": "contradiction",
+      "description": "Explicit currency statements conflict.",
+      "pathPrefixes": [
+        "/agreement/pricing/total/currency",
+        "/agreement/payments"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "CONTRADICTORY_SETTLEMENT_ASSET",
+      "kind": "contradiction",
+      "description": "Explicit settlement-asset statements conflict.",
+      "pathPrefixes": [
+        "/agreement/pricing/settlementAsset"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "CONTRADICTORY_SETTLEMENT_NETWORK",
+      "kind": "contradiction",
+      "description": "Explicit settlement-network statements conflict.",
+      "pathPrefixes": [
+        "/agreement/pricing/settlementAsset/networkId"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "CONTRADICTORY_DEADLINE",
+      "kind": "contradiction",
+      "description": "Explicit deadline statements conflict.",
+      "pathPrefixes": [
+        "/agreement/milestones"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "CONTRADICTORY_PAYMENT_TRIGGER",
+      "kind": "contradiction",
+      "description": "Explicit payment-trigger statements conflict.",
+      "pathPrefixes": [
+        "/agreement/payments"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "CONTRADICTORY_ACCEPTANCE_TERM",
+      "kind": "contradiction",
+      "description": "Explicit acceptance statements conflict.",
+      "pathPrefixes": [
+        "/agreement/milestones"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "CONTRADICTORY_REVISION_TERM",
+      "kind": "contradiction",
+      "description": "Explicit revision statements conflict.",
+      "pathPrefixes": [
+        "/agreement/revisionTerms"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "UNRESOLVED_PARTY_REFERENCE",
+      "kind": "unresolved_reference",
+      "description": "A party reference cannot be linked safely to one party.",
+      "pathPrefixes": [
+        "/agreement/parties"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "UNRESOLVED_PRONOUN",
+      "kind": "unresolved_reference",
+      "description": "A pronoun cannot be linked safely to one agreement entity.",
+      "pathPrefixes": [
+        "/agreement"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "UNRESOLVED_MILESTONE_REFERENCE",
+      "kind": "unresolved_reference",
+      "description": "A milestone reference cannot be linked safely to one milestone.",
+      "pathPrefixes": [
+        "/agreement/milestones",
+        "/agreement/payments"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "UNRESOLVED_PAYMENT_PARTY",
+      "kind": "unresolved_reference",
+      "description": "A payer or recipient reference cannot be linked safely to one party.",
+      "pathPrefixes": [
+        "/agreement/payments"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "UNRESOLVED_SETTLEMENT_ASSET",
+      "kind": "unresolved_reference",
+      "description": "A stated asset cannot be mapped safely to one asset identifier from the source.",
+      "pathPrefixes": [
+        "/agreement/pricing/settlementAsset/assetId"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "UNRESOLVED_SETTLEMENT_NETWORK",
+      "kind": "unresolved_reference",
+      "description": "A network reference cannot be mapped safely to one network identifier from the source.",
+      "pathPrefixes": [
+        "/agreement/pricing/settlementAsset/networkId"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "UNRESOLVED_RELATIVE_DEADLINE_REFERENCE",
+      "kind": "unresolved_reference",
+      "description": "The event anchoring a relative deadline cannot be identified safely.",
+      "pathPrefixes": [
+        "/agreement/milestones"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "UNSUPPORTED_RECURRING_RETAINER",
+      "kind": "unsupported_term",
+      "description": "A recurring retainer schedule cannot be represented by Agreement Schema v0.2.",
+      "pathPrefixes": [
+        "/agreement/payments"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "UNSUPPORTED_DYNAMIC_PRICING",
+      "kind": "unsupported_term",
+      "description": "A formula-based or externally varying price cannot be represented by Agreement Schema v0.2.",
+      "pathPrefixes": [
+        "/agreement/pricing",
+        "/agreement/payments"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "UNSUPPORTED_CONDITIONAL_LOGIC",
+      "kind": "unsupported_term",
+      "description": "Nested or compound conditional agreement logic cannot be represented without loss.",
+      "pathPrefixes": [
+        "/agreement"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "UNSUPPORTED_MULTICURRENCY_TOTAL",
+      "kind": "unsupported_term",
+      "description": "A total denominated simultaneously in multiple currencies cannot be represented.",
+      "pathPrefixes": [
+        "/agreement/pricing/total"
+      ],
+      "evidenceRequired": true
+    },
+    {
+      "code": "UNSUPPORTED_NONMONETARY_EXCHANGE",
+      "kind": "unsupported_term",
+      "description": "A barter or nonmonetary consideration term cannot be represented.",
+      "pathPrefixes": [
+        "/agreement/pricing",
+        "/agreement/scope"
+      ],
+      "evidenceRequired": true
+    }
+  ],
+  "excludedResponsibilities": [
+    "Arithmetic and payment-total calculations",
+    "Risk scoring and policy decisions",
+    "Provenance quote verification and character offsets",
+    "Blockchain asset-registry resolution",
+    "Contract compilation and deployment readiness",
+    "Execution-router and chain-adapter failures"
+  ]
+}
