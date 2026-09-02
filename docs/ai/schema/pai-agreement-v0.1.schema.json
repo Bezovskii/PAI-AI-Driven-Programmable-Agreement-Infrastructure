@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:pai:schema:agreement:v0.1",
-  "$comment": "Candidate 3: includes payment purpose, amount type, trigger timing, deadline time and timezone.",
+  "$comment": "PAI Agreement v0.1. Semantic and cross-field constraints are enforced by deterministic validation.",
   "title": "PAI Agreement v0.1",
   "description": "Canonical extracted agreement facts. Missing or ambiguous terms remain null or empty and are reported separately in the model-output issues collection.",
   "type": "object",
