@@ -1,0 +1,321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pai:schema:training-example:v0.2",
+  "$comment": "Defines one versioned training or evaluation record. This schema does not authorize dataset generation.",
+  "title": "PAI Training Example v0.2",
+  "description": "A source-grounded agreement-extraction example with trusted context, model-output target, split metadata, and leakage controls.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "recordVersion",
+    "exampleId",
+    "task",
+    "split",
+    "input",
+    "trustedContext",
+    "target",
+    "metadata"
+  ],
+  "properties": {
+    "recordVersion": {
+      "const": "pai.training-example.v0.2"
+    },
+    "exampleId": {
+      "type": "string",
+      "pattern": "^pai_v0_2_[a-z0-9]+(?:_[a-z0-9]+)*$"
+    },
+    "task": {
+      "const": "agreement_extraction"
+    },
+    "split": {
+      "type": "string",
+      "enum": [
+        "fixture",
+        "train",
+        "validation",
+        "test",
+        "challenge"
+      ]
+    },
+    "input": {
+      "$ref": "#/$defs/input"
+    },
+    "trustedContext": {
+      "$ref": "#/$defs/trustedContext"
+    },
+    "target": {
+      "$ref": "urn:pai:schema:model-output:v0.2"
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "agreementJsonPointer": {
+      "type": "string",
+      "pattern": "^/agreement(?:/(?:[^~/]|~0|~1)+)*$"
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text",
+        "language",
+        "format"
+      ],
+      "properties": {
+        "text": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "language": {
+          "type": "string",
+          "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "plain_text",
+            "dialogue",
+            "document_excerpt"
+          ]
+        }
+      }
+    },
+    "trustedContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "facts"
+      ],
+      "properties": {
+        "facts": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/contextFact"
+          }
+        }
+      }
+    },
+    "contextFact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "path",
+        "value",
+        "source"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "authenticated_party",
+            "confirmed_party_role",
+            "confirmed_currency",
+            "confirmed_settlement_network",
+            "confirmed_settlement_asset",
+            "reference_datetime",
+            "other"
+          ]
+        },
+        "path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/agreementJsonPointer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "value": {},
+        "source": {
+          "type": "string",
+          "enum": [
+            "user_confirmed",
+            "authenticated_session",
+            "application_context",
+            "fixture_assumption"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "reference_datetime"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "type": "null"
+              },
+              "value": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "path": {
+                "$ref": "#/$defs/agreementJsonPointer"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "difficulty",
+        "phenomena",
+        "origin",
+        "generator",
+        "parentExampleIds",
+        "reviewStatus",
+        "leakageGroupId",
+        "sourceLicense",
+        "containsPersonalData",
+        "notes"
+      ],
+      "properties": {
+        "difficulty": {
+          "type": "string",
+          "enum": [
+            "basic",
+            "intermediate",
+            "adversarial"
+          ]
+        },
+        "phenomena": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "party_resolution",
+              "scope",
+              "pricing",
+              "currency",
+              "settlement_asset",
+              "settlement_network",
+              "milestone",
+              "payment_schedule",
+              "absolute_deadline",
+              "relative_deadline",
+              "acceptance",
+              "revision",
+              "evidence",
+              "dispute",
+              "missing_term",
+              "ambiguity",
+              "contradiction",
+              "unresolved_reference",
+              "unsupported_term",
+              "arithmetic_boundary",
+              "provenance",
+              "multilingual",
+              "other"
+            ]
+          }
+        },
+        "origin": {
+          "type": "string",
+          "enum": [
+            "hand_authored_fixture",
+            "synthetic",
+            "human_written",
+            "production_redacted",
+            "imported"
+          ]
+        },
+        "generator": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parentExampleIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^pai_v0_2_[a-z0-9]+(?:_[a-z0-9]+)*$"
+          }
+        },
+        "reviewStatus": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "reviewed",
+            "adjudicated"
+          ]
+        },
+        "leakageGroupId": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"
+        },
+        "sourceLicense": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "containsPersonalData": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "origin": {
+                "const": "synthetic"
+              }
+            },
+            "required": [
+              "origin"
+            ]
+          },
+          "then": {
+            "properties": {
+              "generator": {
+                "$ref": "#/$defs/nonEmptyString"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

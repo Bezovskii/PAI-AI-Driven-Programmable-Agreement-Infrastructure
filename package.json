@@ -15,6 +15,7 @@
     "validate:ai-schema-v0.2": "node docs/ai/schema/fixtures/validate-pai-agreement-v0.2-schema.mjs",
     "validate:ai-model-output-v0.2": "node docs/ai/schema/fixtures/validate-pai-model-output-v0.2-schema.mjs",
     "validate:ai-issue-codes-v0.2": "node docs/ai/schema/fixtures/validate-pai-issue-codes-v0.2.mjs",
-    "validate:ai-annotation-v0.2": "node docs/ai/annotation/fixtures/validate-pai-annotation-fixtures-v0.2.mjs"
+    "validate:ai-annotation-v0.2": "node docs/ai/annotation/fixtures/validate-pai-annotation-fixtures-v0.2.mjs",
+    "validate:ai-training-example-v0.2": "node docs/ai/schema/fixtures/validate-pai-training-example-v0.2-schema.mjs"
   }
 }
