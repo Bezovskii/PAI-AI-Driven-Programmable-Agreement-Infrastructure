@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pai:schema:model-output:v0.1",
+  "$comment": "PAI Model Output v0.1. Contains extracted agreement facts, semantic issues, and source provenance only.",
+  "title": "PAI Model Output v0.1",
+  "description": "Canonical output contract for the PAI Agreement Model. Deterministic validation, risk analysis, calculations, user confirmation, and execution remain outside this object.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "agreement", "issues", "provenance"],
+  "properties": {
+    "schemaVersion": {
+      "const": "pai.agreement.v0.1"
+    },
+    "agreement": {
+      "$ref": "urn:pai:schema:agreement:v0.1"
+    },
+    "issues": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/issue"
+      }
+    },
+    "provenance": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/provenanceEntry"
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "agreementJsonPointer": {
+      "type": "string",
+      "pattern": "^/agreement(?:/(?:[^~/]|~0|~1)+)*$"
+    },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "code", "paths", "evidence"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "not": {
+                  "const": "missing_term"
+                }
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "evidence": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "missing_term",
+            "ambiguity",
+            "contradiction",
+            "unresolved_reference",
+            "unsupported_term"
+          ]
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$"
+        },
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/agreementJsonPointer"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "provenanceEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "quote"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/agreementJsonPointer"
+        },
+        "quote": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    }
+  }
+}

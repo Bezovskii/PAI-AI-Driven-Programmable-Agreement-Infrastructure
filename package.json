@@ -10,6 +10,7 @@
     "dotenv": "^17.4.2"
   },
   "scripts": {
-    "validate:ai-schema": "node docs/ai/schema/fixtures/validate-pai-agreement-schema.mjs"
+    "validate:ai-schema": "node docs/ai/schema/fixtures/validate-pai-agreement-schema.mjs",
+    "validate:ai-model-output": "node docs/ai/schema/fixtures/validate-pai-model-output-schema.mjs"
   }
 }
