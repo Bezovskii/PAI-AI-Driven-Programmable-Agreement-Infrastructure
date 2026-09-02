@@ -116,9 +116,9 @@ allIssueKinds.issues = [
   },
   {
     kind: "contradiction",
-    code: "CONTRADICTORY_PAYMENT_TOTAL",
-    paths: ["/agreement/pricing/total", "/agreement/payments"],
-    evidence: ["$4,500 total", "$2,500 after each milestone"],
+    code: "CONTRADICTORY_DEADLINE",
+    paths: ["/agreement/milestones/0/deadline"],
+    evidence: ["Delivery is due September 15", "Delivery is due September 20"],
   },
   {
     kind: "unresolved_reference",
