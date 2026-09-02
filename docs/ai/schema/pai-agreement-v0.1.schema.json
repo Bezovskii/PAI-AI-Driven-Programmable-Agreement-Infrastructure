@@ -1,0 +1,492 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pai:schema:agreement:v0.1",
+  "$comment": "Candidate 3: includes payment purpose, amount type, trigger timing, deadline time and timezone.",
+  "title": "PAI Agreement v0.1",
+  "description": "Canonical extracted agreement facts. Missing or ambiguous terms remain null or empty and are reported separately in the model-output issues collection.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "parties",
+    "scope",
+    "pricing",
+    "milestones",
+    "payments",
+    "revisionTerms",
+    "evidenceTerms",
+    "disputeTerms"
+  ],
+  "properties": {
+    "parties": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/party" }
+    },
+    "scope": { "$ref": "#/$defs/scope" },
+    "pricing": { "$ref": "#/$defs/pricing" },
+    "milestones": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/milestone" }
+    },
+    "payments": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/payment" }
+    },
+    "revisionTerms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/revisionTerm" }
+    },
+    "evidenceTerms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidenceTerm" }
+    },
+    "disputeTerms": { "$ref": "#/$defs/disputeTerms" }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "decimalString": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+    },
+    "partyId": {
+      "type": "string",
+      "pattern": "^party_[1-9][0-9]*$"
+    },
+    "milestoneId": {
+      "type": "string",
+      "pattern": "^milestone_[1-9][0-9]*$"
+    },
+    "paymentId": {
+      "type": "string",
+      "pattern": "^payment_[1-9][0-9]*$"
+    },
+    "evidenceId": {
+      "type": "string",
+      "pattern": "^evidence_[1-9][0-9]*$"
+    },
+    "party": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "reference", "displayName", "roles"],
+      "properties": {
+        "id": { "$ref": "#/$defs/partyId" },
+        "reference": {
+          "type": "string",
+          "enum": ["speaker", "counterparty", "named", "context", "unknown"]
+        },
+        "displayName": {
+          "anyOf": [
+            { "$ref": "#/$defs/nonEmptyString" },
+            { "type": "null" }
+          ]
+        },
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "provider",
+              "client",
+              "payer",
+              "payee",
+              "buyer",
+              "seller",
+              "other",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "deliverables", "exclusions"],
+      "properties": {
+        "summary": {
+          "anyOf": [
+            { "$ref": "#/$defs/nonEmptyString" },
+            { "type": "null" }
+          ]
+        },
+        "deliverables": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "exclusions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "currency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "symbol"],
+      "properties": {
+        "code": {
+          "anyOf": [
+            { "type": "string", "pattern": "^[A-Z]{3}$" },
+            { "type": "null" }
+          ]
+        },
+        "symbol": {
+          "anyOf": [
+            { "$ref": "#/$defs/nonEmptyString" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "money": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amount", "currency"],
+      "properties": {
+        "amount": { "$ref": "#/$defs/decimalString" },
+        "currency": { "$ref": "#/$defs/currency" }
+      }
+    },
+    "settlementAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "symbol", "chainId", "contractAddress"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["native", "token", "fiat", "other", "unknown"]
+        },
+        "symbol": {
+          "anyOf": [
+            { "$ref": "#/$defs/nonEmptyString" },
+            { "type": "null" }
+          ]
+        },
+        "chainId": {
+          "anyOf": [
+            { "type": "integer", "minimum": 1 },
+            { "type": "null" }
+          ]
+        },
+        "contractAddress": {
+          "anyOf": [
+            { "type": "string", "pattern": "^0x[a-fA-F0-9]{40}$" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "pricing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "settlementAsset"],
+      "properties": {
+        "total": {
+          "anyOf": [
+            { "$ref": "#/$defs/money" },
+            { "type": "null" }
+          ]
+        },
+        "settlementAsset": {
+          "anyOf": [
+            { "$ref": "#/$defs/settlementAsset" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "deadline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "date", "time", "timezone", "duration", "relativeTo"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["absolute_date", "relative"]
+        },
+        "date": {
+          "anyOf": [
+            { "type": "string", "format": "date" },
+            { "type": "null" }
+          ]
+        },
+        "time": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$"
+            },
+            { "type": "null" }
+          ]
+        },
+        "timezone": {
+          "anyOf": [
+            { "$ref": "#/$defs/nonEmptyString" },
+            { "type": "null" }
+          ]
+        },
+        "duration": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^P(?=\\d|T\\d)(?:\\d+Y)?(?:\\d+M)?(?:\\d+W)?(?:\\d+D)?(?:T(?:\\d+H)?(?:\\d+M)?(?:\\d+(?:\\.\\d+)?S)?)?$"
+            },
+            { "type": "null" }
+          ]
+        },
+        "relativeTo": {
+          "anyOf": [
+            { "$ref": "#/$defs/nonEmptyString" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "approverPartyId", "criteria"],
+      "properties": {
+        "required": {
+          "type": ["boolean", "null"]
+        },
+        "approverPartyId": {
+          "anyOf": [
+            { "$ref": "#/$defs/partyId" },
+            { "type": "null" }
+          ]
+        },
+        "criteria": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "milestone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description", "deliverables", "deadline", "acceptance"],
+      "properties": {
+        "id": { "$ref": "#/$defs/milestoneId" },
+        "description": { "$ref": "#/$defs/nonEmptyString" },
+        "deliverables": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "deadline": {
+          "anyOf": [
+            { "$ref": "#/$defs/deadline" },
+            { "type": "null" }
+          ]
+        },
+        "acceptance": { "$ref": "#/$defs/acceptance" }
+      }
+    },
+    "paymentTrigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "milestoneId", "timing"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "upfront",
+            "agreement_accepted",
+            "milestone_delivered",
+            "milestone_accepted",
+            "date_reached",
+            "manual_confirmation",
+            "dispute_resolved",
+            "agreement_cancelled",
+            "other",
+            "unspecified"
+          ]
+        },
+        "milestoneId": {
+          "anyOf": [
+            { "$ref": "#/$defs/milestoneId" },
+            { "type": "null" }
+          ]
+        },
+        "timing": {
+          "anyOf": [
+            { "$ref": "#/$defs/deadline" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "payment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "purpose",
+        "amountType",
+        "amount",
+        "sharePercent",
+        "payerPartyId",
+        "recipientPartyId",
+        "trigger"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/paymentId" },
+        "purpose": {
+          "type": "string",
+          "enum": ["funding", "release", "direct", "refund", "unspecified"]
+        },
+        "amountType": {
+          "type": "string",
+          "enum": ["fixed", "percentage", "remainder", "unspecified"]
+        },
+        "amount": {
+          "anyOf": [
+            { "$ref": "#/$defs/money" },
+            { "type": "null" }
+          ]
+        },
+        "sharePercent": {
+          "anyOf": [
+            { "$ref": "#/$defs/decimalString" },
+            { "type": "null" }
+          ]
+        },
+        "payerPartyId": {
+          "anyOf": [
+            { "$ref": "#/$defs/partyId" },
+            { "type": "null" }
+          ]
+        },
+        "recipientPartyId": {
+          "anyOf": [
+            { "$ref": "#/$defs/partyId" },
+            { "type": "null" }
+          ]
+        },
+        "trigger": { "$ref": "#/$defs/paymentTrigger" }
+      }
+    },
+    "additionalRevisionPricing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["price", "unit"],
+      "properties": {
+        "price": { "$ref": "#/$defs/money" },
+        "unit": {
+          "type": "string",
+          "enum": ["per_revision", "per_hour", "fixed", "other", "unspecified"]
+        }
+      }
+    },
+    "revisionTerm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "appliesTo",
+        "milestoneId",
+        "includedRounds",
+        "additionalRevisionPricing",
+        "conditions"
+      ],
+      "properties": {
+        "appliesTo": {
+          "type": "string",
+          "enum": ["agreement", "milestone", "unspecified"]
+        },
+        "milestoneId": {
+          "anyOf": [
+            { "$ref": "#/$defs/milestoneId" },
+            { "type": "null" }
+          ]
+        },
+        "includedRounds": {
+          "anyOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "null" }
+          ]
+        },
+        "additionalRevisionPricing": {
+          "anyOf": [
+            { "$ref": "#/$defs/additionalRevisionPricing" },
+            { "type": "null" }
+          ]
+        },
+        "conditions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "evidenceTerm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "milestoneId", "requiredFromPartyId", "description"],
+      "properties": {
+        "id": { "$ref": "#/$defs/evidenceId" },
+        "milestoneId": {
+          "anyOf": [
+            { "$ref": "#/$defs/milestoneId" },
+            { "type": "null" }
+          ]
+        },
+        "requiredFromPartyId": {
+          "anyOf": [
+            { "$ref": "#/$defs/partyId" },
+            { "type": "null" }
+          ]
+        },
+        "description": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "disputeTerms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "resolver",
+        "initiationConditions",
+        "evidenceWindow",
+        "resolutionOptions"
+      ],
+      "properties": {
+        "enabled": {
+          "type": ["boolean", "null"]
+        },
+        "resolver": {
+          "anyOf": [
+            { "$ref": "#/$defs/nonEmptyString" },
+            { "type": "null" }
+          ]
+        },
+        "initiationConditions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "evidenceWindow": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^P(?=\\d|T\\d)(?:\\d+Y)?(?:\\d+M)?(?:\\d+W)?(?:\\d+D)?(?:T(?:\\d+H)?(?:\\d+M)?(?:\\d+(?:\\.\\d+)?S)?)?$"
+            },
+            { "type": "null" }
+          ]
+        },
+        "resolutionOptions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    }
+  }
+}
