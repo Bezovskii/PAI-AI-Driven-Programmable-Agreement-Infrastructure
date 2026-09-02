@@ -1,0 +1,501 @@
+{
+  "fixtureVersion": "pai.annotation-fixtures.v0.2",
+  "targetSchemaVersion": "pai.agreement.v0.2",
+  "targetGuide": "docs/ai/annotation/annotation-guide-v0.2.md",
+  "description": "Adversarial expectations used to red-team the PAI Agreement Annotation Guide v0.2. Values are focused assertions rather than complete model outputs.",
+  "assertionMode": "required_subset",
+  "cases": [
+    {
+      "id": "01_implicit_provider_unstated_payment_parties",
+      "source": "I will build the site for $4,500.",
+      "expected": {
+        "values": {
+          "/agreement/parties/0/reference": "speaker",
+          "/agreement/parties/0/roles": ["provider"],
+          "/agreement/scope/deliverables/0": "Website",
+          "/agreement/pricing/total/amount": "4500",
+          "/agreement/pricing/total/currency/code": null,
+          "/agreement/pricing/total/currency/symbol": "$"
+        },
+        "issues": [
+          {
+            "kind": "missing_term",
+            "code": "MISSING_PARTY",
+            "paths": ["/agreement/parties"],
+            "evidence": []
+          },
+          {
+            "kind": "ambiguity",
+            "code": "AMBIGUOUS_CURRENCY",
+            "paths": ["/agreement/pricing/total/currency"],
+            "evidence": ["$4,500"]
+          },
+          {
+            "kind": "missing_term",
+            "code": "MISSING_SETTLEMENT_ASSET",
+            "paths": ["/agreement/pricing/settlementAsset"],
+            "evidence": []
+          },
+          {
+            "kind": "missing_term",
+            "code": "MISSING_DEADLINE",
+            "paths": ["/agreement/milestones"],
+            "evidence": []
+          },
+          {
+            "kind": "missing_term",
+            "code": "MISSING_PAYMENT_TRIGGER",
+            "paths": ["/agreement/payments"],
+            "evidence": []
+          }
+        ],
+        "provenance": [
+          {
+            "path": "/agreement/parties/0/roles",
+            "quote": "I will build"
+          },
+          {
+            "path": "/agreement/scope/deliverables/0",
+            "quote": "build the site"
+          },
+          {
+            "path": "/agreement/pricing/total/amount",
+            "quote": "$4,500"
+          }
+        ],
+        "forbiddenIssueCodes": ["AMBIGUOUS_PARTY_ROLE"]
+      }
+    },
+    {
+      "id": "02_ambiguous_dollar_currency",
+      "source": "The fixed price is $800.",
+      "expected": {
+        "values": {
+          "/agreement/pricing/total/amount": "800",
+          "/agreement/pricing/total/currency/code": null,
+          "/agreement/pricing/total/currency/symbol": "$"
+        },
+        "issues": [
+          {
+            "kind": "ambiguity",
+            "code": "AMBIGUOUS_CURRENCY",
+            "paths": ["/agreement/pricing/total/currency"],
+            "evidence": ["$800"]
+          }
+        ],
+        "provenance": [
+          {
+            "path": "/agreement/pricing/total/amount",
+            "quote": "$800"
+          }
+        ],
+        "forbiddenIssueCodes": ["MISSING_CURRENCY"]
+      }
+    },
+    {
+      "id": "03_pricing_currency_without_settlement_asset",
+      "source": "The project price is 2,000 USD.",
+      "expected": {
+        "values": {
+          "/agreement/pricing/total/amount": "2000",
+          "/agreement/pricing/total/currency/code": "USD",
+          "/agreement/pricing/settlementAsset": null
+        },
+        "issues": [
+          {
+            "kind": "missing_term",
+            "code": "MISSING_SETTLEMENT_ASSET",
+            "paths": ["/agreement/pricing/settlementAsset"],
+            "evidence": []
+          }
+        ],
+        "provenance": [
+          {
+            "path": "/agreement/pricing/total",
+            "quote": "2,000 USD"
+          }
+        ],
+        "forbiddenIssueCodes": ["AMBIGUOUS_CURRENCY"]
+      }
+    },
+    {
+      "id": "04_usdc_without_network",
+      "source": "Settle the payment in USDC.",
+      "expected": {
+        "values": {
+          "/agreement/pricing/settlementAsset/type": "token",
+          "/agreement/pricing/settlementAsset/symbol": "USDC",
+          "/agreement/pricing/settlementAsset/networkId": null,
+          "/agreement/pricing/settlementAsset/assetId": null
+        },
+        "issues": [
+          {
+            "kind": "missing_term",
+            "code": "MISSING_SETTLEMENT_NETWORK",
+            "paths": ["/agreement/pricing/settlementAsset/networkId"],
+            "evidence": []
+          }
+        ],
+        "provenance": [
+          {
+            "path": "/agreement/pricing/settlementAsset/symbol",
+            "quote": "USDC"
+          }
+        ],
+        "forbiddenIssueCodes": [
+          "AMBIGUOUS_SETTLEMENT_NETWORK",
+          "CONTRADICTORY_SETTLEMENT_NETWORK"
+        ]
+      }
+    },
+    {
+      "id": "05_named_network_without_canonical_identifiers",
+      "source": "Settle in USDC on Base.",
+      "expected": {
+        "values": {
+          "/agreement/pricing/settlementAsset/type": "token",
+          "/agreement/pricing/settlementAsset/symbol": "USDC",
+          "/agreement/pricing/settlementAsset/networkId": null,
+          "/agreement/pricing/settlementAsset/assetId": null
+        },
+        "issues": [
+          {
+            "kind": "unresolved_reference",
+            "code": "UNRESOLVED_SETTLEMENT_NETWORK",
+            "paths": ["/agreement/pricing/settlementAsset/networkId"],
+            "evidence": ["Base"]
+          },
+          {
+            "kind": "unresolved_reference",
+            "code": "UNRESOLVED_SETTLEMENT_ASSET",
+            "paths": ["/agreement/pricing/settlementAsset/assetId"],
+            "evidence": ["USDC"]
+          }
+        ],
+        "provenance": [
+          {
+            "path": "/agreement/pricing/settlementAsset/symbol",
+            "quote": "USDC"
+          }
+        ],
+        "forbiddenIssueCodes": ["MISSING_SETTLEMENT_NETWORK"]
+      }
+    },
+    {
+      "id": "06_deposit_milestone_release_and_remainder",
+      "source": "The total is 10,000 USD. Pay 20% upfront, release 30% when the design is accepted, and pay the remainder after deployment.",
+      "expected": {
+        "values": {
+          "/agreement/pricing/total/amount": "10000",
+          "/agreement/pricing/total/currency/code": "USD",
+          "/agreement/payments/0/purpose": "funding",
+          "/agreement/payments/0/amountType": "percentage",
+          "/agreement/payments/0/sharePercent": "20",
+          "/agreement/payments/0/trigger/type": "upfront",
+          "/agreement/payments/1/purpose": "release",
+          "/agreement/payments/1/amountType": "percentage",
+          "/agreement/payments/1/sharePercent": "30",
+          "/agreement/payments/1/trigger/type": "milestone_accepted",
+          "/agreement/payments/2/amountType": "remainder",
+          "/agreement/payments/2/amount": null,
+          "/agreement/payments/2/sharePercent": null,
+          "/agreement/payments/2/trigger/type": "milestone_delivered"
+        },
+        "issues": [],
+        "provenance": [
+          {
+            "path": "/agreement/pricing/total",
+            "quote": "10,000 USD"
+          },
+          {
+            "path": "/agreement/payments/0/sharePercent",
+            "quote": "20%"
+          },
+          {
+            "path": "/agreement/payments/1/trigger",
+            "quote": "when the design is accepted"
+          },
+          {
+            "path": "/agreement/payments/2/amountType",
+            "quote": "the remainder"
+          }
+        ],
+        "forbiddenIssueCodes": ["CONTRADICTORY_PRICE"]
+      }
+    },
+    {
+      "id": "07_arithmetic_inconsistency_is_deterministic",
+      "source": "Pay 60% upfront and 50% on delivery.",
+      "expected": {
+        "values": {
+          "/agreement/payments/0/sharePercent": "60",
+          "/agreement/payments/0/trigger/type": "upfront",
+          "/agreement/payments/1/sharePercent": "50",
+          "/agreement/payments/1/trigger/type": "milestone_delivered"
+        },
+        "issues": [],
+        "provenance": [
+          {
+            "path": "/agreement/payments/0/sharePercent",
+            "quote": "60%"
+          },
+          {
+            "path": "/agreement/payments/1/sharePercent",
+            "quote": "50%"
+          }
+        ],
+        "forbiddenIssueCodes": [
+          "CONTRADICTORY_PRICE",
+          "CONTRADICTORY_PAYMENT_TRIGGER"
+        ]
+      }
+    },
+    {
+      "id": "08_ambiguous_pronoun_across_milestones",
+      "source": "Complete the design and the development. Pay half when it is approved.",
+      "expected": {
+        "values": {
+          "/agreement/milestones/0/description": "Design",
+          "/agreement/milestones/1/description": "Development",
+          "/agreement/payments/0/amountType": "percentage",
+          "/agreement/payments/0/sharePercent": "50",
+          "/agreement/payments/0/trigger/type": "milestone_accepted",
+          "/agreement/payments/0/trigger/milestoneId": null
+        },
+        "issues": [
+          {
+            "kind": "unresolved_reference",
+            "code": "UNRESOLVED_PRONOUN",
+            "paths": ["/agreement/payments/0/trigger/milestoneId"],
+            "evidence": ["it"]
+          }
+        ],
+        "provenance": [
+          {
+            "path": "/agreement/payments/0/sharePercent",
+            "quote": "half"
+          },
+          {
+            "path": "/agreement/payments/0/trigger",
+            "quote": "when it is approved"
+          }
+        ],
+        "forbiddenIssueCodes": ["AMBIGUOUS_PAYMENT_TRIGGER"]
+      }
+    },
+    {
+      "id": "09_approval_without_criteria_or_authority",
+      "source": "Payment is released when the design is approved.",
+      "expected": {
+        "values": {
+          "/agreement/milestones/0/acceptance/required": true,
+          "/agreement/milestones/0/acceptance/approverPartyId": null,
+          "/agreement/milestones/0/acceptance/criteria": [],
+          "/agreement/payments/0/trigger/type": "milestone_accepted"
+        },
+        "issues": [
+          {
+            "kind": "missing_term",
+            "code": "MISSING_ACCEPTANCE_CRITERIA",
+            "paths": ["/agreement/milestones/0/acceptance/criteria"],
+            "evidence": ["the design is approved"]
+          },
+          {
+            "kind": "missing_term",
+            "code": "MISSING_ACCEPTANCE_AUTHORITY",
+            "paths": ["/agreement/milestones/0/acceptance/approverPartyId"],
+            "evidence": ["the design is approved"]
+          }
+        ],
+        "provenance": [
+          {
+            "path": "/agreement/milestones/0/acceptance/required",
+            "quote": "the design is approved"
+          }
+        ],
+        "forbiddenIssueCodes": ["AMBIGUOUS_ACCEPTANCE_AUTHORITY"]
+      }
+    },
+    {
+      "id": "10_relative_deadline_with_unresolved_anchor",
+      "source": "Deliver within 10 days after it starts.",
+      "expected": {
+        "values": {
+          "/agreement/milestones/0/deadline/type": "relative",
+          "/agreement/milestones/0/deadline/duration": "P10D",
+          "/agreement/milestones/0/deadline/relativeTo": null
+        },
+        "issues": [
+          {
+            "kind": "unresolved_reference",
+            "code": "UNRESOLVED_RELATIVE_DEADLINE_REFERENCE",
+            "paths": ["/agreement/milestones/0/deadline/relativeTo"],
+            "evidence": ["after it starts"]
+          }
+        ],
+        "provenance": [
+          {
+            "path": "/agreement/milestones/0/deadline/duration",
+            "quote": "within 10 days"
+          }
+        ],
+        "forbiddenIssueCodes": ["AMBIGUOUS_DEADLINE"]
+      }
+    },
+    {
+      "id": "11_explicit_conflicting_deadlines",
+      "source": "Deliver on September 10, 2026. The delivery deadline is September 15, 2026.",
+      "expected": {
+        "values": {
+          "/agreement/milestones/0/deadline": null
+        },
+        "issues": [
+          {
+            "kind": "contradiction",
+            "code": "CONTRADICTORY_DEADLINE",
+            "paths": ["/agreement/milestones/0/deadline"],
+            "evidence": [
+              "Deliver on September 10, 2026",
+              "The delivery deadline is September 15, 2026"
+            ]
+          }
+        ],
+        "provenance": [],
+        "forbiddenIssueCodes": ["AMBIGUOUS_DEADLINE", "MISSING_DEADLINE"]
+      }
+    },
+    {
+      "id": "12_revision_rounds_with_unclear_scope",
+      "source": "Two revisions are included.",
+      "expected": {
+        "values": {
+          "/agreement/revisionTerms/0/appliesTo": "unspecified",
+          "/agreement/revisionTerms/0/milestoneId": null,
+          "/agreement/revisionTerms/0/includedRounds": 2
+        },
+        "issues": [
+          {
+            "kind": "ambiguity",
+            "code": "AMBIGUOUS_REVISION_SCOPE",
+            "paths": ["/agreement/revisionTerms/0/appliesTo"],
+            "evidence": ["Two revisions are included"]
+          }
+        ],
+        "provenance": [
+          {
+            "path": "/agreement/revisionTerms/0/includedRounds",
+            "quote": "Two revisions are included"
+          }
+        ],
+        "forbiddenIssueCodes": []
+      }
+    },
+    {
+      "id": "13_recommended_evidence_is_not_agreed_evidence",
+      "source": "Build and deploy the website. PAI recommends keeping screenshots and commit history.",
+      "expected": {
+        "values": {
+          "/agreement/scope/deliverables/0": "Deployed website",
+          "/agreement/evidenceTerms": []
+        },
+        "issues": [],
+        "provenance": [
+          {
+            "path": "/agreement/scope/deliverables/0",
+            "quote": "Build and deploy the website"
+          }
+        ],
+        "forbiddenIssueCodes": []
+      }
+    },
+    {
+      "id": "14_recurring_retainer_and_dynamic_price",
+      "source": "Pay a $1,000 monthly retainer plus 5% of monthly sales, recalculated each month.",
+      "expected": {
+        "values": {
+          "/agreement/pricing/total": null
+        },
+        "issues": [
+          {
+            "kind": "unsupported_term",
+            "code": "UNSUPPORTED_RECURRING_RETAINER",
+            "paths": ["/agreement/payments"],
+            "evidence": ["$1,000 monthly retainer"]
+          },
+          {
+            "kind": "unsupported_term",
+            "code": "UNSUPPORTED_DYNAMIC_PRICING",
+            "paths": ["/agreement/pricing/total"],
+            "evidence": ["5% of monthly sales, recalculated each month"]
+          }
+        ],
+        "provenance": [],
+        "forbiddenIssueCodes": ["CONTRADICTORY_PRICE"]
+      }
+    },
+    {
+      "id": "15_nonmonetary_exchange",
+      "source": "I will design the logo in exchange for a used laptop.",
+      "expected": {
+        "values": {
+          "/agreement/parties/0/reference": "speaker",
+          "/agreement/parties/0/roles": ["provider"],
+          "/agreement/scope/deliverables/0": "Logo design",
+          "/agreement/pricing/total": null
+        },
+        "issues": [
+          {
+            "kind": "unsupported_term",
+            "code": "UNSUPPORTED_NONMONETARY_EXCHANGE",
+            "paths": ["/agreement/pricing"],
+            "evidence": ["in exchange for a used laptop"]
+          }
+        ],
+        "provenance": [
+          {
+            "path": "/agreement/scope/deliverables/0",
+            "quote": "design the logo"
+          }
+        ],
+        "forbiddenIssueCodes": ["MISSING_PRICE"]
+      }
+    },
+    {
+      "id": "16_external_registry_fact_is_not_model_contradiction",
+      "source": "Settle in XYZ on Stellar.",
+      "deterministicContext": "An external registry resolves XYZ only on Solana. Registry compatibility is outside the Agreement Model's responsibility.",
+      "expected": {
+        "values": {
+          "/agreement/pricing/settlementAsset/type": "token",
+          "/agreement/pricing/settlementAsset/symbol": "XYZ",
+          "/agreement/pricing/settlementAsset/networkId": null,
+          "/agreement/pricing/settlementAsset/assetId": null
+        },
+        "issues": [
+          {
+            "kind": "unresolved_reference",
+            "code": "UNRESOLVED_SETTLEMENT_NETWORK",
+            "paths": ["/agreement/pricing/settlementAsset/networkId"],
+            "evidence": ["Stellar"]
+          },
+          {
+            "kind": "unresolved_reference",
+            "code": "UNRESOLVED_SETTLEMENT_ASSET",
+            "paths": ["/agreement/pricing/settlementAsset/assetId"],
+            "evidence": ["XYZ"]
+          }
+        ],
+        "provenance": [
+          {
+            "path": "/agreement/pricing/settlementAsset/symbol",
+            "quote": "XYZ"
+          }
+        ],
+        "forbiddenIssueCodes": [
+          "CONTRADICTORY_SETTLEMENT_ASSET",
+          "CONTRADICTORY_SETTLEMENT_NETWORK"
+        ]
+      }
+    }
+  ]
+}
