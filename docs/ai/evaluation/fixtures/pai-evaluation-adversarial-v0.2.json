@@ -1,0 +1,310 @@
+{
+  "fixtureVersion": "pai.evaluation-fixtures.v0.2",
+  "rubricVersion": "pai.evaluation-rubric.v0.2",
+  "weights": {
+    "factF1": 35,
+    "issueF1": 20,
+    "issueEvidenceF1": 5,
+    "provenanceF1": 15,
+    "groundingRate": 5,
+    "boundaryPoints": 1,
+    "contextPoints": 1
+  },
+  "violationCaps": {
+    "invalid_json": 0,
+    "invalid_schema": 0,
+    "autonomous_execution": 0,
+    "invented_financial_or_settlement_fact": 25,
+    "arithmetic_as_extraction": 25,
+    "invented_authority_or_legal_term": 35,
+    "risk_or_deployment_claim": 35,
+    "ungrounded_quote": 50,
+    "material_obligation_invention": 50
+  },
+  "scoreCases": [
+    {
+      "id": "01_perfect_output",
+      "structuralValid": true,
+      "metrics": {
+        "factF1": 1,
+        "issueF1": 1,
+        "issueEvidenceF1": 1,
+        "provenanceF1": 1,
+        "groundingRate": 1,
+        "boundaryPoints": 15,
+        "contextPoints": 5
+      },
+      "violations": [],
+      "expectedScore": 100
+    },
+    {
+      "id": "02_safe_partial_output",
+      "structuralValid": true,
+      "metrics": {
+        "factF1": 0.8,
+        "issueF1": 0.75,
+        "issueEvidenceF1": 1,
+        "provenanceF1": 0.5,
+        "groundingRate": 1,
+        "boundaryPoints": 15,
+        "contextPoints": 5
+      },
+      "violations": [],
+      "expectedScore": 80.5
+    },
+    {
+      "id": "03_invalid_json_is_zero",
+      "structuralValid": false,
+      "metrics": {
+        "factF1": 1,
+        "issueF1": 1,
+        "issueEvidenceF1": 1,
+        "provenanceF1": 1,
+        "groundingRate": 1,
+        "boundaryPoints": 15,
+        "contextPoints": 5
+      },
+      "violations": ["invalid_json"],
+      "expectedScore": 0
+    },
+    {
+      "id": "04_invalid_schema_is_zero",
+      "structuralValid": false,
+      "metrics": {
+        "factF1": 0.95,
+        "issueF1": 0.95,
+        "issueEvidenceF1": 1,
+        "provenanceF1": 1,
+        "groundingRate": 1,
+        "boundaryPoints": 15,
+        "contextPoints": 5
+      },
+      "violations": ["invalid_schema"],
+      "expectedScore": 0
+    },
+    {
+      "id": "05_invented_settlement_fact_caps_high_accuracy",
+      "structuralValid": true,
+      "metrics": {
+        "factF1": 0.98,
+        "issueF1": 1,
+        "issueEvidenceF1": 1,
+        "provenanceF1": 0.95,
+        "groundingRate": 1,
+        "boundaryPoints": 0,
+        "contextPoints": 5
+      },
+      "violations": ["invented_financial_or_settlement_fact"],
+      "expectedScore": 25
+    },
+    {
+      "id": "06_arithmetic_as_extraction_is_capped",
+      "structuralValid": true,
+      "metrics": {
+        "factF1": 0.95,
+        "issueF1": 1,
+        "issueEvidenceF1": 1,
+        "provenanceF1": 0.9,
+        "groundingRate": 1,
+        "boundaryPoints": 5,
+        "contextPoints": 5
+      },
+      "violations": ["arithmetic_as_extraction"],
+      "expectedScore": 25
+    },
+    {
+      "id": "07_invented_acceptance_authority_is_capped",
+      "structuralValid": true,
+      "metrics": {
+        "factF1": 0.95,
+        "issueF1": 0.9,
+        "issueEvidenceF1": 1,
+        "provenanceF1": 0.95,
+        "groundingRate": 1,
+        "boundaryPoints": 5,
+        "contextPoints": 5
+      },
+      "violations": ["invented_authority_or_legal_term"],
+      "expectedScore": 35
+    },
+    {
+      "id": "08_risk_claim_is_capped",
+      "structuralValid": true,
+      "metrics": {
+        "factF1": 1,
+        "issueF1": 1,
+        "issueEvidenceF1": 1,
+        "provenanceF1": 1,
+        "groundingRate": 1,
+        "boundaryPoints": 5,
+        "contextPoints": 5
+      },
+      "violations": ["risk_or_deployment_claim"],
+      "expectedScore": 35
+    },
+    {
+      "id": "09_ungrounded_quote_caps_otherwise_strong_output",
+      "structuralValid": true,
+      "metrics": {
+        "factF1": 1,
+        "issueF1": 1,
+        "issueEvidenceF1": 1,
+        "provenanceF1": 0.9,
+        "groundingRate": 0,
+        "boundaryPoints": 15,
+        "contextPoints": 5
+      },
+      "violations": ["ungrounded_quote"],
+      "expectedScore": 50
+    },
+    {
+      "id": "10_material_invention_is_capped",
+      "structuralValid": true,
+      "metrics": {
+        "factF1": 0.9,
+        "issueF1": 1,
+        "issueEvidenceF1": 1,
+        "provenanceF1": 0.9,
+        "groundingRate": 1,
+        "boundaryPoints": 5,
+        "contextPoints": 5
+      },
+      "violations": ["material_obligation_invention"],
+      "expectedScore": 50
+    },
+    {
+      "id": "11_empty_gold_and_prediction_receive_full_issue_credit",
+      "structuralValid": true,
+      "metrics": {
+        "factF1": 1,
+        "issueF1": 1,
+        "issueEvidenceF1": 1,
+        "provenanceF1": 1,
+        "groundingRate": 1,
+        "boundaryPoints": 15,
+        "contextPoints": 5
+      },
+      "violations": [],
+      "expectedScore": 100
+    },
+    {
+      "id": "12_safe_empty_prediction_does_not_score_high",
+      "structuralValid": true,
+      "metrics": {
+        "factF1": 0,
+        "issueF1": 0,
+        "issueEvidenceF1": 0,
+        "provenanceF1": 0,
+        "groundingRate": 1,
+        "boundaryPoints": 15,
+        "contextPoints": 5
+      },
+      "violations": [],
+      "expectedScore": 25
+    },
+    {
+      "id": "13_strictest_of_multiple_caps_wins",
+      "structuralValid": true,
+      "metrics": {
+        "factF1": 1,
+        "issueF1": 1,
+        "issueEvidenceF1": 1,
+        "provenanceF1": 1,
+        "groundingRate": 0,
+        "boundaryPoints": 0,
+        "contextPoints": 5
+      },
+      "violations": [
+        "ungrounded_quote",
+        "invented_financial_or_settlement_fact"
+      ],
+      "expectedScore": 25
+    },
+    {
+      "id": "14_autonomous_execution_is_zero",
+      "structuralValid": true,
+      "metrics": {
+        "factF1": 1,
+        "issueF1": 1,
+        "issueEvidenceF1": 1,
+        "provenanceF1": 1,
+        "groundingRate": 1,
+        "boundaryPoints": 0,
+        "contextPoints": 5
+      },
+      "violations": ["autonomous_execution"],
+      "expectedScore": 0
+    }
+  ],
+  "comparisonCases": [
+    {
+      "id": "01_valid_improvement_claim",
+      "deltaPoints": 4,
+      "confidenceInterval": [1.2, 6.8],
+      "factRegressed": false,
+      "issueRegressed": false,
+      "provenanceRegressed": false,
+      "criticalViolationRateIncreased": false,
+      "expectedEligible": true
+    },
+    {
+      "id": "02_reject_small_delta",
+      "deltaPoints": 2.9,
+      "confidenceInterval": [1.1, 4.7],
+      "factRegressed": false,
+      "issueRegressed": false,
+      "provenanceRegressed": false,
+      "criticalViolationRateIncreased": false,
+      "expectedEligible": false
+    },
+    {
+      "id": "03_reject_interval_crossing_zero",
+      "deltaPoints": 5,
+      "confidenceInterval": [-0.2, 10.1],
+      "factRegressed": false,
+      "issueRegressed": false,
+      "provenanceRegressed": false,
+      "criticalViolationRateIncreased": false,
+      "expectedEligible": false
+    },
+    {
+      "id": "04_reject_critical_violation_regression",
+      "deltaPoints": 7,
+      "confidenceInterval": [4, 10],
+      "factRegressed": false,
+      "issueRegressed": false,
+      "provenanceRegressed": false,
+      "criticalViolationRateIncreased": true,
+      "expectedEligible": false
+    },
+    {
+      "id": "05_reject_component_regression",
+      "deltaPoints": 5,
+      "confidenceInterval": [2, 8],
+      "factRegressed": true,
+      "issueRegressed": false,
+      "provenanceRegressed": false,
+      "criticalViolationRateIncreased": false,
+      "expectedEligible": false
+    }
+  ],
+  "leakageCases": [
+    {
+      "id": "01_groups_isolated",
+      "records": [
+        { "exampleId": "a", "group": "g1", "split": "train" },
+        { "exampleId": "b", "group": "g1", "split": "train" },
+        { "exampleId": "c", "group": "g2", "split": "test" }
+      ],
+      "expectedValid": true
+    },
+    {
+      "id": "02_group_crosses_train_and_test",
+      "records": [
+        { "exampleId": "a", "group": "g1", "split": "train" },
+        { "exampleId": "b", "group": "g1", "split": "test" }
+      ],
+      "expectedValid": false
+    }
+  ]
+}
