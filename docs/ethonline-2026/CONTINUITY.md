@@ -1,339 +1,255 @@
-\# ETHOnline 2026 Continuity Boundary
+# ETHOnline 2026 Continuity Boundary
 
-
-
-\## Purpose
-
-
+## Purpose
 
 PAI is participating in ETHOnline 2026 through the Continuity track.
 
-
-
 PAI existed before the event. This document separates the pre-existing product and preparation from work created during ETHOnline. Repository history after the kickoff tag is the primary implementation record.
 
+## Official development boundary
 
+* Event branch: `ethonline-2026`
 
-\## Official development boundary
+* Kickoff tag: `ethonline-2026-kickoff`
 
+* Boundary commit: `f507a5d`
 
-
-\* Event branch: `ethonline-2026`
-
-\* Kickoff tag: `ethonline-2026-kickoff`
-
-\* Boundary commit: `f507a5d`
-
-\* Development start: September 4, 2026
-
-
+* Development start: September 4, 2026
 
 Only work committed after `ethonline-2026-kickoff` may be represented as ETHOnline-created work.
 
-
-
-\## Pre-existing PAI product
-
-
+## Pre-existing PAI product
 
 The following existed before ETHOnline:
 
+* Solidity smart contracts
 
+* escrow and agreement funding
 
-\* Solidity smart contracts
+* milestone payments
 
-\* escrow and agreement funding
+* delivery and approval workflows
 
-\* milestone payments
+* dispute initiation
 
-\* delivery and approval workflows
+* evidence architecture
 
-\* dispute initiation
+* arbitration logic
 
-\* evidence architecture
+* refund and settlement logic
 
-\* arbitration logic
+* Hardhat and Foundry development environments
 
-\* refund and settlement logic
+* automated contract and application tests
 
-\* Hardhat and Foundry development environments
+* React and Vite frontend
 
-\* automated contract and application tests
+* Node.js and TypeScript backend
 
-\* React and Vite frontend
+* ethers.js integration
 
-\* Node.js and TypeScript backend
+* SIWE authentication infrastructure
 
-\* ethers.js integration
+* Sepolia integration
 
-\* SIWE authentication infrastructure
+* existing frontend and backend foundations
 
-\* Sepolia integration
+* a signed pilot
 
-\* existing frontend and backend foundations
+* previous customer discovery
 
-\* a signed pilot
-
-\* previous customer discovery
-
-\* the chain-independent PAI architecture concept
-
-
+* the chain-independent PAI architecture concept
 
 These components must not be described as newly created during ETHOnline.
 
-
-
-\## Pre-event agreement-intelligence preparation
-
-
+## Pre-event agreement-intelligence preparation
 
 The following specifications and validation foundations also existed before the kickoff boundary:
 
+* PAI Agreement Schema v0.2 candidate
 
+* PAI Model Output Schema v0.2 candidate
 
-\* PAI Agreement Schema v0.2 candidate
+* semantic issue-code registry v0.2 candidate
 
-\* PAI Model Output Schema v0.2 candidate
+* annotation guide v0.2
 
-\* semantic issue-code registry v0.2 candidate
+* adversarial annotation fixtures
 
-\* annotation guide v0.2
+* training-example schema v0.2 candidate
 
-\* adversarial annotation fixtures
+* evaluation rubric v0.2
 
-\* training-example schema v0.2 candidate
+* adversarial evaluation fixtures
 
-\* evaluation rubric v0.2
+* agreement-intelligence architecture documentation
 
-\* adversarial evaluation fixtures
-
-\* agreement-intelligence architecture documentation
-
-\* deterministic schema-validation scripts
-
-
+* deterministic schema-validation scripts
 
 These materials define the intended behavior of the intelligence layer but do not constitute a completed trained model, production inference service, Telegram integration, or end-to-end hackathon feature.
 
-
-
-\## ETHOnline feature
-
-
+## ETHOnline feature
 
 The main ETHOnline feature is the PAI Telegram Agreement Agent.
 
-
-
 The target flow is:
 
+1. A user describes a deal through Telegram.
 
+2. The PAI intelligence layer produces a structured Agreement Object.
 
-1\. A user describes a deal through Telegram.
+3. Deterministic validation checks the output against the v0.2 schemas.
 
-2\. The PAI intelligence layer produces a structured Agreement Object.
+4. The Agreement Fuzzer identifies missing, contradictory, or exploitable terms.
 
-3\. Deterministic validation checks the output against the v0.2 schemas.
+5. The user reviews and confirms the agreement.
 
-4\. The Agreement Fuzzer identifies missing, contradictory, or exploitable terms.
+6. The counterparty accepts the agreement.
 
-5\. The user reviews and confirms the agreement.
+7. PAI Core manages funding, delivery, approval, dispute, and settlement.
 
-6\. The counterparty accepts the agreement.
-
-7\. PAI Core manages funding, delivery, approval, dispute, and settlement.
-
-8\. An execution adapter performs the selected on-chain action.
-
-
+8. An execution adapter performs the selected on-chain action.
 
 Telegram is an interface. It is not the protocol itself.
 
-
-
 The Agreement Object, validation rules, intelligence layer, and PAI Core must remain modular and chain-independent.
 
-
-
-\## Work to be created during ETHOnline
-
-
+## Work to be created during ETHOnline
 
 The planned event-created work includes:
 
+* Telegram bot or Mini App integration
 
+* an agreement-creation conversation flow
 
-\* Telegram bot or Mini App integration
+* clarification-question handling
 
-\* an agreement-creation conversation flow
+* the frozen model prompt and output contract
 
-\* clarification-question handling
+* a versioned ETHOnline dataset
 
-\* the frozen model prompt and output contract
+* an untouched-model baseline
 
-\* a versioned ETHOnline dataset
+* matched evaluation of baseline and tuned models
 
-\* an untouched-model baseline
+* local model tuning or another measurable model-improvement method
 
-\* matched evaluation of baseline and tuned models
+* an inference runner or service
 
-\* local model tuning or another measurable model-improvement method
+* raw model-output recording
 
-\* an inference runner or service
+* deterministic schema validation
 
-\* raw model-output recording
+* deterministic agreement fuzzing
 
-\* deterministic schema validation
+* human review and confirmation
 
-\* deterministic agreement fuzzing
+* connection to the existing PAI agreement lifecycle
 
-\* human review and confirmation
+* one complete sponsor-backed settlement flow
 
-\* connection to the existing PAI agreement lifecycle
+* end-to-end tests
 
-\* one complete sponsor-backed settlement flow
+* reproducible setup documentation
 
-\* end-to-end tests
-
-\* reproducible setup documentation
-
-\* the final demo and evaluation report
-
-
+* the final demo and evaluation report
 
 Items that are not completed and demonstrated must not be claimed as completed integrations.
 
-
-
-\## Local-model work performed after kickoff
-
-
+## Local-model work performed after kickoff
 
 After the kickoff boundary:
 
+* Ubuntu 24.04 under WSL2 was prepared for local model work.
 
+* GPU-enabled PyTorch and Unsloth were installed.
 
-\* Ubuntu 24.04 under WSL2 was prepared for local model work.
+* CUDA execution was verified on an NVIDIA RTX 4060 Laptop GPU.
 
-\* GPU-enabled PyTorch and Unsloth were installed.
+* `unsloth/Qwen3-4B-Instruct-2507-bnb-4bit` was loaded successfully.
 
-\* CUDA execution was verified on an NVIDIA RTX 4060 Laptop GPU.
+* The untouched model generated the smoke-test response `{"status":"ok"}`.
 
-\* `unsloth/Qwen3-4B-Instruct-2507-bnb-4bit` was loaded successfully.
-
-\* The untouched model generated the smoke-test response `{"status":"ok"}`.
-
-\* repeated environment import and GPU checks passed.
-
-
+* repeated environment import and GPU checks passed.
 
 This proves that the local environment can load and run the selected model. It is not yet a formal model-quality baseline and does not prove agreement-extraction accuracy.
 
-
-
-\## Safety and authority boundary
-
-
+## Safety and authority boundary
 
 PAI follows this rule:
 
+* AI advises.
 
+* Humans confirm and decide.
 
-\* AI advises.
+* Deterministic software validates.
 
-\* Humans confirm and decide.
-
-\* Deterministic software validates.
-
-\* The protocol executes.
-
-
+* The protocol executes.
 
 The model must not have unilateral authority to:
 
+* move funds
 
+* accept an agreement
 
-\* move funds
+* approve delivery
 
-\* accept an agreement
+* resolve a dispute
 
-\* approve delivery
+* act as the final arbitrator
 
-\* resolve a dispute
+* invent missing commercial terms
 
-\* act as the final arbitrator
+* convert deterministic calculations into unsupported extraction claims
 
-\* invent missing commercial terms
-
-\* convert deterministic calculations into unsupported extraction claims
-
-
-
-\## Scope discipline
-
-
+## Scope discipline
 
 The committed MVP is:
 
+* Telegram
 
+* local agreement intelligence
 
-\* Telegram
+* the v0.2 Agreement Object
 
-\* local agreement intelligence
+* deterministic validation
 
-\* the v0.2 Agreement Object
+* agreement fuzzing
 
-\* deterministic validation
+* human confirmation
 
-\* agreement fuzzing
+* the existing PAI lifecycle
 
-\* human confirmation
-
-\* the existing PAI lifecycle
-
-\* one complete on-chain settlement path
-
-
+* one complete on-chain settlement path
 
 Additional sponsor integrations are stretch work. They will only be included in the submission if they are implemented, tested, and visible in the end-to-end demonstration.
 
-
-
-\## Evidence and claim discipline
-
-
+## Evidence and claim discipline
 
 Hackathon work will be supported by:
 
+* commits after `ethonline-2026-kickoff`
 
+* source files on the `ethonline-2026` branch
 
-\* commits after `ethonline-2026-kickoff`
+* reproducible commands
 
-\* source files on the `ethonline-2026` branch
+* test and evaluation results
 
-\* reproducible commands
+* raw model outputs where relevant
 
-\* test and evaluation results
+* comparison reports
 
-\* raw model outputs where relevant
+* deployment or transaction evidence
 
-\* comparison reports
-
-\* deployment or transaction evidence
-
-\* the final demonstration video
-
-
+* the final demonstration video
 
 The final submission must explicitly distinguish:
 
+1. what existed before ETHOnline;
 
+2. what was prepared before ETHOnline;
 
-1\. what existed before ETHOnline;
+3. what was implemented during ETHOnline; and
 
-2\. what was prepared before ETHOnline;
-
-3\. what was implemented during ETHOnline; and
-
-4\. what remains planned or incomplete.
+4. what remains planned or incomplete.
