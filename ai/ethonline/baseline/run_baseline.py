@@ -19,7 +19,7 @@ from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
 
-RUNNER_VERSION = "pai.untouched-baseline.v0.1"
+RUNNER_VERSION = "pai.untouched-baseline.v0.2"
 DEFAULT_MODEL = "unsloth/Qwen3-4B-Instruct-2507-bnb-4bit"
 
 
@@ -29,7 +29,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-cases", type=int, default=0)
     parser.add_argument("--case", action="append", dest="case_ids")
     parser.add_argument("--max-seq-length", type=int, default=8192)
-    parser.add_argument("--max-new-tokens", type=int, default=1024)
+    parser.add_argument("--max-new-tokens", type=int, default=2048)
     parser.add_argument("--seed", type=int, default=3407)
     parser.add_argument(
         "--output",
@@ -85,6 +85,10 @@ def extract_json(raw: str) -> tuple[Any | None, bool, str | None]:
     try:
         return json.loads(stripped), True, None
     except json.JSONDecodeError as strict_error:
+        # If the response begins as JSON but is invalid, it is commonly truncated.
+        # Do not scan inside it and accidentally accept a valid nested object.
+        if stripped.startswith("{"):
+            return None, False, str(strict_error)
         decoder = json.JSONDecoder()
         for index, character in enumerate(stripped):
             if character != "{":
@@ -279,12 +283,15 @@ def main() -> int:
             {"role": "system", "content": prompt_contract},
             {"role": "user", "content": user_content},
         ]
-        input_ids = tokenizer.apply_chat_template(
+        model_inputs = tokenizer.apply_chat_template(
             messages,
             tokenize=True,
             add_generation_prompt=True,
             return_tensors="pt",
+            return_dict=True,
         ).to("cuda")
+        input_ids = model_inputs["input_ids"]
+        attention_mask = model_inputs["attention_mask"]
         prompt_tokens = int(input_ids.shape[-1])
         if prompt_tokens + args.max_new_tokens > args.max_seq_length:
             raise RuntimeError(
@@ -296,13 +303,16 @@ def main() -> int:
         with torch.inference_mode():
             generated = model.generate(
                 input_ids=input_ids,
+                attention_mask=attention_mask,
                 max_new_tokens=args.max_new_tokens,
                 do_sample=False,
                 use_cache=True,
                 pad_token_id=tokenizer.eos_token_id,
             )
+        output_ids = generated[0, input_ids.shape[-1] :]
+        output_tokens = int(output_ids.shape[-1])
         raw_response = tokenizer.decode(
-            generated[0, input_ids.shape[-1] :],
+            output_ids,
             skip_special_tokens=True,
         ).strip()
         parsed, strict_json, parse_error = extract_json(raw_response)
@@ -327,6 +337,8 @@ def main() -> int:
                 "caseId": case["id"],
                 "source": case["source"],
                 "promptTokens": prompt_tokens,
+                "outputTokens": output_tokens,
+                "hitMaxNewTokens": output_tokens >= args.max_new_tokens,
                 "rawResponse": raw_response,
                 "strictJson": strict_json,
                 "jsonParsed": parsed is not None,
