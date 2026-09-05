@@ -27,6 +27,14 @@ import {
   isDatabaseReady,
 } from "./db/prisma.js";
 
+import {
+  createPrismaAgreementOperations,
+} from "./agreements/service.js";
+
+import {
+  createPrismaSettlementBindingOperations,
+} from "./settlement-bindings/service.js";
+
 const config =
   loadEnv();
 
@@ -300,6 +308,16 @@ const revokeSession =
    APPLICATION
    ========================================================= */
 
+const agreementOperations =
+  createPrismaAgreementOperations(
+    prisma,
+  );
+
+const settlementBindingOperations =
+  createPrismaSettlementBindingOperations(
+    prisma,
+  );
+
 const fastify =
   Fastify({
     logger: true,
@@ -350,6 +368,26 @@ const app =
           chainId:
             config.chainId,
         },
+      },
+
+      agreements: {
+        sessionCookieName:
+          config.sessionCookieName,
+
+        resolveSession,
+
+        operations:
+          agreementOperations,
+      },
+
+      settlementBindings: {
+        sessionCookieName:
+          config.sessionCookieName,
+
+        resolveSession,
+
+        operations:
+          settlementBindingOperations,
       },
     },
     fastify,

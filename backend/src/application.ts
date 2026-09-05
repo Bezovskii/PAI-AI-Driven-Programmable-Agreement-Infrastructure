@@ -15,6 +15,16 @@ import {
   type AuthRouteOptions,
 } from "./auth/routes.js";
 
+import {
+  registerAgreementRoutes,
+  type AgreementRouteOptions,
+} from "./agreements/routes.js";
+
+import {
+  registerSettlementBindingRoutes,
+  type SettlementBindingRouteOptions,
+} from "./settlement-bindings/routes.js";
+
 export type ReadinessProbe =
   () => Promise<boolean>;
 
@@ -26,7 +36,13 @@ export interface BuildAppOptions {
   ReadinessProbe;
 
   readonly auth?:
-  AuthRouteOptions;
+    AuthRouteOptions;
+
+  readonly agreements?:
+    AgreementRouteOptions;
+
+  readonly settlementBindings?:
+    SettlementBindingRouteOptions;
 }
 
 const HealthResponseSchema =
@@ -180,6 +196,20 @@ export function buildApp(
     registerAuthRoutes(
       app,
       options.auth,
+    );
+  }
+
+  if (options.agreements) {
+    registerAgreementRoutes(
+      app,
+      options.agreements,
+    );
+  }
+
+  if (options.settlementBindings) {
+    registerSettlementBindingRoutes(
+      app,
+      options.settlementBindings,
     );
   }
 
