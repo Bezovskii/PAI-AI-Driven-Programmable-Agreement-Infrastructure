@@ -25,6 +25,11 @@ import {
   type SettlementBindingRouteOptions,
 } from "./settlement-bindings/routes.js";
 
+import {
+  registerIntelligenceRoutes,
+  type IntelligenceRouteOptions,
+} from "./intelligence/routes.js";
+
 export type ReadinessProbe =
   () => Promise<boolean>;
 
@@ -43,7 +48,10 @@ export interface BuildAppOptions {
 
   readonly settlementBindings?:
     SettlementBindingRouteOptions;
-}
+
+
+  readonly intelligence?:
+    IntelligenceRouteOptions;}
 
 const HealthResponseSchema =
   Type.Object(
@@ -210,6 +218,13 @@ export function buildApp(
     registerSettlementBindingRoutes(
       app,
       options.settlementBindings,
+    );
+  }
+
+  if (options.intelligence) {
+    registerIntelligenceRoutes(
+      app,
+      options.intelligence,
     );
   }
 

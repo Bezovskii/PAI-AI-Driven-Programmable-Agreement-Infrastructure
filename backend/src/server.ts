@@ -35,6 +35,10 @@ import {
   createPrismaSettlementBindingOperations,
 } from "./settlement-bindings/service.js";
 
+import {
+  createDeterministicAgreementStructurer,
+} from "./intelligence/service.js";
+
 const config =
   loadEnv();
 
@@ -318,6 +322,9 @@ const settlementBindingOperations =
     prisma,
   );
 
+const structureAgreement =
+  createDeterministicAgreementStructurer();
+
 const fastify =
   Fastify({
     logger: true,
@@ -389,7 +396,11 @@ const app =
         operations:
           settlementBindingOperations,
       },
-    },
+
+
+      intelligence: {
+        structureAgreement,
+      },    },
     fastify,
   );
 
