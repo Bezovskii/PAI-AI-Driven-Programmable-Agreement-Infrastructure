@@ -1,4 +1,4 @@
-﻿import {
+import {
   Bot,
   GrammyError,
   HttpError,
@@ -7,32 +7,70 @@
 import { config } from "./config.js";
 import { registerCreateAgreementHandler } from "./handlers/createAgreement.js";
 import { registerStartHandler } from "./handlers/start.js";
+import { createPaiClient } from "./services/paiClient.js";
 
 export function createBot(): Bot {
-  const bot = new Bot(config.telegramBotToken);
-
-  registerStartHandler(bot);
-  registerCreateAgreementHandler(bot);
-
-  bot.catch((error) => {
-    console.error(
-      `Telegram bot error while handling update ${error.ctx.update.update_id}`,
+  const bot =
+    new Bot(
+      config.telegramBotToken,
     );
 
-    const cause = error.error;
+  const paiClient =
+    createPaiClient({
+      baseUrl:
+        config.paiApiBaseUrl,
+    });
 
-    if (cause instanceof GrammyError) {
-      console.error("Telegram API error:", cause.description);
-      return;
-    }
+  registerStartHandler(
+    bot,
+  );
 
-    if (cause instanceof HttpError) {
-      console.error("Telegram network error:", cause);
-      return;
-    }
+  registerCreateAgreementHandler(
+    bot,
+    paiClient,
+  );
 
-    console.error("Unexpected bot error:", cause);
-  });
+  bot.catch(
+    (
+      error,
+    ) => {
+      console.error(
+        `Telegram bot error while handling update ${error.ctx.update.update_id}`,
+      );
+
+      const cause =
+        error.error;
+
+      if (
+        cause instanceof
+        GrammyError
+      ) {
+        console.error(
+          "Telegram API error:",
+          cause.description,
+        );
+
+        return;
+      }
+
+      if (
+        cause instanceof
+        HttpError
+      ) {
+        console.error(
+          "Telegram network error:",
+          cause,
+        );
+
+        return;
+      }
+
+      console.error(
+        "Unexpected bot error:",
+        cause,
+      );
+    },
+  );
 
   return bot;
 }

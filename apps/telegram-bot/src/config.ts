@@ -1,4 +1,4 @@
-﻿import "dotenv/config";
+import "dotenv/config";
 
 function requireEnvironmentVariable(name: string): string {
   const value = process.env[name]?.trim();
@@ -11,5 +11,13 @@ function requireEnvironmentVariable(name: string): string {
 }
 
 export const config = {
-  telegramBotToken: requireEnvironmentVariable("TELEGRAM_BOT_TOKEN"),
+  telegramBotToken:
+    requireEnvironmentVariable(
+      "TELEGRAM_BOT_TOKEN",
+    ),
+
+  paiApiBaseUrl:
+    requireEnvironmentVariable(
+      "PAI_API_BASE_URL",
+    ),
 } as const;
