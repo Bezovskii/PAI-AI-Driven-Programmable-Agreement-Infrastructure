@@ -15,6 +15,16 @@ if (process.env.SEPOLIA_RPC_URL && process.env.PRIVATE_KEY) {
     };
 }
 
+networks.arcTestnet = {
+    url:
+        process.env.ARC_RPC_URL ||
+        "https://rpc.testnet.arc.io",
+    chainId: 5042002,
+    accounts:
+        process.env.ARC_PRIVATE_KEY
+            ? [process.env.ARC_PRIVATE_KEY]
+            : [],
+};
 module.exports = {
     solidity: {
         version: "0.8.35",
