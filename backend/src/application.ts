@@ -49,9 +49,9 @@ export interface BuildAppOptions {
   readonly settlementBindings?:
     SettlementBindingRouteOptions;
 
-
   readonly intelligence?:
-    IntelligenceRouteOptions;}
+    IntelligenceRouteOptions;
+}
 
 const HealthResponseSchema =
   Type.Object(

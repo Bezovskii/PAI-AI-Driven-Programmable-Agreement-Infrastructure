@@ -397,10 +397,10 @@ const app =
           settlementBindingOperations,
       },
 
-
       intelligence: {
         structureAgreement,
-      },    },
+      },
+    },
     fastify,
   );
 
