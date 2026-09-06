@@ -26,6 +26,11 @@ DEFAULT_MODEL = "unsloth/Qwen3-4B-Instruct-2507-bnb-4bit"
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", default=DEFAULT_MODEL)
+    parser.add_argument(
+        "--prompt",
+        default="ai/ethonline/prompts/agreement-extraction-v0.2.txt",
+        help="Repository-relative prompt contract path",
+    )
     parser.add_argument("--max-cases", type=int, default=0)
     parser.add_argument("--case", action="append", dest="case_ids")
     parser.add_argument("--max-seq-length", type=int, default=8192)
@@ -204,7 +209,9 @@ def score_semantics(output: Any, expected: dict[str, Any]) -> dict[str, Any]:
 def main() -> int:
     args = parse_args()
     repo_root = Path(__file__).resolve().parents[3]
-    prompt_path = repo_root / "ai/ethonline/prompts/agreement-extraction-v0.2.txt"
+    prompt_path = repo_root / args.prompt
+    if not prompt_path.is_file():
+        raise SystemExit(f"Prompt contract not found: {prompt_path}")
     fixtures_path = repo_root / "docs/ai/annotation/fixtures/pai-annotation-adversarial-v0.2.json"
     agreement_schema_path = repo_root / "docs/ai/schema/pai-agreement-v0.2.schema.json"
     model_schema_path = repo_root / "docs/ai/schema/pai-model-output-v0.2.schema.json"
