@@ -311,3 +311,53 @@ export function prepareMilestoneRefundResolution(
       ),
   );
 }
+
+/*
+ * ARBITRATOR transaction.
+ *
+ * Executes an already-made human arbitration decision.
+ * true  = release milestone escrow to contractor
+ * false = refund milestone escrow to client
+ */
+export function prepareMilestoneDisputeResolution(
+  escrowAddress:
+    string,
+  agreementId:
+    bigint,
+  milestoneId:
+    bigint,
+  releaseToContractor:
+    boolean,
+): ArcPreparedTransaction {
+  const escrow =
+    normalizeAddress(
+      escrowAddress,
+      "escrowAddress",
+    );
+
+  const agreement =
+    requirePositiveId(
+      agreementId,
+      "agreementId",
+    );
+
+  const milestone =
+    requirePositiveId(
+      milestoneId,
+      "milestoneId",
+    );
+
+  return preparedTransaction(
+    escrow,
+
+    AGREEMENT_ESCROW_INTERFACE
+      .encodeFunctionData(
+        "resolveMilestoneDispute",
+        [
+          agreement,
+          milestone,
+          releaseToContractor,
+        ],
+      ),
+  );
+}
