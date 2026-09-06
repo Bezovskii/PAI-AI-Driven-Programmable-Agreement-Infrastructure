@@ -22,3 +22,15 @@ python -m unittest ai/ethonline/dataset/test_validate_dataset.py
 The existing 16 adversarial annotation fixtures are regression cases. They are not supervised
 training examples and must not be copied into generated train, validation, test, or challenge
 splits.
+
+`seed-v0.1/` is a deterministic 24-record pipeline seed. It is family-isolated across train,
+validation, and challenge splits, but every record is deliberately marked `draft`. It is not large
+or independently reviewed enough to justify a production fine-tune.
+
+Regenerate, verify, and validate the seed:
+
+```bash
+python ai/ethonline/dataset/build_seed_corpus.py
+python ai/ethonline/dataset/build_seed_corpus.py --check
+python ai/ethonline/dataset/validate_dataset.py ai/ethonline/dataset/seed-v0.1
+```

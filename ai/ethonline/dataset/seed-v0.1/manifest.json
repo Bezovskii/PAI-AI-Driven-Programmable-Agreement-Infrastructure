@@ -1,0 +1,35 @@
+{
+  "corpusVersion": "pai.seed-corpus.v0.1",
+  "familyCounts": {
+    "challenge_dynamic_pricing": 2,
+    "challenge_recurring_retainer": 2,
+    "train_ambiguous_currency": 4,
+    "train_complete_flat_fee": 4,
+    "train_milestone_schedule": 4,
+    "train_missing_acceptance_criteria": 4,
+    "validation_contradictory_deadline": 2,
+    "validation_unresolved_pronoun": 2
+  },
+  "generator": "pai-seed-corpus-v0.1",
+  "issueCounts": {
+    "AMBIGUOUS_CURRENCY": 4,
+    "CONTRADICTORY_DEADLINE": 2,
+    "MISSING_ACCEPTANCE_CRITERIA": 6,
+    "UNRESOLVED_PRONOUN": 2,
+    "UNSUPPORTED_DYNAMIC_PRICING": 2,
+    "UNSUPPORTED_RECURRING_RETAINER": 2
+  },
+  "recordCount": 24,
+  "recordVersion": "pai.training-example.v0.2",
+  "reviewStatus": "draft",
+  "splitCounts": {
+    "challenge": 4,
+    "train": 16,
+    "validation": 4
+  },
+  "trainingExclusions": [
+    "validation",
+    "challenge",
+    "docs/ai/annotation/fixtures/pai-annotation-adversarial-v0.2.json"
+  ]
+}

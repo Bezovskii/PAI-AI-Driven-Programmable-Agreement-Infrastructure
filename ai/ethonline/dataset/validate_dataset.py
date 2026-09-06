@@ -22,6 +22,7 @@ TRAINING_SCHEMA = "docs/ai/schema/pai-training-example-v0.2.schema.json"
 MODEL_OUTPUT_SCHEMA = "docs/ai/schema/pai-model-output-v0.2.schema.json"
 AGREEMENT_SCHEMA = "docs/ai/schema/pai-agreement-v0.2.schema.json"
 ISSUE_REGISTRY = "docs/ai/schema/pai-issue-codes-v0.2.json"
+DATASET_METADATA_FILES = {"manifest.json"}
 
 
 @dataclass(frozen=True)
@@ -96,7 +97,11 @@ def discover_dataset_files(inputs: Sequence[Path]) -> list[Path]:
         path = input_path.resolve()
         if path.is_dir():
             discovered.update(candidate for candidate in path.rglob("*.jsonl") if candidate.is_file())
-            discovered.update(candidate for candidate in path.rglob("*.json") if candidate.is_file())
+            discovered.update(
+                candidate
+                for candidate in path.rglob("*.json")
+                if candidate.is_file() and candidate.name not in DATASET_METADATA_FILES
+            )
         elif path.is_file():
             discovered.add(path)
         else:

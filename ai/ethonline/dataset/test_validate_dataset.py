@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import copy
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -13,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from validate_dataset import (  # noqa: E402
     LocatedRecord,
     build_validation_context,
+    discover_dataset_files,
     validate_records,
 )
 
@@ -140,6 +143,17 @@ class DatasetValidatorTests(unittest.TestCase):
         second = copy.deepcopy(first)
         second["input"]["text"] = "Build a landing page."
         self.assertTrue(any("duplicate exampleId" in message for message in self.messages(first, second)))
+
+    def test_directory_discovery_ignores_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "manifest.json").write_text(
+                json.dumps({"corpusVersion": "pai.seed-corpus.v0.1"}),
+                encoding="utf-8",
+            )
+            records = root / "train.jsonl"
+            records.write_text(json.dumps(example()) + "\n", encoding="utf-8")
+            self.assertEqual(discover_dataset_files([root]), [records.resolve()])
 
 
 if __name__ == "__main__":
