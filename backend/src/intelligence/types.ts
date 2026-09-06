@@ -60,7 +60,7 @@ export interface AgreementRisk {
     string;
 
   readonly field?:
-    string | undefined;
+    string;
 }
 
 export interface AgreementStructuringResult {
