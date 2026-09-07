@@ -13,6 +13,17 @@ Validate one or more files or directories:
 python ai/ethonline/dataset/validate_dataset.py path/to/train.jsonl path/to/validation.jsonl
 ```
 
+Before any training run, apply the separate readiness gate:
+
+```bash
+python ai/ethonline/dataset/check_training_readiness.py path/to/corpus
+```
+
+The readiness gate requires adjudicated records, no personal data, train/validation/challenge
+splits, both clean and issue-bearing training examples, and training coverage of every registered
+issue kind. It is a minimum safety gate, not evidence that a corpus is sufficiently large,
+representative, or production-ready. The draft seed corpus is expected to fail this gate.
+
 Run the focused tests:
 
 ```bash
