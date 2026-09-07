@@ -24,6 +24,29 @@ splits, both clean and issue-bearing training examples, and training coverage of
 issue kind. It is a minimum safety gate, not evidence that a corpus is sufficiently large,
 representative, or production-ready. The draft seed corpus is expected to fail this gate.
 
+Human review decisions are stored separately from deterministic draft sources. Create a hash-bound
+CSV queue:
+
+```bash
+python ai/ethonline/dataset/review_dataset.py create path/to/draft-corpus \
+  --output path/to/review-decisions.csv
+```
+
+For every row, a human reviewer must replace `pending` with `adjudicate` or `reject`, identify the
+reviewer, and add a timezone-qualified ISO 8601 `reviewedAt` timestamp. Rejections also require
+notes. Queue creation refuses to overwrite an existing decision file. The reviewer value is a
+declared identity for audit purposes; this file format does not cryptographically authenticate the
+reviewer. Applying the completed decisions creates a new derived corpus; it never edits draft inputs:
+
+```bash
+python ai/ethonline/dataset/review_dataset.py apply path/to/draft-corpus \
+  --decisions path/to/review-decisions.csv \
+  --output-dir path/to/adjudicated-corpus
+```
+
+Application fails if decisions are missing, pending, stale relative to the SHA-256-bound source
+record, or reference the wrong split. Rejected records are excluded from the derived corpus.
+
 Run the focused tests:
 
 ```bash
