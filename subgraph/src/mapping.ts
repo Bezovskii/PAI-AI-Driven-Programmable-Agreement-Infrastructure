@@ -345,7 +345,6 @@ export function handleMilestoneReleased(
   );
 
   settlementEvent.milestone = milestone.id;
-  settlementEvent.actor = event.params.contractor;
   settlementEvent.recipient = event.params.contractor;
   settlementEvent.token = event.params.token;
   settlementEvent.amount = event.params.amount;
@@ -387,7 +386,6 @@ export function handleMilestoneRefunded(
   );
 
   settlementEvent.milestone = milestone.id;
-  settlementEvent.actor = event.params.client;
   settlementEvent.recipient = event.params.client;
   settlementEvent.token = event.params.token;
   settlementEvent.amount = event.params.amount;
