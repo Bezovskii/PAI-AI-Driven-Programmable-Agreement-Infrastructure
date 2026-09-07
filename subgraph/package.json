@@ -1,0 +1,16 @@
+{
+  "name": "pai-arc-settlement-subgraph",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PAI AgreementEscrow execution history on Arc Testnet",
+  "scripts": {
+    "codegen": "graph codegen subgraph.yaml",
+    "build": "graph build subgraph.yaml"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-ts": "0.38.2"
+  },
+  "devDependencies": {
+    "@graphprotocol/graph-cli": "0.98.1"
+  }
+}

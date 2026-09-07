@@ -1,0 +1,77 @@
+type Agreement @entity(immutable: false) {
+  id: ID!
+  agreementId: BigInt!
+  escrowAddress: Bytes!
+
+  clientAddress: Bytes!
+  contractorAddress: Bytes!
+  tokenAddress: Bytes!
+
+  metadataURI: String
+
+  executionStatus: String!
+  totalFunded: BigInt!
+
+  escrowAcceptedBy: Bytes
+  escrowAcceptedAt: BigInt
+
+  createdAt: BigInt!
+  createdBlock: BigInt!
+  createdTransaction: Bytes!
+
+  completedAt: BigInt
+  completedBlock: BigInt
+  completedTransaction: Bytes
+
+  milestones: [Milestone!]! @derivedFrom(field: "agreement")
+  settlementEvents: [SettlementEvent!]! @derivedFrom(field: "agreement")
+}
+
+type Milestone @entity(immutable: false) {
+  id: ID!
+
+  agreement: Agreement!
+  milestoneId: BigInt!
+
+  amount: BigInt!
+  metadataURI: String
+
+  executionStatus: String!
+
+  evidenceURI: String
+  evidenceHash: Bytes
+
+  createdAt: BigInt!
+  createdBlock: BigInt!
+  createdTransaction: Bytes!
+
+  lastUpdatedAt: BigInt!
+  lastUpdatedBlock: BigInt!
+  lastUpdatedTransaction: Bytes!
+
+  settlementEvents: [SettlementEvent!]! @derivedFrom(field: "milestone")
+}
+
+type SettlementEvent @entity(immutable: true) {
+  id: ID!
+
+  agreement: Agreement!
+  milestone: Milestone
+
+  eventName: String!
+
+  actor: Bytes
+  recipient: Bytes
+  token: Bytes
+  amount: BigInt
+
+  releasedToContractor: Boolean
+
+  evidenceURI: String
+  evidenceHash: Bytes
+
+  transactionHash: Bytes!
+  logIndex: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+}
