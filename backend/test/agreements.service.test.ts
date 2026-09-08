@@ -633,6 +633,8 @@ test(
             termsHash:
               "0xterms",
 
+            revisions: [],
+
             parties: [
               {
                 id:
