@@ -116,7 +116,46 @@ test(
 
         sessionTtlSeconds:
           604800,
+
+        telegramServiceToken:
+          null,
       },
+    );
+  },
+);
+
+test(
+  "loadEnv accepts an optional Telegram service token",
+  () => {
+    const config =
+      loadEnv({
+        ...TEST_REQUIRED_ENV,
+
+        PAI_TELEGRAM_SERVICE_TOKEN:
+          "telegram-service-token-0123456789abcdef",
+      });
+
+    assert.equal(
+      config.telegramServiceToken,
+      "telegram-service-token-0123456789abcdef",
+    );
+  },
+);
+
+test(
+  "loadEnv rejects a short Telegram service token",
+  () => {
+    assert.throws(
+      () => {
+        loadEnv({
+          ...TEST_REQUIRED_ENV,
+
+          PAI_TELEGRAM_SERVICE_TOKEN:
+            "too-short",
+        });
+      },
+
+      /PAI_TELEGRAM_SERVICE_TOKEN must contain at least 32 characters/,
     );
   },
 );

@@ -22,6 +22,12 @@ const CLIENT_WALLET =
 const PARTY_TOKEN =
   "11".repeat(32);
 
+const SERVICE_USER_ID =
+  "service:telegram";
+
+const SERVICE_AUTHORIZATION =
+  "Bearer telegram-service-test-token";
+
 const AGREEMENT_ID =
   "agreement-canonical-1";
 
@@ -177,6 +183,18 @@ function buildCanonicalApp(
             CLIENT_WALLET,
         };
       },
+
+  resolveServicePrincipal?:
+    (
+      authorizationHeader:
+        string | undefined,
+    ) => Promise<
+      {
+        readonly userId:
+          string;
+      } |
+      null
+    >,
 ) {
   return buildApp({
     logger:
@@ -191,6 +209,14 @@ function buildCanonicalApp(
         COOKIE_NAME,
 
       resolveSession,
+
+      ...(
+        resolveServicePrincipal
+          ? {
+              resolveServicePrincipal,
+            }
+          : {}
+      ),
 
       operations,
     },
@@ -292,9 +318,6 @@ test(
         actor: {
           userId:
             "user-client",
-
-          walletAddress:
-            CLIENT_WALLET,
         },
 
         terms:
@@ -404,9 +427,6 @@ test(
         actor: {
           userId:
             "user-client",
-
-          walletAddress:
-            CLIENT_WALLET,
         },
 
         expected:
@@ -718,6 +738,336 @@ test(
             CLIENT_WALLET,
         },
       },
+    );
+  },
+);
+
+test(
+  "POST /reviewed accepts Telegram service principal without SIWE",
+  async (t) => {
+    let received:
+      unknown;
+
+    const app =
+      buildCanonicalApp(
+        asOperations({
+          persistReviewedAgreement:
+            async (
+              input,
+            ) => {
+              received =
+                input;
+
+              return {
+                lifecycle:
+                  LIFECYCLE,
+
+                partyAccess: [
+                  {
+                    partyId:
+                      CLIENT_PARTY_ID,
+
+                    role:
+                      "CLIENT",
+
+                    accessToken:
+                      PARTY_TOKEN,
+                  },
+
+                  {
+                    partyId:
+                      "party-contractor",
+
+                    role:
+                      "CONTRACTOR",
+
+                    accessToken:
+                      "22".repeat(32),
+                  },
+                ],
+              };
+            },
+        }),
+
+        async () =>
+          null,
+
+        async (
+          authorizationHeader,
+        ) => {
+          assert.equal(
+            authorizationHeader,
+            SERVICE_AUTHORIZATION,
+          );
+
+          return {
+            userId:
+              SERVICE_USER_ID,
+          };
+        },
+      );
+
+    t.after(
+      async () =>
+        app.close(),
+    );
+
+    const response =
+      await app.inject({
+        method:
+          "POST",
+
+        url:
+          "/api/v1/agreements/reviewed",
+
+        headers: {
+          authorization:
+            SERVICE_AUTHORIZATION,
+        },
+
+        payload: {
+          terms:
+            TERMS,
+
+          client: {
+            displayName:
+              "Amir",
+          },
+
+          contractor: {
+            displayName:
+              "Mina",
+          },
+        },
+      });
+
+    assert.equal(
+      response.statusCode,
+      201,
+    );
+
+    assert.deepEqual(
+      received,
+      {
+        actor: {
+          userId:
+            SERVICE_USER_ID,
+        },
+
+        terms:
+          TERMS,
+
+        client: {
+          displayName:
+            "Amir",
+        },
+
+        contractor: {
+          displayName:
+            "Mina",
+        },
+      },
+    );
+  },
+);
+
+test(
+  "POST /:id/revisions accepts Telegram service principal without SIWE",
+  async (t) => {
+    let received:
+      unknown;
+
+    const app =
+      buildCanonicalApp(
+        asOperations({
+          reviseCanonicalAgreement:
+            async (
+              input,
+            ) => {
+              received =
+                input;
+
+              return {
+                previous:
+                  LIFECYCLE.reference,
+
+                current: {
+                  agreementId:
+                    AGREEMENT_ID,
+
+                  agreementVersion:
+                    2,
+
+                  agreementHash:
+                    "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                },
+
+                lifecycle: {
+                  ...LIFECYCLE,
+
+                  reference: {
+                    agreementId:
+                      AGREEMENT_ID,
+
+                    agreementVersion:
+                      2,
+
+                    agreementHash:
+                      "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  },
+                },
+              };
+            },
+        }),
+
+        async () =>
+          null,
+
+        async (
+          authorizationHeader,
+        ) => {
+          assert.equal(
+            authorizationHeader,
+            SERVICE_AUTHORIZATION,
+          );
+
+          return {
+            userId:
+              SERVICE_USER_ID,
+          };
+        },
+      );
+
+    t.after(
+      async () =>
+        app.close(),
+    );
+
+    const response =
+      await app.inject({
+        method:
+          "POST",
+
+        url:
+          `/api/v1/agreements/${AGREEMENT_ID}/revisions`,
+
+        headers: {
+          authorization:
+            SERVICE_AUTHORIZATION,
+        },
+
+        payload: {
+          expected:
+            LIFECYCLE.reference,
+
+          terms:
+            TERMS,
+        },
+      });
+
+    assert.equal(
+      response.statusCode,
+      201,
+    );
+
+    assert.deepEqual(
+      received,
+      {
+        actor: {
+          userId:
+            SERVICE_USER_ID,
+        },
+
+        expected:
+          LIFECYCLE.reference,
+
+        terms:
+          TERMS,
+      },
+    );
+  },
+);
+
+test(
+  "Telegram service principal cannot authorize wallet binding",
+  async (t) => {
+    let serviceResolverCalled =
+      false;
+
+    let walletBindingCalled =
+      false;
+
+    const app =
+      buildCanonicalApp(
+        asOperations({
+          bindAgreementPartyWallet:
+            async () => {
+              walletBindingCalled =
+                true;
+
+              throw new Error(
+                "wallet binding must not execute",
+              );
+            },
+        }),
+
+        async () =>
+          null,
+
+        async () => {
+          serviceResolverCalled =
+            true;
+
+          return {
+            userId:
+              SERVICE_USER_ID,
+          };
+        },
+      );
+
+    t.after(
+      async () =>
+        app.close(),
+    );
+
+    const response =
+      await app.inject({
+        method:
+          "POST",
+
+        url:
+          `/api/v1/agreements/${AGREEMENT_ID}/parties/${CLIENT_PARTY_ID}/wallet-binding`,
+
+        headers: {
+          authorization:
+            SERVICE_AUTHORIZATION,
+
+          "x-pai-party-token":
+            PARTY_TOKEN,
+        },
+
+        payload: {
+          agreementId:
+            AGREEMENT_ID,
+
+          partyId:
+            CLIENT_PARTY_ID,
+        },
+      });
+
+    assert.equal(
+      response.statusCode,
+      401,
+    );
+
+    assert.equal(
+      serviceResolverCalled,
+      false,
+    );
+
+    assert.equal(
+      walletBindingCalled,
+      false,
     );
   },
 );

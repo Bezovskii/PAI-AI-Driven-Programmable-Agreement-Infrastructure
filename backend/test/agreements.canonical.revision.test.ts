@@ -394,9 +394,6 @@ test(
           actor: {
             userId:
               "user-client",
-
-            walletAddress:
-              "0x1111111111111111111111111111111111111111",
           },
 
           expected: {
@@ -560,9 +557,6 @@ test(
           actor: {
             userId:
               "user-client",
-
-            walletAddress:
-              "0x1111111111111111111111111111111111111111",
           },
 
           expected: {
@@ -602,9 +596,6 @@ test(
           actor: {
             userId:
               "user-client",
-
-            walletAddress:
-              "0x1111111111111111111111111111111111111111",
           },
 
           expected: {
@@ -647,9 +638,6 @@ test(
           actor: {
             userId:
               "user-client",
-
-            walletAddress:
-              "0x1111111111111111111111111111111111111111",
           },
 
           expected: {
@@ -695,9 +683,6 @@ test(
           actor: {
             userId:
               "different-user",
-
-            walletAddress:
-              "0x2222222222222222222222222222222222222222",
           },
 
           expected: {

@@ -15,6 +15,10 @@ import {
 } from "./auth/session.js";
 
 import {
+  createServicePrincipalResolver,
+} from "./auth/service.js";
+
+import {
   createSiweVerifier,
 } from "./auth/verify.js";
 
@@ -309,6 +313,47 @@ const revokeSession =
   );
 
 /* =========================================================
+   TELEGRAM SERVICE PRINCIPAL
+   ========================================================= */
+
+const resolveTelegramServicePrincipal =
+  config.telegramServiceToken ===
+  null
+    ? undefined
+    : createServicePrincipalResolver(
+        {
+          token:
+            config.telegramServiceToken,
+
+          userId:
+            "service:telegram",
+        },
+
+        async (
+          userId,
+        ) => {
+          await prisma.user.upsert({
+            where: {
+              id:
+                userId,
+            },
+
+            update: {},
+
+            create: {
+              id:
+                userId,
+            },
+
+            select: {
+              id:
+                true,
+            },
+          });
+        },
+      );
+
+/* =========================================================
    APPLICATION
    ========================================================= */
 
@@ -382,6 +427,15 @@ const app =
           config.sessionCookieName,
 
         resolveSession,
+
+        ...(
+          resolveTelegramServicePrincipal
+            ? {
+                resolveServicePrincipal:
+                  resolveTelegramServicePrincipal,
+              }
+            : {}
+        ),
 
         operations:
           agreementOperations,

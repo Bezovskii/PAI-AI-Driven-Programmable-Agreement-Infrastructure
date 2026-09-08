@@ -25,9 +25,17 @@ import type {
   ResolvedSession,
 } from "../auth/session.js";
 
+import type {
+  ResolveServicePrincipal,
+} from "../auth/service.js";
+
 /* =========================================================
    PAI HTTP DOMAIN TYPES
    ========================================================= */
+
+export interface AgreementAuthorActor {
+  readonly userId: string;
+}
 
 export interface AgreementRouteActor {
   readonly userId: string;
@@ -219,7 +227,7 @@ export interface CanonicalAgreementRouteOperations {
       input:
         PersistReviewedAgreementRequest & {
           readonly actor:
-            AgreementRouteActor;
+            AgreementAuthorActor;
         },
     ) => Promise<PersistReviewedAgreementResult>;
 
@@ -237,7 +245,7 @@ export interface CanonicalAgreementRouteOperations {
       input:
         ReviseCanonicalAgreementRequest & {
           readonly actor:
-            AgreementRouteActor;
+            AgreementAuthorActor;
         },
     ) => Promise<ReviseCanonicalAgreementResult>;
 
@@ -273,6 +281,9 @@ export interface AgreementRouteOptions {
 
   readonly sessionCookieName:
     string;
+
+  readonly resolveServicePrincipal?:
+    ResolveServicePrincipal;
 
   readonly operations:
     AgreementRouteOperations &
@@ -1239,6 +1250,45 @@ async function resolveActor(
   );
 }
 
+async function resolveCanonicalAuthor(
+  request: {
+    readonly cookies:
+      Record<string, string | undefined>;
+
+    readonly headers: {
+      readonly authorization?:
+        string | undefined;
+    };
+  },
+
+  options:
+    AgreementRouteOptions,
+): Promise<AgreementAuthorActor | null> {
+  const session =
+    await resolveActor(
+      request,
+      options,
+    );
+
+  if (session) {
+    return {
+      userId:
+        session.userId,
+    };
+  }
+
+  if (
+    !options.resolveServicePrincipal
+  ) {
+    return null;
+  }
+
+  return options
+    .resolveServicePrincipal(
+      request.headers.authorization,
+    );
+}
+
 /* =========================================================
    DOMAIN ERROR MAPPING
    ========================================================= */
@@ -1336,13 +1386,13 @@ export function registerAgreementRoutes(
       request,
       reply,
     ) => {
-      const session =
-        await resolveActor(
+      const actor =
+        await resolveCanonicalAuthor(
           request,
           options,
         );
 
-      if (!session) {
+      if (!actor) {
         return reply
           .code(401)
           .send({
@@ -1357,13 +1407,7 @@ export function registerAgreementRoutes(
             options.operations.persistReviewedAgreement,
             "persistReviewedAgreement",
           )({
-              actor: {
-                userId:
-                  session.userId,
-
-                walletAddress:
-                  session.walletAddress,
-              },
+              actor,
 
               terms:
                 request.body.terms,
@@ -1443,13 +1487,13 @@ export function registerAgreementRoutes(
       request,
       reply,
     ) => {
-      const session =
-        await resolveActor(
+      const actor =
+        await resolveCanonicalAuthor(
           request,
           options,
         );
 
-      if (!session) {
+      if (!actor) {
         return reply
           .code(401)
           .send({
@@ -1474,13 +1518,7 @@ export function registerAgreementRoutes(
             options.operations.reviseCanonicalAgreement,
             "reviseCanonicalAgreement",
           )({
-              actor: {
-                userId:
-                  session.userId,
-
-                walletAddress:
-                  session.walletAddress,
-              },
+              actor,
 
               expected:
                 request.body.expected,

@@ -32,6 +32,9 @@ export interface AppConfig {
 
   readonly sessionTtlSeconds:
     number;
+
+  readonly telegramServiceToken:
+    string | null;
 }
 
 const VALID_NODE_ENVIRONMENTS =
@@ -274,6 +277,28 @@ function parseSessionTtlSeconds(
   return ttl;
 }
 
+function parseTelegramServiceToken(
+  value: string | undefined,
+): string | null {
+  const token =
+    value?.trim();
+
+  if (!token) {
+    return null;
+  }
+
+  if (
+    token.length <
+    32
+  ) {
+    throw new Error(
+      "PAI_TELEGRAM_SERVICE_TOKEN must contain at least 32 characters when configured.",
+    );
+  }
+
+  return token;
+}
+
 export function loadEnv(
   env: NodeJS.ProcessEnv =
     process.env,
@@ -322,6 +347,11 @@ export function loadEnv(
     sessionTtlSeconds:
       parseSessionTtlSeconds(
         env.SESSION_TTL_SECONDS,
+      ),
+
+    telegramServiceToken:
+      parseTelegramServiceToken(
+        env.PAI_TELEGRAM_SERVICE_TOKEN,
       ),
   };
 
