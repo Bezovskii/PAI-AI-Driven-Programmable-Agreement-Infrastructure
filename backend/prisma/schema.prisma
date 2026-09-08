@@ -68,7 +68,9 @@ model Session {
 enum AgreementStatus {
   DRAFT
   PROPOSED
+  AWAITING_ACCEPTANCE
   ACCEPTED
+  READY_TO_FUND
   IN_PROGRESS
   COMPLETED
   CANCELLED
@@ -103,6 +105,7 @@ model Agreement {
   createdBy User @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
 
   parties            AgreementParty[]
+  revisions          AgreementRevision[]
   milestones         Milestone[]
   acceptances        AgreementAcceptance[]
   settlementBindings AgreementSettlementBinding[]
@@ -112,12 +115,13 @@ model Agreement {
 }
 
 model AgreementParty {
-  id            String             @id @default(cuid())
-  agreementId   String
-  walletAddress String
-  role          AgreementPartyRole
-  displayName   String?
-  createdAt     DateTime           @default(now())
+  id                   String             @id @default(cuid())
+  agreementId          String
+  walletAddress        String?
+  accessCredentialHash String?            @unique
+  role                 AgreementPartyRole
+  displayName          String?
+  createdAt            DateTime           @default(now())
 
   agreement Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
 
@@ -144,6 +148,21 @@ model AgreementAcceptance {
   @@unique([agreementId, partyId, termsVersion])
   @@index([agreementId])
   @@index([partyId])
+}
+
+model AgreementRevision {
+  id               String   @id @default(cuid())
+  agreementId      String
+  agreementVersion Int
+  agreementHash    String
+  canonicalTerms   Json
+  createdAt        DateTime @default(now())
+
+  agreement Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+
+  @@unique([agreementId, agreementVersion])
+  @@index([agreementId])
+  @@index([agreementHash])
 }
 
 model Milestone {

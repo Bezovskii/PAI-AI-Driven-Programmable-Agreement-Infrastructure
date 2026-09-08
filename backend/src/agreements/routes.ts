@@ -8,6 +8,19 @@ import {
 } from "@fastify/type-provider-typebox";
 
 import type {
+  AcceptAgreementVersionRequest,
+  AcceptAgreementVersionResult,
+  PersistReviewedAgreementRequest,
+  PersistReviewedAgreementResult,
+  ReviseCanonicalAgreementRequest,
+  ReviseCanonicalAgreementResult,
+  BindAgreementPartyWalletRequest,
+  BindAgreementPartyWalletResult,
+  AgreementAcceptanceView,
+  AgreementLifecycleView,
+  GetAgreementLifecycleRequest,
+} from "@pai/agreement-contract";
+import type {
   ResolveSession,
   ResolvedSession,
 } from "../auth/session.js";
@@ -50,7 +63,7 @@ export interface AgreementView {
 
   readonly parties: Array<{
     readonly id: string;
-    readonly walletAddress: string;
+    readonly walletAddress: string | null;
     readonly role: string;
   }>;
 
@@ -200,6 +213,60 @@ export interface AgreementRouteOperations {
     ) => Promise<MilestoneRouteResult>;
 }
 
+export interface CanonicalAgreementRouteOperations {
+  readonly persistReviewedAgreement:
+    (
+      input:
+        PersistReviewedAgreementRequest & {
+          readonly actor:
+            AgreementRouteActor;
+        },
+    ) => Promise<PersistReviewedAgreementResult>;
+
+  readonly acceptAgreementVersion:
+    (
+      input:
+        AcceptAgreementVersionRequest & {
+          readonly partyAccessToken:
+            string;
+        },
+    ) => Promise<AcceptAgreementVersionResult>;
+
+  readonly reviseCanonicalAgreement:
+    (
+      input:
+        ReviseCanonicalAgreementRequest & {
+          readonly actor:
+            AgreementRouteActor;
+        },
+    ) => Promise<ReviseCanonicalAgreementResult>;
+
+  readonly bindAgreementPartyWallet:
+    (
+      input:
+        BindAgreementPartyWalletRequest & {
+          readonly actor:
+            AgreementRouteActor;
+
+          readonly partyAccessToken:
+            string;
+        },
+    ) => Promise<BindAgreementPartyWalletResult>;
+
+  readonly getCanonicalAgreementLifecycle:
+    (
+      input:
+        GetAgreementLifecycleRequest,
+    ) => Promise<AgreementLifecycleView>;
+
+  readonly listCanonicalAgreementAcceptances:
+    (
+      input:
+        GetAgreementLifecycleRequest,
+    ) => Promise<
+      readonly AgreementAcceptanceView[]
+    >;
+}
 export interface AgreementRouteOptions {
   readonly resolveSession:
     ResolveSession;
@@ -208,9 +275,91 @@ export interface AgreementRouteOptions {
     string;
 
   readonly operations:
-    AgreementRouteOperations;
+    AgreementRouteOperations &
+    Partial<CanonicalAgreementRouteOperations>;
 }
 
+function requireCanonicalAgreementOperation<T>(
+  operation:
+    T | undefined,
+
+  name:
+    keyof CanonicalAgreementRouteOperations,
+): T {
+  if (
+    operation ===
+    undefined
+  ) {
+    throw new Error(
+      `Canonical agreement operation "${name}" is not configured.`,
+    );
+  }
+
+  return operation;
+}
+
+function toCanonicalLifecycleResponse(
+  lifecycle:
+    AgreementLifecycleView,
+) {
+  return {
+    reference: {
+      agreementId:
+        lifecycle.reference
+          .agreementId,
+
+      agreementVersion:
+        lifecycle.reference
+          .agreementVersion,
+
+      agreementHash:
+        lifecycle.reference
+          .agreementHash,
+    },
+
+    status:
+      lifecycle.status,
+
+    acceptanceComplete:
+      lifecycle.acceptanceComplete,
+
+    walletBindingComplete:
+      lifecycle.walletBindingComplete,
+
+    parties:
+      lifecycle.parties.map(
+        (
+          party,
+        ) => ({
+          partyId:
+            party.partyId,
+
+          role:
+            party.role,
+
+          ...(
+            party.displayName !==
+            undefined
+              ? {
+                  displayName:
+                    party.displayName,
+                }
+              : {}
+          ),
+
+          acceptedCurrentVersion:
+            party
+              .acceptedCurrentVersion,
+
+          walletBound:
+            party.walletBound,
+
+          walletAddress:
+            party.walletAddress,
+        }),
+      ),
+  };
+}
 /* =========================================================
    DOMAIN ERRORS
    ========================================================= */
@@ -538,7 +687,10 @@ const PartyViewSchema =
         Type.String(),
 
       walletAddress:
-        Type.String(),
+        Type.Union([
+          Type.String(),
+          Type.Null(),
+        ]),
 
       role:
         Type.String(),
@@ -594,6 +746,415 @@ const AgreementViewSchema =
         false,
     },
   );
+
+const CanonicalNullableStringSchema =
+  Type.Union([
+    Type.Null(),
+    Type.String(),
+  ]);
+
+const CanonicalAgreementHashSchema =
+  Type.String({
+    pattern:
+      "^0x[0-9a-f]{64}$",
+  });
+
+const CanonicalPartyRoleSchema =
+  Type.Union([
+    Type.Literal(
+      "CLIENT",
+    ),
+
+    Type.Literal(
+      "CONTRACTOR",
+    ),
+  ]);
+
+const CanonicalLifecycleStatusSchema =
+  Type.Union([
+    Type.Literal(
+      "AWAITING_ACCEPTANCE",
+    ),
+
+    Type.Literal(
+      "ACCEPTED",
+    ),
+
+    Type.Literal(
+      "READY_TO_FUND",
+    ),
+  ]);
+
+const CanonicalMilestoneSchema =
+  Type.Object(
+    {
+      amount:
+        CanonicalNullableStringSchema,
+
+      deliverable:
+        CanonicalNullableStringSchema,
+
+      acceptanceCriteria:
+        CanonicalNullableStringSchema,
+
+      deadline:
+        CanonicalNullableStringSchema,
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const CanonicalAgreementTermsSchema =
+  Type.Object(
+    {
+      title:
+        CanonicalNullableStringSchema,
+
+      description:
+        Type.String(),
+
+      totalValue:
+        CanonicalNullableStringSchema,
+
+      settlementAsset:
+        CanonicalNullableStringSchema,
+
+      deadline:
+        CanonicalNullableStringSchema,
+
+      approvalWindow:
+        CanonicalNullableStringSchema,
+
+      milestones:
+        Type.Array(
+          CanonicalMilestoneSchema,
+        ),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const CanonicalVersionReferenceSchema =
+  Type.Object(
+    {
+      agreementId:
+        Type.String(),
+
+      agreementVersion:
+        Type.Integer({
+          minimum:
+            1,
+        }),
+
+      agreementHash:
+        CanonicalAgreementHashSchema,
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const CanonicalLifecyclePartySchema =
+  Type.Object(
+    {
+      partyId:
+        Type.String(),
+
+      role:
+        CanonicalPartyRoleSchema,
+
+      displayName:
+        Type.Optional(
+          Type.Union([
+            Type.String(),
+            Type.Null(),
+          ]),
+        ),
+
+      acceptedCurrentVersion:
+        Type.Boolean(),
+
+      walletBound:
+        Type.Boolean(),
+
+      walletAddress:
+        Type.Union([
+          Type.String(),
+          Type.Null(),
+        ]),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const CanonicalLifecycleSchema =
+  Type.Object(
+    {
+      reference:
+        CanonicalVersionReferenceSchema,
+
+      status:
+        CanonicalLifecycleStatusSchema,
+
+      acceptanceComplete:
+        Type.Boolean(),
+
+      walletBindingComplete:
+        Type.Boolean(),
+
+      parties:
+        Type.Array(
+          CanonicalLifecyclePartySchema,
+        ),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const PersistReviewedAgreementBodySchema =
+  Type.Object(
+    {
+      terms:
+        CanonicalAgreementTermsSchema,
+
+      client:
+        Type.Object(
+          {
+            displayName:
+              Type.Optional(
+                Type.String(),
+              ),
+          },
+          {
+            additionalProperties:
+              false,
+          },
+        ),
+
+      contractor:
+        Type.Object(
+          {
+            displayName:
+              Type.Optional(
+                Type.String(),
+              ),
+          },
+          {
+            additionalProperties:
+              false,
+          },
+        ),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const PartyAccessCredentialSchema =
+  Type.Object(
+    {
+      partyId:
+        Type.String(),
+
+      role:
+        CanonicalPartyRoleSchema,
+
+      accessToken:
+        Type.String(),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const PersistReviewedAgreementResultSchema =
+  Type.Object(
+    {
+      lifecycle:
+        CanonicalLifecycleSchema,
+
+      partyAccess:
+        Type.Array(
+          PartyAccessCredentialSchema,
+        ),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const AcceptCanonicalAgreementBodySchema =
+  Type.Object(
+    {
+      agreementId:
+        Type.String(),
+
+      agreementVersion:
+        Type.Integer({
+          minimum:
+            1,
+        }),
+
+      agreementHash:
+        CanonicalAgreementHashSchema,
+
+      partyId:
+        Type.String(),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const AgreementAcceptanceSchema =
+  Type.Object(
+    {
+      partyId:
+        Type.String(),
+
+      role:
+        CanonicalPartyRoleSchema,
+
+      agreementVersion:
+        Type.Integer({
+          minimum:
+            1,
+        }),
+
+      agreementHash:
+        CanonicalAgreementHashSchema,
+
+      acceptedAt:
+        Type.String(),
+
+      current:
+        Type.Boolean(),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const AcceptCanonicalAgreementResultSchema =
+  Type.Object(
+    {
+      acceptance:
+        AgreementAcceptanceSchema,
+
+      lifecycle:
+        CanonicalLifecycleSchema,
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const ReviseCanonicalAgreementBodySchema =
+  Type.Object(
+    {
+      expected:
+        CanonicalVersionReferenceSchema,
+
+      terms:
+        CanonicalAgreementTermsSchema,
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const ReviseCanonicalAgreementResultSchema =
+  Type.Object(
+    {
+      previous:
+        CanonicalVersionReferenceSchema,
+
+      current:
+        CanonicalVersionReferenceSchema,
+
+      lifecycle:
+        CanonicalLifecycleSchema,
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const CanonicalPartyParamsSchema =
+  Type.Object(
+    {
+      id:
+        Type.String(),
+
+      partyId:
+        Type.String(),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const BindCanonicalWalletBodySchema =
+  Type.Object(
+    {
+      agreementId:
+        Type.String(),
+
+      partyId:
+        Type.String(),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const BindCanonicalWalletResultSchema =
+  Type.Object(
+    {
+      partyId:
+        Type.String(),
+
+      role:
+        CanonicalPartyRoleSchema,
+
+      walletAddress:
+        Type.String(),
+
+      lifecycle:
+        CanonicalLifecycleSchema,
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const PartyTokenHeadersSchema =
+  Type.Object({
+    "x-pai-party-token":
+      Type.Optional(
+        Type.String(),
+      ),
+  });
 
 const UnauthenticatedSchema =
   Type.Object(
@@ -745,6 +1306,515 @@ export function registerAgreementRoutes(
   const typedApp =
     app.withTypeProvider<TypeBoxTypeProvider>();
 
+  /* =========================================================
+     CANONICAL AGREEMENT ACCEPTANCE LIFECYCLE
+     ========================================================= */
+
+  typedApp.post(
+    "/api/v1/agreements/reviewed",
+    {
+      schema: {
+        body:
+          PersistReviewedAgreementBodySchema,
+
+        response: {
+          201:
+            PersistReviewedAgreementResultSchema,
+
+          401:
+            UnauthenticatedSchema,
+
+          403:
+            ForbiddenSchema,
+
+          409:
+            ConflictSchema,
+        },
+      },
+    },
+    async (
+      request,
+      reply,
+    ) => {
+      const session =
+        await resolveActor(
+          request,
+          options,
+        );
+
+      if (!session) {
+        return reply
+          .code(401)
+          .send({
+            error:
+              "unauthenticated",
+          });
+      }
+
+      try {
+        const result =
+          await requireCanonicalAgreementOperation(
+            options.operations.persistReviewedAgreement,
+            "persistReviewedAgreement",
+          )({
+              actor: {
+                userId:
+                  session.userId,
+
+                walletAddress:
+                  session.walletAddress,
+              },
+
+              terms:
+                request.body.terms,
+
+              client:
+                request.body.client,
+
+              contractor:
+                request.body
+                  .contractor,
+            });
+
+        return reply
+          .code(201)
+          .send(
+            {
+              lifecycle:
+                toCanonicalLifecycleResponse(
+                  result.lifecycle,
+                ),
+
+              partyAccess:
+                result.partyAccess.map(
+                  (
+                    entry,
+                  ) => ({
+                    partyId:
+                      entry.partyId,
+
+                    role:
+                      entry.role,
+
+                    accessToken:
+                      entry.accessToken,
+                  }),
+                ),
+            },
+          );
+      } catch (error) {
+        return sendDomainError(
+          error,
+          reply,
+        );
+      }
+    },
+  );
+
+  typedApp.post(
+    "/api/v1/agreements/:id/revisions",
+    {
+      schema: {
+        params:
+          IdParamsSchema,
+
+        body:
+          ReviseCanonicalAgreementBodySchema,
+
+        response: {
+          201:
+            ReviseCanonicalAgreementResultSchema,
+
+          401:
+            UnauthenticatedSchema,
+
+          403:
+            ForbiddenSchema,
+
+          404:
+            NotFoundSchema,
+
+          409:
+            ConflictSchema,
+        },
+      },
+    },
+    async (
+      request,
+      reply,
+    ) => {
+      const session =
+        await resolveActor(
+          request,
+          options,
+        );
+
+      if (!session) {
+        return reply
+          .code(401)
+          .send({
+            error:
+              "unauthenticated",
+          });
+      }
+
+      try {
+        if (
+          request.body.expected
+            .agreementId !==
+          request.params.id
+        ) {
+          throw new AgreementConflictError(
+            "Agreement path does not match expected canonical tuple.",
+          );
+        }
+
+        const result =
+          await requireCanonicalAgreementOperation(
+            options.operations.reviseCanonicalAgreement,
+            "reviseCanonicalAgreement",
+          )({
+              actor: {
+                userId:
+                  session.userId,
+
+                walletAddress:
+                  session.walletAddress,
+              },
+
+              expected:
+                request.body.expected,
+
+              terms:
+                request.body.terms,
+            });
+
+        return reply
+          .code(201)
+          .send(
+            {
+              previous: {
+                agreementId:
+                  result.previous
+                    .agreementId,
+
+                agreementVersion:
+                  result.previous
+                    .agreementVersion,
+
+                agreementHash:
+                  result.previous
+                    .agreementHash,
+              },
+
+              current: {
+                agreementId:
+                  result.current
+                    .agreementId,
+
+                agreementVersion:
+                  result.current
+                    .agreementVersion,
+
+                agreementHash:
+                  result.current
+                    .agreementHash,
+              },
+
+              lifecycle:
+                toCanonicalLifecycleResponse(
+                  result.lifecycle,
+                ),
+            },
+          );
+      } catch (error) {
+        return sendDomainError(
+          error,
+          reply,
+        );
+      }
+    },
+  );
+
+  typedApp.post(
+    "/api/v1/agreements/:id/acceptances",
+    {
+      schema: {
+        params:
+          IdParamsSchema,
+
+        headers:
+          PartyTokenHeadersSchema,
+
+        body:
+          AcceptCanonicalAgreementBodySchema,
+
+        response: {
+          200:
+            AcceptCanonicalAgreementResultSchema,
+
+          403:
+            ForbiddenSchema,
+
+          404:
+            NotFoundSchema,
+
+          409:
+            ConflictSchema,
+        },
+      },
+    },
+    async (
+      request,
+      reply,
+    ) => {
+      try {
+        if (
+          request.body.agreementId !==
+          request.params.id
+        ) {
+          throw new AgreementConflictError(
+            "Agreement path does not match acceptance tuple.",
+          );
+        }
+
+        const result =
+          await requireCanonicalAgreementOperation(
+            options.operations.acceptAgreementVersion,
+            "acceptAgreementVersion",
+          )({
+              agreementId:
+                request.body
+                  .agreementId,
+
+              agreementVersion:
+                request.body
+                  .agreementVersion,
+
+              agreementHash:
+                request.body
+                  .agreementHash,
+
+              partyId:
+                request.body.partyId,
+
+              partyAccessToken:
+                request.headers[
+                  "x-pai-party-token"
+                ] ??
+                "",
+            });
+
+        return reply
+          .code(200)
+          .send(
+            {
+              acceptance: {
+                partyId:
+                  result.acceptance
+                    .partyId,
+
+                role:
+                  result.acceptance
+                    .role,
+
+                agreementVersion:
+                  result.acceptance
+                    .agreementVersion,
+
+                agreementHash:
+                  result.acceptance
+                    .agreementHash,
+
+                acceptedAt:
+                  result.acceptance
+                    .acceptedAt,
+
+                current:
+                  result.acceptance
+                    .current,
+              },
+
+              lifecycle:
+                toCanonicalLifecycleResponse(
+                  result.lifecycle,
+                ),
+            },
+          );
+      } catch (error) {
+        return sendDomainError(
+          error,
+          reply,
+        );
+      }
+    },
+  );
+
+  typedApp.get(
+    "/api/v1/agreements/:id/lifecycle",
+    {
+      schema: {
+        params:
+          IdParamsSchema,
+
+        response: {
+          200:
+            CanonicalLifecycleSchema,
+
+          404:
+            NotFoundSchema,
+
+          409:
+            ConflictSchema,
+        },
+      },
+    },
+    async (
+      request,
+      reply,
+    ) => {
+      try {
+        const lifecycle =
+          await requireCanonicalAgreementOperation(
+            options.operations.getCanonicalAgreementLifecycle,
+            "getCanonicalAgreementLifecycle",
+          )({
+              agreementId:
+                request.params.id,
+            });
+
+        return reply
+          .code(200)
+          .send(
+            toCanonicalLifecycleResponse(
+              lifecycle,
+            ),
+          );
+      } catch (error) {
+        return sendDomainError(
+          error,
+          reply,
+        );
+      }
+    },
+  );
+
+  typedApp.post(
+    "/api/v1/agreements/:id/parties/:partyId/wallet-binding",
+    {
+      schema: {
+        params:
+          CanonicalPartyParamsSchema,
+
+        headers:
+          PartyTokenHeadersSchema,
+
+        body:
+          BindCanonicalWalletBodySchema,
+
+        response: {
+          200:
+            BindCanonicalWalletResultSchema,
+
+          401:
+            UnauthenticatedSchema,
+
+          403:
+            ForbiddenSchema,
+
+          404:
+            NotFoundSchema,
+
+          409:
+            ConflictSchema,
+        },
+      },
+    },
+    async (
+      request,
+      reply,
+    ) => {
+      const session =
+        await resolveActor(
+          request,
+          options,
+        );
+
+      if (!session) {
+        return reply
+          .code(401)
+          .send({
+            error:
+              "unauthenticated",
+          });
+      }
+
+      try {
+        if (
+          request.body.agreementId !==
+            request.params.id ||
+          request.body.partyId !==
+            request.params.partyId
+        ) {
+          throw new AgreementConflictError(
+            "Wallet-binding path does not match canonical party reference.",
+          );
+        }
+
+        const result =
+          await requireCanonicalAgreementOperation(
+            options.operations.bindAgreementPartyWallet,
+            "bindAgreementPartyWallet",
+          )({
+              agreementId:
+                request.body
+                  .agreementId,
+
+              partyId:
+                request.body.partyId,
+
+              partyAccessToken:
+                request.headers[
+                  "x-pai-party-token"
+                ] ??
+                "",
+
+              actor: {
+                userId:
+                  session.userId,
+
+                walletAddress:
+                  session.walletAddress,
+              },
+            });
+
+        return reply
+          .code(200)
+          .send(
+            {
+              partyId:
+                result.partyId,
+
+              role:
+                result.role,
+
+              walletAddress:
+                result.walletAddress,
+
+              lifecycle:
+                toCanonicalLifecycleResponse(
+                  result.lifecycle,
+                ),
+            },
+          );
+      } catch (error) {
+        return sendDomainError(
+          error,
+          reply,
+        );
+      }
+    },
+  );
   typedApp.post(
     "/api/v1/agreements",
     {
