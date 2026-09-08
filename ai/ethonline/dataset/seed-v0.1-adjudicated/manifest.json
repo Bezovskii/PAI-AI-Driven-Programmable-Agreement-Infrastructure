@@ -1,0 +1,15 @@
+{
+  "decisionCounts": {
+    "adjudicate": 22,
+    "reject": 2
+  },
+  "decisionFileSha256": "bdc092e2c28c0898766bab6ab958cd0a2b123f3e839bc9c961439b6f1638ac6f",
+  "recordCount": 22,
+  "reviewStatus": "adjudicated",
+  "splitCounts": {
+    "challenge": 2,
+    "train": 16,
+    "validation": 4
+  },
+  "workflowVersion": "pai.dataset-review-decision.v0.1"
+}

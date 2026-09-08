@@ -1,0 +1,24 @@
+{
+  "corpusVersion": "pai.readiness-supplement.v0.1",
+  "familyCounts": {
+    "train_contradictory_payment_trigger": 1,
+    "train_nonmonetary_exchange": 1,
+    "train_unresolved_relative_deadline": 1
+  },
+  "generator": "pai-seed-corpus-v0.1",
+  "issueCounts": {
+    "CONTRADICTORY_PAYMENT_TRIGGER": 1,
+    "UNRESOLVED_RELATIVE_DEADLINE_REFERENCE": 1,
+    "UNSUPPORTED_NONMONETARY_EXCHANGE": 1
+  },
+  "purpose": "Independent train coverage for issue kinds absent from seed-v0.1 train.",
+  "recordCount": 3,
+  "recordVersion": "pai.training-example.v0.2",
+  "reviewStatus": "draft",
+  "splitCounts": {
+    "train": 3
+  },
+  "trainingExclusions": [
+    "Not training-ready until separately human-adjudicated."
+  ]
+}

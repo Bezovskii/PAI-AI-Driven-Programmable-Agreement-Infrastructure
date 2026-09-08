@@ -1,0 +1,12 @@
+{
+  "decisionCounts": {
+    "adjudicate": 3
+  },
+  "decisionFileSha256": "5f0bfcaf42079b540d16e434583d7718f09fd87037b056458828530ca81d1ab7",
+  "recordCount": 3,
+  "reviewStatus": "adjudicated",
+  "splitCounts": {
+    "train": 3
+  },
+  "workflowVersion": "pai.dataset-review-decision.v0.1"
+}
