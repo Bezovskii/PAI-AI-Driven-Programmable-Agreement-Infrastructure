@@ -2,6 +2,10 @@ import type {
   PrismaClient,
 } from "../generated/prisma/client.js";
 
+import type {
+  CanonicalAgreementTerms,
+} from "@pai/agreement-contract";
+
 import {
   AgreementAccessError,
   AgreementConflictError,
@@ -1652,6 +1656,288 @@ export function createPrismaAgreementOperations(
                   },
                 ],
               },
+            };
+          },
+        );
+      },
+
+    getCanonicalAgreementReview:
+      async (
+        input,
+      ) => {
+        return prisma.$transaction(
+          async (
+            transaction,
+          ) => {
+            await transaction
+              .$queryRaw<
+                Array<{
+                  readonly id:
+                    string;
+                }>
+              >`
+                SELECT "id"
+                FROM "Agreement"
+                WHERE "id" = ${input.agreementId}
+                FOR SHARE
+              `;
+
+            const agreement =
+              await transaction
+                .agreement
+                .findUnique({
+                  where: {
+                    id:
+                      input.agreementId,
+                  },
+
+                  select: {
+                    id:
+                      true,
+
+                    termsVersion:
+                      true,
+
+                    termsHash:
+                      true,
+
+                    parties: {
+                      select: {
+                        id:
+                          true,
+
+                        role:
+                          true,
+
+                        displayName:
+                          true,
+
+                        walletAddress:
+                          true,
+
+                        accessCredentialHash:
+                          true,
+                      },
+                    },
+                  },
+                });
+
+            if (!agreement) {
+              throw new AgreementNotFoundError();
+            }
+
+            if (
+              agreement.termsHash ===
+              null
+            ) {
+              throw new AgreementConflictError(
+                "Agreement does not have a canonical hash.",
+              );
+            }
+
+            const currentRevision =
+              await transaction
+                .agreementRevision
+                .findUnique({
+                  where: {
+                    agreementId_agreementVersion:
+                      {
+                        agreementId:
+                          agreement.id,
+
+                        agreementVersion:
+                          agreement
+                            .termsVersion,
+                      },
+                  },
+
+                  select: {
+                    agreementHash:
+                      true,
+
+                    canonicalTerms:
+                      true,
+                  },
+                });
+
+            if (
+              !currentRevision ||
+              currentRevision
+                .agreementHash !==
+                agreement.termsHash
+            ) {
+              throw new AgreementConflictError(
+                "Agreement is not backed by the current canonical revision.",
+              );
+            }
+
+            const terms =
+              normalizeCanonicalAgreementTerms(
+                currentRevision
+                  .canonicalTerms as unknown as
+                    CanonicalAgreementTerms,
+              );
+
+            if (
+              computeCanonicalAgreementHash(
+                terms,
+              ) !==
+              currentRevision
+                .agreementHash
+            ) {
+              throw new AgreementConflictError(
+                "Canonical revision terms do not match the current agreement hash.",
+              );
+            }
+
+            const party =
+              agreement.parties.find(
+                (candidate) =>
+                  candidate
+                    .accessCredentialHash !==
+                    null &&
+                  verifyPartyAccessToken(
+                    input.partyAccessToken,
+                    candidate
+                      .accessCredentialHash,
+                  ),
+              );
+
+            if (!party) {
+              throw new AgreementAccessError(
+                "Party credential does not authorize canonical agreement review.",
+              );
+            }
+
+            const clientParty =
+              agreement.parties.find(
+                (candidate) =>
+                  candidate.role ===
+                  "CLIENT",
+              );
+
+            const contractorParty =
+              agreement.parties.find(
+                (candidate) =>
+                  candidate.role ===
+                  "CONTRACTOR",
+              );
+
+            if (
+              !clientParty ||
+              !contractorParty
+            ) {
+              throw new AgreementConflictError(
+                "Canonical agreement parties are incomplete.",
+              );
+            }
+
+            const currentAcceptances =
+              await transaction
+                .agreementAcceptance
+                .findMany({
+                  where: {
+                    agreementId:
+                      agreement.id,
+
+                    termsVersion:
+                      agreement
+                        .termsVersion,
+
+                    termsHash:
+                      agreement
+                        .termsHash,
+                  },
+
+                  select: {
+                    partyId:
+                      true,
+                  },
+                });
+
+            const acceptedPartyIds =
+              new Set(
+                currentAcceptances.map(
+                  (entry) =>
+                    entry.partyId,
+                ),
+              );
+
+            const clientAccepted =
+              acceptedPartyIds.has(
+                clientParty.id,
+              );
+
+            const contractorAccepted =
+              acceptedPartyIds.has(
+                contractorParty.id,
+              );
+
+            const lifecycleStatus =
+              deriveCanonicalLifecycleStatus([
+                {
+                  role:
+                    "CLIENT",
+
+                  acceptedCurrentVersion:
+                    clientAccepted,
+
+                  walletAddress:
+                    clientParty
+                      .walletAddress,
+                },
+
+                {
+                  role:
+                    "CONTRACTOR",
+
+                  acceptedCurrentVersion:
+                    contractorAccepted,
+
+                  walletAddress:
+                    contractorParty
+                      .walletAddress,
+                },
+              ]);
+
+            return {
+              reference: {
+                agreementId:
+                  agreement.id,
+
+                agreementVersion:
+                  agreement
+                    .termsVersion,
+
+                agreementHash:
+                  agreement
+                    .termsHash,
+              },
+
+              terms,
+
+              party: {
+                partyId:
+                  party.id,
+
+                role:
+                  party.role,
+
+                displayName:
+                  party.displayName,
+
+                acceptedCurrentVersion:
+                  acceptedPartyIds.has(
+                    party.id,
+                  ),
+              },
+
+              status:
+                lifecycleStatus,
+
+              acceptanceComplete:
+                clientAccepted &&
+                contractorAccepted,
             };
           },
         );

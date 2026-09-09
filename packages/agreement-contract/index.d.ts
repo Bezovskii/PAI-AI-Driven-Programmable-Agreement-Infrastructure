@@ -246,3 +246,51 @@ export interface GetAgreementLifecycleRequest {
   readonly agreementId:
     string;
 }
+
+export interface GetCanonicalAgreementReviewRequest {
+  readonly agreementId:
+    string;
+}
+
+export interface CanonicalAgreementReviewPartyView {
+  readonly partyId:
+    string;
+
+  readonly role:
+    AgreementPartyRole;
+
+  readonly displayName?:
+    string | null;
+
+  /**
+   * True only when this party has accepted the exact
+   * current agreementVersion + agreementHash.
+   */
+  readonly acceptedCurrentVersion:
+    boolean;
+}
+
+/**
+ * Read-only pre-wallet review view for the exact current
+ * canonical agreement revision.
+ *
+ * Authentication is transport-level via x-pai-party-token.
+ * The party credential is intentionally absent from this
+ * request/response contract.
+ */
+export interface CanonicalAgreementReviewView {
+  readonly reference:
+    AgreementVersionReference;
+
+  readonly terms:
+    CanonicalAgreementTerms;
+
+  readonly party:
+    CanonicalAgreementReviewPartyView;
+
+  readonly status:
+    AgreementAcceptanceLifecycleStatus;
+
+  readonly acceptanceComplete:
+    boolean;
+}

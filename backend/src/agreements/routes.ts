@@ -18,7 +18,9 @@ import type {
   BindAgreementPartyWalletResult,
   AgreementAcceptanceView,
   AgreementLifecycleView,
+  CanonicalAgreementReviewView,
   GetAgreementLifecycleRequest,
+  GetCanonicalAgreementReviewRequest,
 } from "@pai/agreement-contract";
 import type {
   ResolveSession,
@@ -261,6 +263,15 @@ export interface CanonicalAgreementRouteOperations {
         },
     ) => Promise<BindAgreementPartyWalletResult>;
 
+  readonly getCanonicalAgreementReview:
+    (
+      input:
+        GetCanonicalAgreementReviewRequest & {
+          readonly partyAccessToken:
+            string;
+        },
+    ) => Promise<CanonicalAgreementReviewView>;
+
   readonly getCanonicalAgreementLifecycle:
     (
       input:
@@ -371,6 +382,102 @@ function toCanonicalLifecycleResponse(
       ),
   };
 }
+function toCanonicalReviewResponse(
+  review:
+    CanonicalAgreementReviewView,
+) {
+  return {
+    reference: {
+      agreementId:
+        review.reference
+          .agreementId,
+
+      agreementVersion:
+        review.reference
+          .agreementVersion,
+
+      agreementHash:
+        review.reference
+          .agreementHash,
+    },
+
+    terms: {
+      title:
+        review.terms.title,
+
+      description:
+        review.terms.description,
+
+      totalValue:
+        review.terms.totalValue,
+
+      settlementAsset:
+        review.terms
+          .settlementAsset,
+
+      deadline:
+        review.terms.deadline,
+
+      approvalWindow:
+        review.terms
+          .approvalWindow,
+
+      milestones:
+        review.terms
+          .milestones
+          .map(
+            (
+              milestone,
+            ) => ({
+              amount:
+                milestone.amount,
+
+              deliverable:
+                milestone
+                  .deliverable,
+
+              acceptanceCriteria:
+                milestone
+                  .acceptanceCriteria,
+
+              deadline:
+                milestone.deadline,
+            }),
+          ),
+    },
+
+    party: {
+      partyId:
+        review.party.partyId,
+
+      role:
+        review.party.role,
+
+      ...(
+        review.party
+          .displayName !==
+        undefined
+          ? {
+              displayName:
+                review.party
+                  .displayName,
+            }
+          : {}
+      ),
+
+      acceptedCurrentVersion:
+        review.party
+          .acceptedCurrentVersion,
+    },
+
+    status:
+      review.status,
+
+    acceptanceComplete:
+      review.acceptanceComplete,
+  };
+}
+
 /* =========================================================
    DOMAIN ERRORS
    ========================================================= */
@@ -924,6 +1031,56 @@ const CanonicalLifecycleSchema =
         Type.Array(
           CanonicalLifecyclePartySchema,
         ),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const CanonicalAgreementReviewPartySchema =
+  Type.Object(
+    {
+      partyId:
+        Type.String(),
+
+      role:
+        CanonicalPartyRoleSchema,
+
+      displayName:
+        Type.Optional(
+          Type.Union([
+            Type.String(),
+            Type.Null(),
+          ]),
+        ),
+
+      acceptedCurrentVersion:
+        Type.Boolean(),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const CanonicalAgreementReviewResultSchema =
+  Type.Object(
+    {
+      reference:
+        CanonicalVersionReferenceSchema,
+
+      terms:
+        CanonicalAgreementTermsSchema,
+
+      party:
+        CanonicalAgreementReviewPartySchema,
+
+      status:
+        CanonicalLifecycleStatusSchema,
+
+      acceptanceComplete:
+        Type.Boolean(),
     },
     {
       additionalProperties:
@@ -1678,6 +1835,67 @@ export function registerAgreementRoutes(
                   result.lifecycle,
                 ),
             },
+          );
+      } catch (error) {
+        return sendDomainError(
+          error,
+          reply,
+        );
+      }
+    },
+  );
+
+  typedApp.get(
+    "/api/v1/agreements/:id/review",
+    {
+      schema: {
+        params:
+          IdParamsSchema,
+
+        headers:
+          PartyTokenHeadersSchema,
+
+        response: {
+          200:
+            CanonicalAgreementReviewResultSchema,
+
+          403:
+            ForbiddenSchema,
+
+          404:
+            NotFoundSchema,
+
+          409:
+            ConflictSchema,
+        },
+      },
+    },
+    async (
+      request,
+      reply,
+    ) => {
+      try {
+        const review =
+          await requireCanonicalAgreementOperation(
+            options.operations.getCanonicalAgreementReview,
+            "getCanonicalAgreementReview",
+          )({
+              agreementId:
+                request.params.id,
+
+              partyAccessToken:
+                request.headers[
+                  "x-pai-party-token"
+                ] ??
+                "",
+            });
+
+        return reply
+          .code(200)
+          .send(
+            toCanonicalReviewResponse(
+              review,
+            ),
           );
       } catch (error) {
         return sendDomainError(

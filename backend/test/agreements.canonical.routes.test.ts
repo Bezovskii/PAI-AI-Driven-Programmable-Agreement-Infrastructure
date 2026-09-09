@@ -7,6 +7,10 @@ import type {
 } from "../src/agreements/routes.js";
 
 import {
+  AgreementAccessError,
+} from "../src/agreements/routes.js";
+
+import {
   buildApp,
 } from "../src/app.js";
 
@@ -1068,6 +1072,406 @@ test(
     assert.equal(
       walletBindingCalled,
       false,
+    );
+  },
+);
+test(
+  "GET /:id/review uses only x-pai-party-token and does not require SIWE",
+  async (t) => {
+    let received:
+      unknown;
+
+    let sessionResolverCalled =
+      false;
+
+    let serviceResolverCalled =
+      false;
+
+    const app =
+      buildCanonicalApp(
+        asOperations({
+          getCanonicalAgreementReview:
+            async (
+              input,
+            ) => {
+              received =
+                input;
+
+              return {
+                reference:
+                  LIFECYCLE.reference,
+
+                terms:
+                  TERMS,
+
+                party: {
+                  partyId:
+                    CLIENT_PARTY_ID,
+
+                  role:
+                    "CLIENT",
+
+                  displayName:
+                    "Amir",
+
+                  acceptedCurrentVersion:
+                    false,
+                },
+
+                status:
+                  "AWAITING_ACCEPTANCE",
+
+                acceptanceComplete:
+                  false,
+              };
+            },
+        }),
+
+        async () => {
+          sessionResolverCalled =
+            true;
+
+          throw new Error(
+            "Review route must not resolve a SIWE session.",
+          );
+        },
+
+        async () => {
+          serviceResolverCalled =
+            true;
+
+          throw new Error(
+            "Review route must not resolve a service principal.",
+          );
+        },
+      );
+
+    t.after(
+      async () =>
+        app.close(),
+    );
+
+    const response =
+      await app.inject({
+        method:
+          "GET",
+
+        url:
+          `/api/v1/agreements/${AGREEMENT_ID}/review`,
+
+        headers: {
+          "x-pai-party-token":
+            PARTY_TOKEN,
+        },
+      });
+
+    assert.equal(
+      response.statusCode,
+      200,
+    );
+
+    assert.deepEqual(
+      received,
+      {
+        agreementId:
+          AGREEMENT_ID,
+
+        partyAccessToken:
+          PARTY_TOKEN,
+      },
+    );
+
+    assert.equal(
+      sessionResolverCalled,
+      false,
+    );
+
+    assert.equal(
+      serviceResolverCalled,
+      false,
+    );
+
+    assert.deepEqual(
+      response.json(),
+      {
+        reference:
+          LIFECYCLE.reference,
+
+        terms:
+          TERMS,
+
+        party: {
+          partyId:
+            CLIENT_PARTY_ID,
+
+          role:
+            "CLIENT",
+
+          displayName:
+            "Amir",
+
+          acceptedCurrentVersion:
+            false,
+        },
+
+        status:
+          "AWAITING_ACCEPTANCE",
+
+        acceptanceComplete:
+          false,
+      },
+    );
+  },
+);
+
+test(
+  "GET /:id/review rejects missing party credential",
+  async (t) => {
+    let reviewCalled =
+      false;
+
+    const app =
+      buildCanonicalApp(
+        asOperations({
+          getCanonicalAgreementReview:
+            async (
+              input,
+            ) => {
+              reviewCalled =
+                true;
+
+              assert.equal(
+                input.partyAccessToken,
+                "",
+              );
+
+              throw new AgreementAccessError(
+                "Missing canonical review credential.",
+              );
+            },
+        }),
+
+        async () => {
+          throw new Error(
+            "Review route must not resolve SIWE.",
+          );
+        },
+      );
+
+    t.after(
+      async () =>
+        app.close(),
+    );
+
+    const response =
+      await app.inject({
+        method:
+          "GET",
+
+        url:
+          `/api/v1/agreements/${AGREEMENT_ID}/review`,
+      });
+
+    assert.equal(
+      response.statusCode,
+      403,
+    );
+
+    assert.equal(
+      reviewCalled,
+      true,
+    );
+
+    assert.deepEqual(
+      response.json(),
+      {
+        error:
+          "agreement_action_forbidden",
+      },
+    );
+  },
+);
+
+test(
+  "Telegram service token alone cannot authorize canonical review",
+  async (t) => {
+    let reviewCalled =
+      false;
+
+    let serviceResolverCalled =
+      false;
+
+    const app =
+      buildCanonicalApp(
+        asOperations({
+          getCanonicalAgreementReview:
+            async (
+              input,
+            ) => {
+              reviewCalled =
+                true;
+
+              assert.equal(
+                input.partyAccessToken,
+                "",
+              );
+
+              throw new AgreementAccessError(
+                "Party credential required.",
+              );
+            },
+        }),
+
+        async () =>
+          null,
+
+        async () => {
+          serviceResolverCalled =
+            true;
+
+          return {
+            userId:
+              SERVICE_USER_ID,
+          };
+        },
+      );
+
+    t.after(
+      async () =>
+        app.close(),
+    );
+
+    const response =
+      await app.inject({
+        method:
+          "GET",
+
+        url:
+          `/api/v1/agreements/${AGREEMENT_ID}/review`,
+
+        headers: {
+          authorization:
+            SERVICE_AUTHORIZATION,
+        },
+      });
+
+    assert.equal(
+      response.statusCode,
+      403,
+    );
+
+    assert.equal(
+      reviewCalled,
+      true,
+    );
+
+    assert.equal(
+      serviceResolverCalled,
+      false,
+    );
+
+    assert.deepEqual(
+      response.json(),
+      {
+        error:
+          "agreement_action_forbidden",
+      },
+    );
+  },
+);
+
+test(
+  "canonical review transport keeps party credential out of URL and body",
+  async (t) => {
+    let received:
+      unknown;
+
+    const app =
+      buildCanonicalApp(
+        asOperations({
+          getCanonicalAgreementReview:
+            async (
+              input,
+            ) => {
+              received =
+                input;
+
+              return {
+                reference:
+                  LIFECYCLE.reference,
+
+                terms:
+                  TERMS,
+
+                party: {
+                  partyId:
+                    CLIENT_PARTY_ID,
+
+                  role:
+                    "CLIENT",
+
+                  acceptedCurrentVersion:
+                    false,
+                },
+
+                status:
+                  "AWAITING_ACCEPTANCE",
+
+                acceptanceComplete:
+                  false,
+              };
+            },
+        }),
+
+        async () => {
+          throw new Error(
+            "Review route must not resolve SIWE.",
+          );
+        },
+      );
+
+    t.after(
+      async () =>
+        app.close(),
+    );
+
+    const url =
+      `/api/v1/agreements/${AGREEMENT_ID}/review`;
+
+    assert.equal(
+      url.includes(
+        PARTY_TOKEN,
+      ),
+      false,
+    );
+
+    const response =
+      await app.inject({
+        method:
+          "GET",
+
+        url,
+
+        headers: {
+          "x-pai-party-token":
+            PARTY_TOKEN,
+        },
+      });
+
+    assert.equal(
+      response.statusCode,
+      200,
+    );
+
+    assert.deepEqual(
+      received,
+      {
+        agreementId:
+          AGREEMENT_ID,
+
+        partyAccessToken:
+          PARTY_TOKEN,
+      },
     );
   },
 );
