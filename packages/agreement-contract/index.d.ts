@@ -294,3 +294,27 @@ export interface CanonicalAgreementReviewView {
   readonly acceptanceComplete:
     boolean;
 }
+export interface CreateWalletBindingHandoffResult {
+  /**
+   * High-entropy opaque one-time secret.
+   *
+   * Core returns this only when the handoff is created.
+   * Persisted storage contains only its SHA-256 hash.
+   */
+  readonly handoffId:
+    string;
+
+  readonly expiresAt:
+    string;
+}
+
+/**
+ * walletAddress is intentionally absent.
+ *
+ * Wallet identity MUST come exclusively from the
+ * authenticated browser SIWE/session actor.
+ */
+export interface RedeemWalletBindingHandoffRequest {
+  readonly handoffId:
+    string;
+}

@@ -16,6 +16,8 @@ import type {
   ReviseCanonicalAgreementResult,
   BindAgreementPartyWalletRequest,
   BindAgreementPartyWalletResult,
+  CreateWalletBindingHandoffResult,
+  RedeemWalletBindingHandoffRequest,
   AgreementAcceptanceView,
   AgreementLifecycleView,
   CanonicalAgreementReviewView,
@@ -251,6 +253,20 @@ export interface CanonicalAgreementRouteOperations {
         },
     ) => Promise<ReviseCanonicalAgreementResult>;
 
+  readonly createWalletBindingHandoff:
+    (
+      input: {
+        readonly agreementId:
+          string;
+
+        readonly partyId:
+          string;
+
+        readonly partyAccessToken:
+          string;
+      },
+    ) => Promise<CreateWalletBindingHandoffResult>;
+
   readonly bindAgreementPartyWallet:
     (
       input:
@@ -260,6 +276,21 @@ export interface CanonicalAgreementRouteOperations {
 
           readonly partyAccessToken:
             string;
+        },
+    ) => Promise<BindAgreementPartyWalletResult>;
+
+  readonly redeemWalletBindingHandoff:
+    (
+      input:
+        RedeemWalletBindingHandoffRequest & {
+          readonly agreementId:
+            string;
+
+          readonly partyId:
+            string;
+
+          readonly actor:
+            AgreementRouteActor;
         },
     ) => Promise<BindAgreementPartyWalletResult>;
 
@@ -1316,6 +1347,61 @@ const BindCanonicalWalletResultSchema =
     },
   );
 
+const CreateWalletBindingHandoffResultSchema =
+  Type.Object(
+    {
+      handoffId:
+        Type.String({
+          minLength:
+            1,
+
+          maxLength:
+            256,
+        }),
+
+      expiresAt:
+        Type.String({
+          minLength:
+            1,
+
+          maxLength:
+            128,
+        }),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const RedeemWalletBindingHandoffBodySchema =
+  Type.Object(
+    {
+      handoffId:
+        Type.String({
+          minLength:
+            1,
+
+          maxLength:
+            256,
+        }),
+
+      /*
+       * Wallet identity is never accepted from the request body.
+       * Declaring this key as Never makes Fastify reject it
+       * instead of silently stripping it as an unknown property.
+       */
+      walletAddress:
+        Type.Optional(
+          Type.Never(),
+        ),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
 const PartyTokenHeadersSchema =
   Type.Object({
     "x-pai-party-token":
@@ -1955,6 +2041,168 @@ export function registerAgreementRoutes(
     },
   );
 
+  typedApp.post(
+    "/api/v1/agreements/:id/parties/:partyId/wallet-binding-handoffs",
+    {
+      schema: {
+        params:
+          CanonicalPartyParamsSchema,
+
+        headers:
+          PartyTokenHeadersSchema,
+
+        response: {
+          201:
+            CreateWalletBindingHandoffResultSchema,
+
+          403:
+            ForbiddenSchema,
+
+          404:
+            NotFoundSchema,
+
+          409:
+            ConflictSchema,
+        },
+      },
+    },
+    async (
+      request,
+      reply,
+    ) => {
+      try {
+        const result =
+          await requireCanonicalAgreementOperation(
+            options.operations.createWalletBindingHandoff,
+            "createWalletBindingHandoff",
+          )({
+              agreementId:
+                request.params.id,
+
+              partyId:
+                request.params.partyId,
+
+              partyAccessToken:
+                request.headers[
+                  "x-pai-party-token"
+                ] ??
+                "",
+            });
+
+        return reply
+          .code(201)
+          .send({
+            handoffId:
+              result.handoffId,
+
+            expiresAt:
+              result.expiresAt,
+          });
+      } catch (error) {
+        return sendDomainError(
+          error,
+          reply,
+        );
+      }
+    },
+  );
+
+  typedApp.post(
+    "/api/v1/agreements/:id/parties/:partyId/wallet-binding-handoffs/redeem",
+    {
+      schema: {
+        params:
+          CanonicalPartyParamsSchema,
+
+        body:
+          RedeemWalletBindingHandoffBodySchema,
+
+        response: {
+          200:
+            BindCanonicalWalletResultSchema,
+
+          401:
+            UnauthenticatedSchema,
+
+          403:
+            ForbiddenSchema,
+
+          404:
+            NotFoundSchema,
+
+          409:
+            ConflictSchema,
+        },
+      },
+    },
+    async (
+      request,
+      reply,
+    ) => {
+      const session =
+        await resolveActor(
+          request,
+          options,
+        );
+
+      if (!session) {
+        return reply
+          .code(401)
+          .send({
+            error:
+              "unauthenticated",
+          });
+      }
+
+      try {
+        const result =
+          await requireCanonicalAgreementOperation(
+            options.operations.redeemWalletBindingHandoff,
+            "redeemWalletBindingHandoff",
+          )({
+              agreementId:
+                request.params.id,
+
+              partyId:
+                request.params.partyId,
+
+              handoffId:
+                request.body.handoffId,
+
+              actor: {
+                userId:
+                  session.userId,
+
+                walletAddress:
+                  session.walletAddress,
+              },
+            });
+
+        return reply
+          .code(200)
+          .send({
+            partyId:
+              result.partyId,
+
+            role:
+              result.role,
+
+            walletAddress:
+              result.walletAddress,
+
+            lifecycle:
+              toCanonicalLifecycleResponse(
+                result.lifecycle,
+              ),
+          });
+      } catch (error) {
+        return sendDomainError(
+          error,
+          reply,
+        );
+      }
+    },
+  );
   typedApp.post(
     "/api/v1/agreements/:id/parties/:partyId/wallet-binding",
     {

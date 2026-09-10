@@ -1,8 +1,14 @@
+import {
+  createHash,
+  randomBytes,
+} from "node:crypto";
+
 import type {
   PrismaClient,
 } from "../generated/prisma/client.js";
 
 import type {
+  BindAgreementPartyWalletResult,
   CanonicalAgreementTerms,
 } from "@pai/agreement-contract";
 
@@ -57,6 +63,27 @@ function sameWallet(
     left.toLowerCase() ===
     right.toLowerCase()
   );
+}
+
+const WALLET_BINDING_HANDOFF_TTL_MS =
+  5 * 60 * 1000;
+
+function generateWalletBindingHandoffSecret():
+  string {
+  return randomBytes(32)
+    .toString("base64url");
+}
+
+function hashWalletBindingHandoffSecret(
+  secret:
+    string,
+): string {
+  return createHash("sha256")
+    .update(
+      secret,
+      "utf8",
+    )
+    .digest("hex");
 }
 
 /* =========================================================
@@ -236,6 +263,522 @@ export function createPrismaAgreementOperations(
       );
     };
 
+  type WalletBindingTransaction =
+    Pick<
+      PrismaClient,
+      | "$queryRaw"
+      | "agreement"
+      | "agreementAcceptance"
+      | "agreementParty"
+      | "agreementRevision"
+      | "walletBindingHandoff"
+    >;
+
+  const bindCanonicalPartyWalletInTransaction =
+    async (
+      transaction:
+        WalletBindingTransaction,
+
+      input: {
+        readonly agreementId:
+          string;
+
+        readonly partyId:
+          string;
+
+        readonly actorWallet:
+          string;
+
+        readonly partyAccessToken?:
+          string;
+
+        readonly expected?: {
+          readonly agreementVersion:
+            number;
+
+          readonly agreementHash:
+            string;
+
+          readonly role:
+            "CLIENT" |
+            "CONTRACTOR";
+        };
+      },
+    ): Promise<BindAgreementPartyWalletResult> => {
+      await transaction
+        .$queryRaw<
+          Array<{
+            readonly id:
+              string;
+          }>
+        >`
+          SELECT "id"
+          FROM "Agreement"
+          WHERE "id" = ${input.agreementId}
+          FOR UPDATE
+        `;
+
+      const agreement =
+        await transaction
+          .agreement
+          .findUnique({
+            where: {
+              id:
+                input.agreementId,
+            },
+
+            select: {
+              id:
+                true,
+
+              status:
+                true,
+
+              termsVersion:
+                true,
+
+              termsHash:
+                true,
+
+              parties: {
+                select: {
+                  id:
+                    true,
+
+                  role:
+                    true,
+
+                  displayName:
+                    true,
+
+                  walletAddress:
+                    true,
+
+                  accessCredentialHash:
+                    true,
+                },
+              },
+            },
+          });
+
+      if (!agreement) {
+        throw new AgreementNotFoundError();
+      }
+
+      if (
+        agreement.termsHash ===
+        null
+      ) {
+        throw new AgreementConflictError(
+          "Agreement does not have a canonical hash.",
+        );
+      }
+
+      const clientParty =
+        agreement.parties.find(
+          (candidate) =>
+            candidate.role ===
+            "CLIENT",
+        );
+
+      const contractorParty =
+        agreement.parties.find(
+          (candidate) =>
+            candidate.role ===
+            "CONTRACTOR",
+        );
+
+      if (
+        !clientParty ||
+        !contractorParty
+      ) {
+        throw new AgreementConflictError(
+          "Canonical agreement parties are incomplete.",
+        );
+      }
+
+      const party =
+        agreement.parties.find(
+          (candidate) =>
+            candidate.id ===
+            input.partyId,
+        );
+
+      if (!party) {
+        throw new AgreementAccessError(
+          "Agreement party does not match wallet-binding authorization.",
+        );
+      }
+
+      if (
+        input.partyAccessToken !==
+        undefined
+      ) {
+        if (
+          !party
+            .accessCredentialHash ||
+          !verifyPartyAccessToken(
+            input.partyAccessToken,
+            party
+              .accessCredentialHash,
+          )
+        ) {
+          throw new AgreementAccessError(
+            "Party credential does not authorize this wallet binding.",
+          );
+        }
+      }
+
+      if (
+        input.expected !==
+        undefined
+      ) {
+        if (
+          agreement.termsVersion !==
+            input.expected
+              .agreementVersion ||
+          agreement.termsHash !==
+            input.expected
+              .agreementHash ||
+          party.role !==
+            input.expected.role
+        ) {
+          throw new AgreementConflictError(
+            "Wallet-binding handoff no longer matches the current canonical agreement tuple.",
+          );
+        }
+
+        const currentRevision =
+          await transaction
+            .agreementRevision
+            .findUnique({
+              where: {
+                agreementId_agreementVersion:
+                  {
+                    agreementId:
+                      agreement.id,
+
+                    agreementVersion:
+                      agreement
+                        .termsVersion,
+                  },
+              },
+
+              select: {
+                agreementHash:
+                  true,
+
+                canonicalTerms:
+                  true,
+              },
+            });
+
+        if (
+          !currentRevision ||
+          currentRevision
+            .agreementHash !==
+            agreement.termsHash
+        ) {
+          throw new AgreementConflictError(
+            "Agreement is not backed by the current canonical revision.",
+          );
+        }
+
+        const canonicalTerms =
+          normalizeCanonicalAgreementTerms(
+            currentRevision
+              .canonicalTerms as unknown as
+                CanonicalAgreementTerms,
+          );
+
+        if (
+          computeCanonicalAgreementHash(
+            canonicalTerms,
+          ) !==
+          agreement.termsHash
+        ) {
+          throw new AgreementConflictError(
+            "Canonical revision terms do not match the current agreement hash.",
+          );
+        }
+      }
+
+      const currentAcceptances =
+        await transaction
+          .agreementAcceptance
+          .findMany({
+            where: {
+              agreementId:
+                agreement.id,
+
+              termsVersion:
+                agreement
+                  .termsVersion,
+
+              termsHash:
+                agreement
+                  .termsHash,
+            },
+
+            select: {
+              partyId:
+                true,
+            },
+          });
+
+      const acceptedPartyIds =
+        new Set(
+          currentAcceptances.map(
+            (entry) =>
+              entry.partyId,
+          ),
+        );
+
+      const acceptanceComplete =
+        acceptedPartyIds.has(
+          clientParty.id,
+        ) &&
+        acceptedPartyIds.has(
+          contractorParty.id,
+        );
+
+      if (!acceptanceComplete) {
+        throw new AgreementConflictError(
+          "Wallet binding requires both current agreement acceptances.",
+        );
+      }
+
+      const otherParty =
+        party.id ===
+        clientParty.id
+          ? contractorParty
+          : clientParty;
+
+      if (
+        otherParty
+          .walletAddress !==
+          null &&
+        sameWallet(
+          otherParty
+            .walletAddress,
+          input.actorWallet,
+        )
+      ) {
+        throw new AgreementConflictError(
+          "CLIENT and CONTRACTOR must bind different wallets.",
+        );
+      }
+
+      if (
+        party.walletAddress !==
+          null &&
+        !sameWallet(
+          party.walletAddress,
+          input.actorWallet,
+        )
+      ) {
+        throw new AgreementConflictError(
+          "Agreement party is already bound to a different wallet.",
+        );
+      }
+
+      if (
+        party.walletAddress ===
+        null
+      ) {
+        const bind =
+          await transaction
+            .agreementParty
+            .updateMany({
+              where: {
+                id:
+                  party.id,
+
+                agreementId:
+                  agreement.id,
+
+                walletAddress:
+                  null,
+              },
+
+              data: {
+                walletAddress:
+                  input.actorWallet,
+              },
+            });
+
+        if (
+          bind.count !==
+          1
+        ) {
+          throw new AgreementConflictError(
+            "Agreement party wallet changed during binding.",
+          );
+        }
+      }
+
+      const clientWalletAddress =
+        clientParty.id ===
+        party.id
+          ? input.actorWallet
+          : clientParty
+              .walletAddress;
+
+      const contractorWalletAddress =
+        contractorParty.id ===
+        party.id
+          ? input.actorWallet
+          : contractorParty
+              .walletAddress;
+
+      const lifecycleStatus =
+        deriveCanonicalLifecycleStatus([
+          {
+            role:
+              "CLIENT",
+
+            acceptedCurrentVersion:
+              true,
+
+            walletAddress:
+              clientWalletAddress,
+          },
+
+          {
+            role:
+              "CONTRACTOR",
+
+            acceptedCurrentVersion:
+              true,
+
+            walletAddress:
+              contractorWalletAddress,
+          },
+        ]);
+
+      if (
+        agreement.status !==
+        lifecycleStatus
+      ) {
+        const update =
+          await transaction
+            .agreement
+            .updateMany({
+              where: {
+                id:
+                  agreement.id,
+
+                termsVersion:
+                  agreement
+                    .termsVersion,
+
+                termsHash:
+                  agreement
+                    .termsHash,
+              },
+
+              data: {
+                status:
+                  lifecycleStatus,
+              },
+            });
+
+        if (
+          update.count !==
+          1
+        ) {
+          throw new AgreementConflictError(
+            "Agreement state changed during wallet binding.",
+          );
+        }
+      }
+
+      const walletBindingComplete =
+        clientWalletAddress !==
+          null &&
+        contractorWalletAddress !==
+          null;
+
+      return {
+        partyId:
+          party.id,
+
+        role:
+          party.role,
+
+        walletAddress:
+          input.actorWallet,
+
+        lifecycle: {
+          reference: {
+            agreementId:
+              agreement.id,
+
+            agreementVersion:
+              agreement
+                .termsVersion,
+
+            agreementHash:
+              agreement
+                .termsHash,
+          },
+
+          status:
+            lifecycleStatus,
+
+          acceptanceComplete:
+            true,
+
+          walletBindingComplete,
+
+          parties: [
+            {
+              partyId:
+                clientParty.id,
+
+              role:
+                "CLIENT",
+
+              displayName:
+                clientParty
+                  .displayName,
+
+              acceptedCurrentVersion:
+                true,
+
+              walletBound:
+                clientWalletAddress !==
+                null,
+
+              walletAddress:
+                clientWalletAddress,
+            },
+
+            {
+              partyId:
+                contractorParty.id,
+
+              role:
+                "CONTRACTOR",
+
+              displayName:
+                contractorParty
+                  .displayName,
+
+              acceptedCurrentVersion:
+                true,
+
+              walletBound:
+                contractorWalletAddress !==
+                null,
+
+              walletAddress:
+                contractorWalletAddress,
+            },
+          ],
+        },
+      };
+    };
   return {
     /* =====================================================
        CREATE
@@ -1255,13 +1798,22 @@ export function createPrismaAgreementOperations(
         );
       },
 
-    bindAgreementPartyWallet:
+    createWalletBindingHandoff:
       async (
         input,
       ) => {
-        const actorWallet =
-          normalizeWalletAddress(
-            input.actor.walletAddress,
+        const handoffId =
+          generateWalletBindingHandoffSecret();
+
+        const secretHash =
+          hashWalletBindingHandoffSecret(
+            handoffId,
+          );
+
+        const expiresAt =
+          new Date(
+            Date.now() +
+              WALLET_BINDING_HANDOFF_TTL_MS,
           );
 
         return prisma.$transaction(
@@ -1278,7 +1830,7 @@ export function createPrismaAgreementOperations(
                 SELECT "id"
                 FROM "Agreement"
                 WHERE "id" = ${input.agreementId}
-                FOR UPDATE
+                FOR SHARE
               `;
 
             const agreement =
@@ -1292,9 +1844,6 @@ export function createPrismaAgreementOperations(
 
                   select: {
                     id:
-                      true,
-
-                    status:
                       true,
 
                     termsVersion:
@@ -1311,12 +1860,6 @@ export function createPrismaAgreementOperations(
                         role:
                           true,
 
-                        displayName:
-                          true,
-
-                        walletAddress:
-                          true,
-
                         accessCredentialHash:
                           true,
                       },
@@ -1328,12 +1871,88 @@ export function createPrismaAgreementOperations(
               throw new AgreementNotFoundError();
             }
 
+            const party =
+              agreement.parties.find(
+                (candidate) =>
+                  candidate.id ===
+                  input.partyId,
+              );
+
+            if (
+              !party ||
+              !party
+                .accessCredentialHash ||
+              !verifyPartyAccessToken(
+                input.partyAccessToken,
+                party
+                  .accessCredentialHash,
+              )
+            ) {
+              throw new AgreementAccessError(
+                "Party credential does not authorize wallet-binding handoff creation.",
+              );
+            }
+
             if (
               agreement.termsHash ===
               null
             ) {
               throw new AgreementConflictError(
                 "Agreement does not have a canonical hash.",
+              );
+            }
+
+            const currentRevision =
+              await transaction
+                .agreementRevision
+                .findUnique({
+                  where: {
+                    agreementId_agreementVersion:
+                      {
+                        agreementId:
+                          agreement.id,
+
+                        agreementVersion:
+                          agreement
+                            .termsVersion,
+                      },
+                  },
+
+                  select: {
+                    agreementHash:
+                      true,
+
+                    canonicalTerms:
+                      true,
+                  },
+                });
+
+            if (
+              !currentRevision ||
+              currentRevision
+                .agreementHash !==
+                agreement.termsHash
+            ) {
+              throw new AgreementConflictError(
+                "Agreement is not backed by the current canonical revision.",
+              );
+            }
+
+            const canonicalTerms =
+              normalizeCanonicalAgreementTerms(
+                currentRevision
+                  .canonicalTerms as unknown as
+                    CanonicalAgreementTerms,
+              );
+
+            if (
+              computeCanonicalAgreementHash(
+                canonicalTerms,
+              ) !==
+              agreement.termsHash
+            ) {
+              throw new AgreementConflictError(
+                "Canonical revision terms do not match the current agreement hash.",
               );
             }
 
@@ -1357,28 +1976,6 @@ export function createPrismaAgreementOperations(
             ) {
               throw new AgreementConflictError(
                 "Canonical agreement parties are incomplete.",
-              );
-            }
-
-            const party =
-              agreement.parties.find(
-                (candidate) =>
-                  candidate.id ===
-                  input.partyId,
-              );
-
-            if (
-              !party ||
-              !party
-                .accessCredentialHash ||
-              !verifyPartyAccessToken(
-                input.partyAccessToken,
-                party
-                  .accessCredentialHash,
-              )
-            ) {
-              throw new AgreementAccessError(
-                "Party credential does not authorize this wallet binding.",
               );
             }
 
@@ -1423,173 +2020,16 @@ export function createPrismaAgreementOperations(
 
             if (!acceptanceComplete) {
               throw new AgreementConflictError(
-                "Wallet binding requires both current agreement acceptances.",
+                "Wallet-binding handoff requires both current agreement acceptances.",
               );
             }
 
-            const otherParty =
-              party.id ===
-              clientParty.id
-                ? contractorParty
-                : clientParty;
+            await transaction
+              .walletBindingHandoff
+              .create({
+                data: {
+                  secretHash,
 
-            if (
-              otherParty
-                .walletAddress !==
-                null &&
-              sameWallet(
-                otherParty
-                  .walletAddress,
-                actorWallet,
-              )
-            ) {
-              throw new AgreementConflictError(
-                "CLIENT and CONTRACTOR must bind different wallets.",
-              );
-            }
-
-            if (
-              party.walletAddress !==
-              null &&
-              !sameWallet(
-                party.walletAddress,
-                actorWallet,
-              )
-            ) {
-              throw new AgreementConflictError(
-                "Agreement party is already bound to a different wallet.",
-              );
-            }
-
-            if (
-              party.walletAddress ===
-              null
-            ) {
-              const bind =
-                await transaction
-                  .agreementParty
-                  .updateMany({
-                    where: {
-                      id:
-                        party.id,
-
-                      agreementId:
-                        agreement.id,
-
-                      walletAddress:
-                        null,
-                    },
-
-                    data: {
-                      walletAddress:
-                        actorWallet,
-                    },
-                  });
-
-              if (
-                bind.count !==
-                1
-              ) {
-                throw new AgreementConflictError(
-                  "Agreement party wallet changed during binding.",
-                );
-              }
-            }
-
-            const clientWalletAddress =
-              clientParty.id ===
-              party.id
-                ? actorWallet
-                : clientParty
-                    .walletAddress;
-
-            const contractorWalletAddress =
-              contractorParty.id ===
-              party.id
-                ? actorWallet
-                : contractorParty
-                    .walletAddress;
-
-            const lifecycleStatus =
-              deriveCanonicalLifecycleStatus([
-                {
-                  role:
-                    "CLIENT",
-
-                  acceptedCurrentVersion:
-                    true,
-
-                  walletAddress:
-                    clientWalletAddress,
-                },
-
-                {
-                  role:
-                    "CONTRACTOR",
-
-                  acceptedCurrentVersion:
-                    true,
-
-                  walletAddress:
-                    contractorWalletAddress,
-                },
-              ]);
-
-            if (
-              agreement.status !==
-              lifecycleStatus
-            ) {
-              const update =
-                await transaction
-                  .agreement
-                  .updateMany({
-                    where: {
-                      id:
-                        agreement.id,
-
-                      termsVersion:
-                        agreement
-                          .termsVersion,
-
-                      termsHash:
-                        agreement
-                          .termsHash,
-                    },
-
-                    data: {
-                      status:
-                        lifecycleStatus,
-                    },
-                  });
-
-              if (
-                update.count !==
-                1
-              ) {
-                throw new AgreementConflictError(
-                  "Agreement state changed during wallet binding.",
-                );
-              }
-            }
-
-            const walletBindingComplete =
-              clientWalletAddress !==
-                null &&
-              contractorWalletAddress !==
-                null;
-
-            return {
-              partyId:
-                party.id,
-
-              role:
-                party.role,
-
-              walletAddress:
-                actorWallet,
-
-              lifecycle: {
-                reference: {
                   agreementId:
                     agreement.id,
 
@@ -1600,67 +2040,295 @@ export function createPrismaAgreementOperations(
                   agreementHash:
                     agreement
                       .termsHash,
+
+                  partyId:
+                    party.id,
+
+                  role:
+                    party.role,
+
+                  expiresAt,
                 },
+              });
 
-                status:
-                  lifecycleStatus,
+            return {
+              handoffId,
 
-                acceptanceComplete:
-                  true,
-
-                walletBindingComplete,
-
-                parties: [
-                  {
-                    partyId:
-                      clientParty.id,
-
-                    role:
-                      "CLIENT",
-
-                    displayName:
-                      clientParty
-                        .displayName,
-
-                    acceptedCurrentVersion:
-                      true,
-
-                    walletBound:
-                      clientWalletAddress !==
-                      null,
-
-                    walletAddress:
-                      clientWalletAddress,
-                  },
-
-                  {
-                    partyId:
-                      contractorParty.id,
-
-                    role:
-                      "CONTRACTOR",
-
-                    displayName:
-                      contractorParty
-                        .displayName,
-
-                    acceptedCurrentVersion:
-                      true,
-
-                    walletBound:
-                      contractorWalletAddress !==
-                      null,
-
-                    walletAddress:
-                      contractorWalletAddress,
-                  },
-                ],
-              },
+              expiresAt:
+                expiresAt
+                  .toISOString(),
             };
           },
         );
       },
 
+    bindAgreementPartyWallet:
+      async (
+        input,
+      ) => {
+        const actorWallet =
+          normalizeWalletAddress(
+            input.actor.walletAddress,
+          );
+
+        return prisma.$transaction(
+          async (
+            transaction,
+          ) =>
+            bindCanonicalPartyWalletInTransaction(
+              transaction,
+              {
+                agreementId:
+                  input.agreementId,
+
+                partyId:
+                  input.partyId,
+
+                actorWallet,
+
+                partyAccessToken:
+                  input.partyAccessToken,
+              },
+            ),
+        );
+      },
+
+    redeemWalletBindingHandoff:
+      async (
+        input,
+      ) => {
+        const actorWallet =
+          normalizeWalletAddress(
+            input.actor.walletAddress,
+          );
+
+        const secretHash =
+          hashWalletBindingHandoffSecret(
+            input.handoffId,
+          );
+
+        return prisma.$transaction(
+          async (
+            transaction,
+          ) => {
+            /*
+             * Initial lookup is intentionally read-only.
+             * We need the handoff's agreement identity so the
+             * transaction can acquire locks in Agreement -> Handoff
+             * order, matching canonical agreement mutation ordering.
+             */
+            const candidate =
+              await transaction
+                .walletBindingHandoff
+                .findUnique({
+                  where: {
+                    secretHash,
+                  },
+
+                  select: {
+                    id:
+                      true,
+
+                    agreementId:
+                      true,
+
+                    partyId:
+                      true,
+                  },
+                });
+
+            if (!candidate) {
+              throw new AgreementAccessError(
+                "Wallet-binding handoff is invalid.",
+              );
+            }
+
+            if (
+              candidate.agreementId !==
+                input.agreementId ||
+              candidate.partyId !==
+                input.partyId
+            ) {
+              throw new AgreementAccessError(
+                "Wallet-binding handoff does not authorize this agreement party.",
+              );
+            }
+
+            await transaction
+              .$queryRaw<
+                Array<{
+                  readonly id:
+                    string;
+                }>
+              >`
+                SELECT "id"
+                FROM "Agreement"
+                WHERE "id" = ${input.agreementId}
+                FOR UPDATE
+              `;
+
+            const lockedHandoff =
+              await transaction
+                .$queryRaw<
+                  Array<{
+                    readonly id:
+                      string;
+                  }>
+                >`
+                  SELECT "id"
+                  FROM "WalletBindingHandoff"
+                  WHERE "id" = ${candidate.id}
+                  FOR UPDATE
+                `;
+
+            if (
+              lockedHandoff.length !==
+              1
+            ) {
+              throw new AgreementAccessError(
+                "Wallet-binding handoff is invalid.",
+              );
+            }
+
+            const handoff =
+              await transaction
+                .walletBindingHandoff
+                .findUnique({
+                  where: {
+                    id:
+                      candidate.id,
+                  },
+
+                  select: {
+                    id:
+                      true,
+
+                    secretHash:
+                      true,
+
+                    agreementId:
+                      true,
+
+                    agreementVersion:
+                      true,
+
+                    agreementHash:
+                      true,
+
+                    partyId:
+                      true,
+
+                    role:
+                      true,
+
+                    expiresAt:
+                      true,
+
+                    consumedAt:
+                      true,
+                  },
+                });
+
+            if (
+              !handoff ||
+              handoff.secretHash !==
+                secretHash
+            ) {
+              throw new AgreementAccessError(
+                "Wallet-binding handoff is invalid.",
+              );
+            }
+
+            if (
+              handoff.agreementId !==
+                input.agreementId ||
+              handoff.partyId !==
+                input.partyId
+            ) {
+              throw new AgreementAccessError(
+                "Wallet-binding handoff does not authorize this agreement party.",
+              );
+            }
+
+            if (
+              handoff.consumedAt !==
+              null
+            ) {
+              throw new AgreementConflictError(
+                "Wallet-binding handoff has already been consumed.",
+              );
+            }
+
+            if (
+              handoff.expiresAt
+                .getTime() <=
+              Date.now()
+            ) {
+              throw new AgreementConflictError(
+                "Wallet-binding handoff has expired.",
+              );
+            }
+
+            const result =
+              await bindCanonicalPartyWalletInTransaction(
+                transaction,
+                {
+                  agreementId:
+                    input.agreementId,
+
+                  partyId:
+                    input.partyId,
+
+                  actorWallet,
+
+                  expected: {
+                    agreementVersion:
+                      handoff
+                        .agreementVersion,
+
+                    agreementHash:
+                      handoff
+                        .agreementHash,
+
+                    role:
+                      handoff.role,
+                  },
+                },
+              );
+
+            const consumedAt =
+              new Date();
+
+            const consume =
+              await transaction
+                .walletBindingHandoff
+                .updateMany({
+                  where: {
+                    id:
+                      handoff.id,
+
+                    consumedAt:
+                      null,
+                  },
+
+                  data: {
+                    consumedAt,
+                  },
+                });
+
+            if (
+              consume.count !==
+              1
+            ) {
+              throw new AgreementConflictError(
+                "Wallet-binding handoff was consumed concurrently.",
+              );
+            }
+
+            return result;
+          },
+        );
+      },
     getCanonicalAgreementReview:
       async (
         input,

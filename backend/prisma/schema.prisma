@@ -108,7 +108,8 @@ model Agreement {
   revisions          AgreementRevision[]
   milestones         Milestone[]
   acceptances        AgreementAcceptance[]
-  settlementBindings AgreementSettlementBinding[]
+  settlementBindings    AgreementSettlementBinding[]
+  walletBindingHandoffs WalletBindingHandoff[]
 
   @@index([createdByUserId])
   @@index([status])
@@ -125,8 +126,9 @@ model AgreementParty {
 
   agreement Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
 
-  acceptances AgreementAcceptance[]
-  evidence    Evidence[]
+  acceptances           AgreementAcceptance[]
+  evidence              Evidence[]
+  walletBindingHandoffs WalletBindingHandoff[]
 
   @@unique([agreementId, walletAddress])
   @@index([agreementId, role])
@@ -163,6 +165,26 @@ model AgreementRevision {
   @@unique([agreementId, agreementVersion])
   @@index([agreementId])
   @@index([agreementHash])
+}
+
+model WalletBindingHandoff {
+  id               String             @id @default(cuid())
+  secretHash       String             @unique
+  agreementId      String
+  agreementVersion Int
+  agreementHash    String
+  partyId          String
+  role             AgreementPartyRole
+  expiresAt        DateTime
+  consumedAt       DateTime?
+  createdAt        DateTime           @default(now())
+
+  agreement Agreement      @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  party     AgreementParty @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@index([agreementId, partyId])
+  @@index([agreementId, agreementVersion])
+  @@index([expiresAt])
 }
 
 model Milestone {
