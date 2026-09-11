@@ -22,6 +22,7 @@ import BuyerOrderPanel from "./components/orders/BuyerOrderPanel.jsx";
 import SellerOrderPanel from "./components/orders/SellerOrderPanel.jsx";
 import BuyerPaymentPanel from "./components/payments/BuyerPaymentPanel.jsx";
 import WalletControl from "./components/wallet/WalletControl.jsx";
+import WalletBindingHandoffPage from "./components/wallet/WalletBindingHandoffPage.jsx";
 
 import { useWeb3 } from "./hooks/useWeb3.js";
 
@@ -1320,6 +1321,13 @@ function App() {
               path="/agreements"
               element={
                 <AgreementWorkspace />
+              }
+            />
+
+            <Route
+              path="/wallet-binding"
+              element={
+                <WalletBindingHandoffPage />
               }
             />
             <Route
