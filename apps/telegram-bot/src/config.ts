@@ -20,4 +20,14 @@ export const config = {
     requireEnvironmentVariable(
       "PAI_API_BASE_URL",
     ),
+
+  paiFrontendBaseUrl:
+    requireEnvironmentVariable(
+      "PAI_FRONTEND_BASE_URL",
+    ),
+
+  paiTelegramServiceToken:
+    requireEnvironmentVariable(
+      "PAI_TELEGRAM_SERVICE_TOKEN",
+    ),
 } as const;

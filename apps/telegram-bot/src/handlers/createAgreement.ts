@@ -1,6 +1,7 @@
-import type {
-  Bot,
-  Context,
+import {
+  InlineKeyboard,
+  type Bot,
+  type Context,
 } from "grammy";
 
 import {
@@ -10,6 +11,19 @@ import {
 import {
   createAgreementDraftSessionStore,
 } from "../conversations/agreementSession.js";
+
+import type {
+  AgreementRuntime,
+} from "../runtime/agreementRuntime.js";
+
+import {
+  persistReviewedAgreementForTelegram,
+} from "../conversations/canonicalAgreementCreation.js";
+
+import {
+  buildPartyInvitationDeepLinks,
+  formatPartyInvitationDeepLinks,
+} from "../conversations/partyInvitationLink.js";
 
 import type {
   PaiClient,
@@ -55,9 +69,16 @@ async function beginAgreement(
 export function registerCreateAgreementHandler(
   bot: Bot,
   paiClient: PaiClient,
+  runtime: AgreementRuntime,
 ): void {
   const sessions =
     createAgreementDraftSessionStore();
+
+  const {
+    flowSessions,
+    credentialVault,
+  } =
+    runtime;
 
   bot.command(
     "new",
@@ -95,6 +116,94 @@ export function registerCreateAgreementHandler(
     },
   );
 
+  bot.callbackQuery(
+    "agreement:confirm-create",
+    async (
+      ctx,
+    ) => {
+      await ctx.answerCallbackQuery();
+
+      const userId =
+        ctx.from.id;
+
+      const reviewedTerms =
+        flowSessions
+          .getPendingReview(
+            userId,
+          );
+
+      if (!reviewedTerms) {
+        await ctx.reply(
+          [
+            "This agreement review is no longer available.",
+            "Use /new to start a new agreement.",
+          ].join("\n"),
+        );
+
+        return;
+      }
+
+      try {
+        const canonicalSession =
+          await persistReviewedAgreementForTelegram({
+            userId,
+
+            terms:
+              reviewedTerms,
+
+            paiClient,
+
+            flowSessions,
+
+            credentialVault,
+          });
+
+        const reference =
+          canonicalSession.reference;
+
+        const hash =
+          reference.agreementHash;
+
+        const shortHash =
+          hash.length > 18
+            ? `${hash.slice(0, 10)}...${hash.slice(-8)}`
+            : hash;
+
+        const invitationLinks =
+          buildPartyInvitationDeepLinks(
+            ctx.me.username,
+            canonicalSession.parties,
+          );
+
+        await ctx.reply(
+          [
+            "Agreement created.",
+            "",
+            `Agreement: ${reference.agreementId}`,
+            `Version: ${reference.agreementVersion}`,
+            `Hash: ${shortHash}`,
+            "",
+            "CLIENT: Waiting for acceptance",
+            "CONTRACTOR: Waiting for acceptance",
+            "",
+            "Share the correct invitation with each party:",
+            "",
+            formatPartyInvitationDeepLinks(
+              invitationLinks,
+            ),
+          ].join("\n"),
+        );
+      } catch {
+        await ctx.reply(
+          [
+            "I could not create the canonical agreement.",
+            "Your reviewed agreement is still available.",
+            "Please try Confirm & Create again.",
+          ].join("\n"),
+        );
+      }
+    },
+  );
   bot.on(
     "message:text",
     async (
@@ -123,6 +232,32 @@ export function registerCreateAgreementHandler(
 
             sessions,
           });
+
+        if (
+          result.reviewedTerms
+        ) {
+          flowSessions.setPendingReview(
+            userId,
+            result.reviewedTerms,
+          );
+
+          const reviewKeyboard =
+            new InlineKeyboard()
+              .text(
+                "Confirm & Create",
+                "agreement:confirm-create",
+              );
+
+          await ctx.reply(
+            result.message,
+            {
+              reply_markup:
+                reviewKeyboard,
+            },
+          );
+
+          return;
+        }
 
         await ctx.reply(
           result.message,

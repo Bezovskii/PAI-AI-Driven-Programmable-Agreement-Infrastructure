@@ -5,9 +5,11 @@ import {
 } from "grammy";
 
 import { config } from "./config.js";
+import { registerAgreementAcceptanceHandler } from "./handlers/acceptAgreement.js";
 import { registerCreateAgreementHandler } from "./handlers/createAgreement.js";
 import { registerStartHandler } from "./handlers/start.js";
 import { createPaiClient } from "./services/paiClient.js";
+import { createAgreementRuntime } from "./runtime/agreementRuntime.js";
 
 export function createBot(): Bot {
   const bot =
@@ -19,15 +21,32 @@ export function createBot(): Bot {
     createPaiClient({
       baseUrl:
         config.paiApiBaseUrl,
+
+      authoringServiceToken:
+        config.paiTelegramServiceToken,
     });
+
+  const agreementRuntime =
+    createAgreementRuntime();
 
   registerStartHandler(
     bot,
+    paiClient,
+    agreementRuntime,
+    config.paiFrontendBaseUrl,
+  );
+
+  registerAgreementAcceptanceHandler(
+    bot,
+    paiClient,
+    agreementRuntime,
+    config.paiFrontendBaseUrl,
   );
 
   registerCreateAgreementHandler(
     bot,
     paiClient,
+    agreementRuntime,
   );
 
   bot.catch(

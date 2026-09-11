@@ -1,4 +1,8 @@
 import type {
+  CanonicalAgreementTerms,
+} from "@pai/agreement-contract";
+
+import type {
   AgreementStructuringStatus,
 } from "@pai/intelligence-contract";
 
@@ -28,6 +32,16 @@ export interface AgreementConversationResult {
 
   readonly message:
     string;
+
+  /**
+   * Present only when Intelligence has returned a
+   * reviewed agreement ready for explicit user confirmation.
+   *
+   * Telegram treats these terms as data from Intelligence.
+   * The canonical version/hash are still created only by Core.
+   */
+  readonly reviewedTerms:
+    CanonicalAgreementTerms | null;
 }
 
 export async function processAgreementDraftMessage(
@@ -56,11 +70,24 @@ export async function processAgreementDraftMessage(
       options.userId,
       options.message,
     );
-  } else {
-    options.sessions.clear(
-      options.userId,
-    );
+
+    return {
+      status:
+        result.status,
+
+      message:
+        formatAgreementStructuringResult(
+          result,
+        ),
+
+      reviewedTerms:
+        null,
+    };
   }
+
+  options.sessions.clear(
+    options.userId,
+  );
 
   return {
     status:
@@ -70,5 +97,8 @@ export async function processAgreementDraftMessage(
       formatAgreementStructuringResult(
         result,
       ),
+
+    reviewedTerms:
+      result.agreement,
   };
 }
