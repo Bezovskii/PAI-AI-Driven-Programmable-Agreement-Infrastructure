@@ -473,3 +473,15 @@ Post-start ETHOnline development should remain visible through incremental commi
 MIT License.
 
 Copyright (c) 2026 Behzad Khoshian
+
+## AI Usage
+
+PAI uses AI both as a development assistant and as part of the product architecture.
+
+For ETHOnline 2026, a local Qwen3 4B model was fine-tuned with QLoRA for natural-language agreement interpretation and structured Agreement Object extraction.
+
+Model training and local inference were completed and verified. The submitted Telegram runtime still used the existing backend Intelligence stub and did not yet directly invoke the local model.
+
+PAI does not treat AI output as authoritative. Deterministic validation, human review, exact agreement version/hash acceptance, wallet binding and protocol execution remain separate responsibilities.
+
+Full disclosure: [AI_USAGE.md](./AI_USAGE.md)
