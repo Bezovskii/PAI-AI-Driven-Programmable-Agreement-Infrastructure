@@ -424,11 +424,11 @@ export default function WalletBindingHandoffPage() {
                         <div className="dashboardCardHeader">
                             <div>
                                 <span className="eyebrow">
-                                    Core confirmed
+                                    Core lifecycle
                                 </span>
 
                                 <h2>
-                                    Wallet bound
+                                    Wallet binding confirmed
                                 </h2>
                             </div>
 
@@ -449,7 +449,7 @@ export default function WalletBindingHandoffPage() {
                             </div>
 
                             <div>
-                                <span>Lifecycle</span>
+                                <span>Core lifecycle</span>
 
                                 <strong>
                                     {result.lifecycle?.status ||
@@ -472,7 +472,10 @@ export default function WalletBindingHandoffPage() {
                         <p>
                             {result.lifecycle
                                 ?.walletBindingComplete
-                                ? "Both agreement parties are wallet-bound. Continue with the backend-authorized funding flow."
+                                ? result.lifecycle?.status ===
+                                  "READY_TO_FUND"
+                                    ? "Both agreement parties are wallet-bound and Core reports READY_TO_FUND. Funding can now proceed through the authorized execution flow."
+                                    : "Both agreement parties are wallet-bound. Core has not reported READY_TO_FUND yet, so funding should remain blocked until the lifecycle advances."
                                 : "This wallet is bound. The other agreement party must bind their wallet before funding becomes available."}
                         </p>
                     </section>

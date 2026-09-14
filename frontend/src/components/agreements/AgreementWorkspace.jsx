@@ -57,7 +57,7 @@ function statusClass(status) {
 }
 
 
-function getAgreementLifecycleStage(agreement, milestones) {
+function getExecutionLifecycleStage(agreement, milestones) {
     if (!agreement) return -1;
     if (agreement.status === 3) return 4;
 
@@ -125,8 +125,8 @@ export default function AgreementWorkspace() {
     const [localError, setLocalError] =
         useState("");
 
-    const lifecycleStage =
-        getAgreementLifecycleStage(
+    const executionLifecycleStage =
+        getExecutionLifecycleStage(
             agreement,
             milestones
         );
@@ -839,21 +839,45 @@ export default function AgreementWorkspace() {
                 </span>
             </div>
 
+            <div className="agreementLifecycleIntro">
+                <span className="eyebrow">
+                    PAI execution boundary
+                </span>
+
+                <div className="agreementLifecycleIntroRow">
+                    <div>
+                        <h2>On-chain execution</h2>
+
+                        <p>
+                            This rail reflects the AgreementEscrow
+                            contract only. Drafting, stress testing,
+                            clarification, canonical review,
+                            dual-party acceptance, and wallet binding
+                            happen in PAI Core before funding.
+                        </p>
+                    </div>
+
+                    <span className="agreementBoundaryBadge">
+                        CORE ? EXECUTION
+                    </span>
+                </div>
+            </div>
+
             <section
                 className="agreementLifecycle"
-                aria-label="Agreement lifecycle"
+                aria-label="On-chain execution lifecycle"
             >
                 {[
                     "Proposed",
                     "Accepted",
                     "Funded",
-                    "Delivered",
+                    "Execution",
                     "Completed",
                 ].map((label, index) => {
                     const isComplete =
-                        lifecycleStage >= index;
+                        executionLifecycleStage >= index;
                     const isCurrent =
-                        lifecycleStage === index;
+                        executionLifecycleStage === index;
 
                     return (
                         <div
@@ -1587,11 +1611,12 @@ export default function AgreementWorkspace() {
                                     </h3>
 
                                     <p>
-                                        The contractor accepted
-                                        the terms. Lock the full
+                                        The on-chain Agreement is
+                                        accepted. Lock the full
                                         Agreement value in PAI
                                         escrow to activate the
-                                        milestone lifecycle.
+                                        execution and milestone
+                                        lifecycle.
                                     </p>
 
                                     <p>
