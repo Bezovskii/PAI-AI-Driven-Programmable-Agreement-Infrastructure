@@ -36,8 +36,12 @@ import {
 } from "./settlement-bindings/service.js";
 
 import {
-  createDeterministicAgreementStructurer,
+  createModelBackedAgreementStructurer,
 } from "./intelligence/service.js";
+
+import {
+  createIntelligenceRuntimeClient,
+} from "./intelligence/runtime-client.js";
 
 const config =
   loadEnv();
@@ -322,8 +326,22 @@ const settlementBindingOperations =
     prisma,
   );
 
+const intelligenceRuntimeClient =
+  createIntelligenceRuntimeClient({
+    baseUrl:
+      process.env
+        .PAI_INTELLIGENCE_RUNTIME_URL
+        ?.trim() ||
+      "http://127.0.0.1:8788",
+
+    timeoutMs:
+      90_000,
+  });
+
 const structureAgreement =
-  createDeterministicAgreementStructurer();
+  createModelBackedAgreementStructurer(
+    intelligenceRuntimeClient,
+  );
 
 const fastify =
   Fastify({

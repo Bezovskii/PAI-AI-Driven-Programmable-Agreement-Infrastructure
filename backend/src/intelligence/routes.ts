@@ -86,6 +86,43 @@ const AgreementRiskSchema =
     },
   );
 
+const AgreementModelIssueSchema =
+  Type.Object(
+    {
+      kind:
+        Type.String(),
+
+      code:
+        Type.String(),
+
+      paths:
+        Type.Array(
+          Type.String(),
+        ),
+
+      evidence:
+        Type.String(),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
+
+const AgreementProvenanceSchema =
+  Type.Object(
+    {
+      path:
+        Type.String(),
+
+      quote:
+        Type.String(),
+    },
+    {
+      additionalProperties:
+        false,
+    },
+  );
 const StructureAgreementResponseSchema =
   Type.Object(
     {
@@ -140,6 +177,20 @@ const StructureAgreementResponseSchema =
       risks:
         Type.Array(
           AgreementRiskSchema,
+        ),
+
+      issues:
+        Type.Optional(
+          Type.Array(
+            AgreementModelIssueSchema,
+          ),
+        ),
+
+      provenance:
+        Type.Optional(
+          Type.Array(
+            AgreementProvenanceSchema,
+          ),
         ),
     },
     {

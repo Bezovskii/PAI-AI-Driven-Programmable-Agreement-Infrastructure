@@ -63,6 +63,28 @@ export interface AgreementRisk {
     string;
 }
 
+export interface AgreementModelIssue {
+  readonly kind:
+    string;
+
+  readonly code:
+    string;
+
+  readonly paths:
+    string[];
+
+  readonly evidence:
+    string;
+}
+
+export interface AgreementProvenance {
+  readonly path:
+    string;
+
+  readonly quote:
+    string;
+}
+
 export interface AgreementStructuringResult {
   readonly status:
     AgreementStructuringStatus;
@@ -75,6 +97,24 @@ export interface AgreementStructuringResult {
 
   readonly risks:
     AgreementRisk[];
+
+  /**
+   * Exact semantic issues emitted by the validated model.
+   *
+   * Optional for backwards compatibility with the original
+   * Phase 2A Intelligence API contract.
+   */
+  readonly issues?:
+    AgreementModelIssue[];
+
+  /**
+   * Exact source quotes emitted by the validated model.
+   *
+   * Optional for backwards compatibility with the original
+   * Phase 2A Intelligence API contract.
+   */
+  readonly provenance?:
+    AgreementProvenance[];
 }
 
 export type StructureAgreement =
