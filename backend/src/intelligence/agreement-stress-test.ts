@@ -4,7 +4,7 @@ import type {
 } from "./types.js";
 
 /**
- * Agreement Stress Test — Deterministic V1
+ * Agreement Stress Test - Deterministic V1
  *
  * Runs after neural extraction.
  *
@@ -419,12 +419,7 @@ export function runAgreementStressTestV1(
       ...deterministicRisks,
     ];
 
-  const modelIssues =
-    modelResult.issues ?? [];
-
   const needsClarification =
-    modelResult.status === "needs_clarification" ||
-    modelIssues.length > 0 ||
     deterministicRisks.length > 0;
 
   return {

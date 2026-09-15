@@ -502,3 +502,65 @@ test(
     );
   },
 );
+
+test(
+  "model issues remain visible but do not independently block deterministic readiness",
+  () => {
+    const sourceText =
+      "Amir hires Behzad to build and deliver a landing page for 1000 USD. Payment will use USD. Delivery is due September 20, 2026.";
+
+    const modelResult:
+      AgreementStructuringResult = {
+        ...makeModelResult({
+          settlementAsset:
+            "USD",
+        }),
+
+        status:
+          "needs_clarification",
+
+        issues: [
+          {
+            kind:
+              "ambiguity",
+
+            code:
+              "MODEL_ONLY_WARNING",
+
+            paths: [
+              "/agreement/scope",
+            ],
+
+            evidence:
+              "landing page",
+          },
+        ],
+      };
+
+    const result =
+      runAgreementStressTestV1({
+        sourceText,
+        modelResult,
+      });
+
+    assert.equal(
+      result.status,
+      "ready_for_review",
+    );
+
+    assert.deepEqual(
+      result.risks,
+      [],
+    );
+
+    assert.equal(
+      result.issues?.length,
+      1,
+    );
+
+    assert.equal(
+      result.issues?.[0]?.code,
+      "MODEL_ONLY_WARNING",
+    );
+  },
+);
