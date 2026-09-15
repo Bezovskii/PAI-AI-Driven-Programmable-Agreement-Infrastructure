@@ -1,4 +1,6 @@
-﻿export type {
+export type {
+  AgreementModelIssue,
+  AgreementProvenance,
   AgreementRisk,
   AgreementRiskSeverity,
   AgreementStructuringResult,
