@@ -2,9 +2,14 @@ import type {
   IntelligenceRuntimeClient,
 } from "./runtime-client.js";
 
+import {
+  runAgreementStressTestV1,
+} from "./agreement-stress-test.js";
+
 import type {
   AgreementModelIssue,
   AgreementProvenance,
+  AgreementStructuringResult,
   StructuredAgreementMilestone,
   StructureAgreement,
 } from "./types.js";
@@ -469,7 +474,8 @@ export function createModelBackedAgreementStructurer(
         modelOutput,
       );
 
-    return {
+    const modelResult:
+      AgreementStructuringResult = {
       status:
         issues.length > 0
           ? "needs_clarification"
@@ -525,5 +531,19 @@ export function createModelBackedAgreementStructurer(
 
       provenance,
     };
+
+    return runAgreementStressTestV1({
+      sourceText:
+        input.text,
+
+      modelResult,
+
+      validatedFacts: {
+        partyCount:
+          asArray(
+            agreement.parties,
+          ).length,
+      },
+    });
   };
 }

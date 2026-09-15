@@ -243,7 +243,7 @@ test(
 );
 
 test(
-  "model-backed structurer preserves validated model facts and provenance without fabricating risks",
+  "model-backed structurer preserves validated model facts and provenance and applies deterministic stress test",
   async () => {
     const text =
       "Amir hires Behzad to build and deliver a responsive landing page for $1,000. Delivery is due September 20, 2026. Payment should be released after Amir approves the completed work.";
@@ -517,7 +517,7 @@ test(
 
     assert.equal(
       result.status,
-      "ready_for_review",
+      "needs_clarification",
     );
 
     assert.deepEqual(
@@ -561,12 +561,23 @@ test(
 
     assert.deepEqual(
       result.questions,
-      [],
+      [
+        "Which currency does '$' mean here (for example USD, CAD, or AUD)?",
+        "Which asset should be used for settlement?",
+        "What objective conditions must be satisfied before the work is accepted?",
+      ],
     );
 
     assert.deepEqual(
-      result.risks,
-      [],
+      result.risks.map(
+        (risk) =>
+          risk.code,
+      ),
+      [
+        "AMBIGUOUS_CURRENCY",
+        "MISSING_SETTLEMENT_ASSET",
+        "MISSING_ACCEPTANCE_CRITERIA",
+      ],
     );
 
     assert.deepEqual(
