@@ -14,6 +14,7 @@ import importlib.util
 import json
 import os
 import random
+import re
 import threading
 import time
 from http import HTTPStatus
@@ -81,6 +82,184 @@ def load_json(path: Path) -> Any:
         path.read_text(encoding="utf-8")
     )
 
+
+CURRENCY_CODE_PATTERN = re.compile(
+    r"^[A-Z]{3}$"
+)
+
+NETWORK_ID_PATTERN = re.compile(
+    r"^[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$"
+)
+
+ASSET_ID_PATTERN = re.compile(
+    r"^[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}/"
+    r"[-a-z0-9]{3,8}:[-.%a-zA-Z0-9]{1,128}"
+    r"(?:/[-.%a-zA-Z0-9]{1,78})?$"
+)
+
+
+def repair_deadline_structure(
+    value: Any,
+) -> None:
+    if not isinstance(value, dict):
+        return
+
+    for key in (
+        "date",
+        "time",
+        "timezone",
+        "duration",
+        "relativeTo",
+    ):
+        value.setdefault(key, None)
+
+
+def repair_money_structure(
+    value: Any,
+) -> None:
+    if not isinstance(value, dict):
+        return
+
+    currency = value.get("currency")
+
+    if not isinstance(currency, dict):
+        return
+
+    currency.setdefault("code", None)
+    currency.setdefault("symbol", None)
+
+    code = currency.get("code")
+
+    if (
+        code is not None
+        and (
+            not isinstance(code, str)
+            or CURRENCY_CODE_PATTERN.fullmatch(code)
+            is None
+        )
+    ):
+        currency["code"] = None
+
+
+def repair_settlement_asset_structure(
+    value: Any,
+) -> None:
+    if not isinstance(value, dict):
+        return
+
+    for key in (
+        "symbol",
+        "networkId",
+        "assetId",
+    ):
+        value.setdefault(key, None)
+
+    network_id = value.get("networkId")
+
+    if (
+        network_id is not None
+        and (
+            not isinstance(network_id, str)
+            or NETWORK_ID_PATTERN.fullmatch(
+                network_id
+            )
+            is None
+        )
+    ):
+        value["networkId"] = None
+
+    asset_id = value.get("assetId")
+
+    if (
+        asset_id is not None
+        and (
+            not isinstance(asset_id, str)
+            or ASSET_ID_PATTERN.fullmatch(
+                asset_id
+            )
+            is None
+        )
+    ):
+        value["assetId"] = None
+
+
+def repair_model_output_structure(
+    value: Any,
+) -> Any:
+    if not isinstance(value, dict):
+        return value
+
+    agreement = value.get("agreement")
+
+    if not isinstance(agreement, dict):
+        return value
+
+    pricing = agreement.get("pricing")
+
+    if isinstance(pricing, dict):
+        repair_money_structure(
+            pricing.get("total")
+        )
+        repair_settlement_asset_structure(
+            pricing.get("settlementAsset")
+        )
+
+    milestones = agreement.get("milestones")
+
+    if isinstance(milestones, list):
+        for milestone in milestones:
+            if not isinstance(
+                milestone,
+                dict,
+            ):
+                continue
+
+            repair_deadline_structure(
+                milestone.get("deadline")
+            )
+
+    payments = agreement.get("payments")
+
+    if isinstance(payments, list):
+        for payment in payments:
+            if not isinstance(
+                payment,
+                dict,
+            ):
+                continue
+
+            for key in (
+                "amount",
+                "sharePercent",
+                "payerPartyId",
+                "recipientPartyId",
+            ):
+                payment.setdefault(
+                    key,
+                    None,
+                )
+
+            repair_money_structure(
+                payment.get("amount")
+            )
+
+            trigger = payment.get("trigger")
+
+            if isinstance(trigger, dict):
+                trigger.setdefault(
+                    "milestoneId",
+                    None,
+                )
+                trigger.setdefault(
+                    "timing",
+                    None,
+                )
+
+                repair_deadline_structure(
+                    trigger.get("timing")
+                )
+
+    return value
 
 def import_baseline(repo_root: Path) -> Any:
     baseline_path = (
@@ -454,6 +633,9 @@ class IntelligenceRuntime:
 
             raise RuntimeError(message)
 
+        parsed = repair_model_output_structure(
+            parsed
+        )
         schema_errors = [
             {
                 "path": (

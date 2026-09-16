@@ -9,3 +9,5 @@
 *.md   text eol=lf
 *.yml  text eol=lf
 *.yaml text eol=lf
+
+ai/ethonline/prompts/agreement-extraction-v0.3.txt text eol=lf
