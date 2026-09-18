@@ -1,14 +1,14 @@
-# ESCT Protocol
+# PAI — Programmable Agreement Infrastructure
 
 **Programmable agreement infrastructure for milestone-based Web3 work.**
 
-ESCT Protocol lets two parties create a digital agreement, define milestone-based work, explicitly accept the terms, fund escrow, submit delivery evidence, release payments, and resolve disputes through a deterministic on-chain lifecycle.
+PAI lets two parties create a digital agreement, define milestone-based work, explicitly accept the terms, fund escrow, submit delivery evidence, release payments, and resolve disputes through a deterministic on-chain lifecycle.
 
 Payments are a capability inside the agreement system — not the entire product.
 
 ---
 
-## What ESCT solves
+## What PAI solves
 
 Digital work often depends on fragmented trust:
 
@@ -19,7 +19,7 @@ Digital work often depends on fragmented trust:
 - disputes depend on manual interpretation
 - reputation is disconnected from execution history
 
-ESCT brings the agreement lifecycle and financial settlement into one programmable system.
+PAI brings the agreement lifecycle and financial settlement into one programmable system.
 
 ---
 
@@ -97,14 +97,14 @@ Refunded
 
 ## Architecture
 
-ESCT uses a hybrid architecture with a strict trust boundary:
+PAI uses a hybrid architecture with a strict trust boundary:
 
 > **Blockchain is the financial source of truth.**
 
 The backend provides application services but does not override blockchain financial state and never holds user private keys.
 
 ```text
-ESCT Protocol
+PAI
 |
 |-- contracts/
 |   |-- AgreementEscrow.sol
@@ -174,7 +174,7 @@ Financial transactions remain wallet-signed.
 
 ## Wallet authentication
 
-ESCT uses **SIWE — Sign-In with Ethereum**.
+PAI uses **SIWE — Sign-In with Ethereum**.
 
 ```text
 Wallet connects
@@ -205,7 +205,7 @@ The backend never receives or stores user private keys.
 
 ## Security and testing
 
-ESCT is built around explicit state machines, protocol invariants, adversarial testing, and failure analysis.
+PAI is built around explicit state machines, protocol invariants, adversarial testing, and failure analysis.
 
 The wider project includes 120+ tests across contract, backend, boundary, fault, and invariant work, including:
 
@@ -385,13 +385,13 @@ It includes earlier work on:
 - disputes
 - arbitration
 
-ESCT has since evolved from a payment/escrow engine into programmable agreement infrastructure.
+PAI has since evolved from a payment/escrow engine into programmable agreement infrastructure.
 
 ---
 
 ## Product direction
 
-ESCT is initially focused on:
+PAI is initially focused on:
 
 - Web3 freelancers
 - crypto-native clients
@@ -407,7 +407,7 @@ Those layers are roadmap work. Agreement V1 is the current product foundation.
 
 ## Project status
 
-ESCT is under active development.
+PAI is under active development.
 
 The current repository contains:
 
